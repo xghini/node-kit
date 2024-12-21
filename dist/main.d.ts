@@ -22,6 +22,7 @@ declare const kit: {
     br_decompress: typeof codec.br_decompress;
     zstd_compress: typeof codec.zstd_compress;
     zstd_decompress: typeof codec.zstd_decompress;
+    async: typeof async;
     rf: typeof basic.rf;
     wf: typeof basic.wf;
     mkdir: typeof basic.mkdir;
@@ -40,6 +41,9 @@ declare const kit: {
     aexist: typeof basic.aexist;
     arm: typeof basic.arm;
     aonedir: typeof basic.aonedir;
+    aloadyml: typeof basic.aloadyml;
+    aloadenv: typeof basic.aloadenv;
+    aloadjson: typeof basic.aloadjson;
     cookie_merge: typeof basic.cookie_merge;
     cookie_obj: typeof basic.cookie_obj;
     cookie_str: typeof basic.cookie_str;
@@ -54,10 +58,13 @@ declare const kit: {
     interval: typeof basic.interval;
     timelog: typeof basic.timelog;
     prompt: typeof basic.prompt;
+    stack: typeof basic.stack;
+    uuid: typeof basic.uuid;
 };
 import * as redis from "./lib/redis/redis.js";
 import * as pg from "./lib/pg/pg.js";
 import * as xdb from "./lib/xdb/xdb.js";
 import * as hs from "./lib/httpserver/hs.js";
 import * as codec from "./lib/codec.js";
+import * as async from "./lib/abasic.js";
 import * as basic from "./lib/basic.js";

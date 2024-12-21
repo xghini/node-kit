@@ -1,18 +1,58 @@
 import kit from "@ghini/kit/dev";
 import Redis from "ioredis";
 import crypto from "crypto";
+// import * as auth from "./auth.js";
+// import * as user from "./user.js";
+import conf from "./conf.js";
 kit.xconsole();
 
 const server = kit.hs();
 const redis = new Redis();
-console.log(await redis.hgetall("user:admin@xship.top"));
-
-const RESEND_API_KEY = "re_BAAEebqp_LsB31AKvRrT3XwWsrHvjDvP4"; //xship.top
+// redis.hsetnx('user:admin@xship.top',"fff",'6aasd545')
+// redis.hdel("user:admin@xship.top", "fff");
+const luaScript = `
+local keys = redis.call('KEYS', 'token*')
+if #keys > 0 then
+    return redis.call('DEL', unpack(keys))
+else
+    return 0
+end
+`;
+redis.eval(luaScript,0);
+// 1.cookie:admin@xship.top cookie:admin@xship.top1
+// 2.jwt
+// console.log(await redis.hgetall("user:admin@xship.top"));
 // cookie 或 jwt
-server.addr("/v1/user/profile", "post", async (gold) => {
-  gold.json(await redis.hgetall("user:admin@xship.top"));
-});
-server.addr("/v1/auth/register", "post", async (gold) => {
+server.addr("/v1/auth/signup", "post", signup);
+server.addr("/v1/auth/signin", "post", signin);
+server.addr("/v1/auth/reset", "post", reset);
+server.addr("/v1/auth/sendemail", "post", sendemail);
+server.addr("/v1/user/signout", signout);
+server.addr("/v1/user/profile", profile);
+
+export async function signin(gold) {
+  let { email, pwd } = gold.data;
+  const hashKey = "user:" + email;
+  redis.hgetall(hashKey, (err, res) => {
+    if (err || !res || res.pwd !== pwd) {
+      gold.json("账号或密码错误");
+    } else {
+      // 生成免密token 返回cookie
+      const token = makeToken();
+      redis.setex("session:" + token, 3888000, email, (err) => {
+        if (err) {
+          gold.json("服务器错误，请稍后再试");
+        } else {
+          gold.respond({
+            "Set-Cookie": `auth_token=${token}; Max-Age=3888000; HttpOnly; Path=/; Secure; SameSite=Strict`,
+          });
+          gold.json("登录成功");
+        }
+      });
+    }
+  });
+}
+export async function signup(gold) {
   // user:admin@xship.top @123321 18812345678
   let { email, pwd, phone } = gold.data;
   const hashKey = "user:" + email;
@@ -32,35 +72,14 @@ server.addr("/v1/auth/register", "post", async (gold) => {
   } else {
     gold.json("用户已存在");
   }
-});
-server.addr("/v1/auth/resetpwd", "post", (gold) => {
+}
+export async function reset(gold) {
   gold.end("resetpwd");
-});
-server.addr("/v1/auth/login", "post", (gold) => {
-  let { email, pwd } = gold.data;
-  const hashKey = "user:" + email;
-  redis.hgetall(hashKey, (err, res) => {
-    if (err || !res || res.pwd !== pwd) {
-      gold.json("账号或密码错误");
-    } else {
-      // 生成免密token 返回cookie
-      const token = generateToken(email);
-      redis.setex("token:" + token, 3888000, email, (err) => {
-        if (err) {
-          gold.json("服务器错误，请稍后再试");
-        } else {
-          gold.respond({
-            "Set-Cookie": `auth_token=${token}; Max-Age=3888000; HttpOnly; Path=/; Secure; SameSite=Strict`,
-          });
-          gold.json("登录成功");
-        }
-      });
-    }
-  });
-});
-server.addr("/v1/auth/sendemail", "post", async (gold) => {
-  const subject =
-    gold.data.type === "register" ? "注册验证码" : "重置密码验证码";
+}
+
+export async function sendemail(gold) {
+  let { type, email, code } = gold.data;
+  const subject = type === "register" ? "注册验证码" : "重置密码验证码";
   const html = `
       <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px;">
         <h2 style="color: #333; text-align: center;">XShip ${subject}</h2>
@@ -79,31 +98,68 @@ server.addr("/v1/auth/sendemail", "post", async (gold) => {
   const response = await fetch("https://api.resend.com/emails", {
     method: "POST",
     headers: {
-      Authorization: `Bearer ${RESEND_API_KEY}`,
+      Authorization: `Bearer ${conf.RESEND_API_KEY}`,
       "Content-Type": "application/json",
     },
     body: JSON.stringify({
       from: "XShip <admin@xship.top>",
-      to: gold.data.to,
+      to: email,
       subject,
       html,
     }),
   });
   if (!response.ok) {
     gold.end("Failed to send email");
+    console.log(response);
+  } else {
+    gold.json(response);
   }
-  gold.json(response);
-});
-
+}
+export async function signout(gold) {
+  const token = "session:" + gold.cookie["auth_token"];
+  const luaScript = `
+    local value = redis.call("GET", KEYS[1])
+    if value then
+        redis.call("DEL", KEYS[1])
+        return true
+    end
+    return nil
+  `;
+  const result = await redis.eval(luaScript, 1, token);
+  if (result) {
+    gold.respond({
+      "set-cookie": "auth_token=; Path=/; HttpOnly; Max-Age=0",
+    });
+    gold.end("ok");
+  } else {
+    gold.end("需要登录");
+  }
+}
+async function profile(gold) {
+  const token = "session:" + gold.cookie["auth_token"];
+  const luaScript = `
+    local email = redis.call("GET", KEYS[1])
+    if not email then
+        return nil
+    end
+    return redis.call("HGETALL", "user:" .. email)
+  `;
+  const result = await redis.eval(luaScript, 1, token);
+  if (result) {
+    const obj = {};
+    for (let i = 0; i < result.length; i += 2) {
+      obj[result[i]] = result[i + 1];
+    }
+    delete obj.pwd;
+    gold.json(obj);
+  } else gold.end("需要登录");
+}
+// Token 生成函数
+function makeToken(len = 16) {
+  return crypto.randomBytes(len).toString("base64url");
+}
 function getDate(offset = 8) {
   const now = new Date(); // 当前时间
   const beijingTime = new Date(now.getTime() + offset * 60 * 60 * 1000); // UTC 时间加 8 小时
   return beijingTime.toISOString().replace("T", " ").substring(0, 19); // 格式化为 'YYYY-MM-DD HH:MM:SS'
-}
-// Token 生成函数
-function generateToken(email) {
-  return crypto
-    .createHash("sha256")
-    .update(email + Date.now() + Math.random())
-    .digest("hex");
 }

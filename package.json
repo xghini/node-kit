@@ -1,6 +1,6 @@
 {
   "name": "@ghini/kit",
-  "version": "2.4.4",
+  "version": "2.4.8",
   "scripts": {
     "build": "node ./build.js & tsc",
     "tsc": "tsc --watch",

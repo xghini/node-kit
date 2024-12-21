@@ -1,30 +1,9 @@
-export { rf, wf, mkdir, isdir, isfile, dir, exist, xpath, rm, arf, awf, amkdir, aisdir, aisfile, adir, aexist, arm, aonedir, aloadyml, aloadenv, aloadjson, cookie_merge, cookie_obj, cookie_str, xconsole, xlog, xerr, mreplace, mreplace_calc, xreq, ast_jsbuild, sleep, interval, timelog, prompt, stack, uuid, };
-import { createRequire } from "module";
-import { parse } from "acorn";
+export { xpath, rf, wf, mkdir, isdir, isfile, dir, exist, rm, aonedir, loadyml, loadenv, loadjson, sleep, interval, timelog, prompt, };
 import fs from "fs";
 import path from "path";
 import yaml from "yaml";
 const platform = process.platform;
-const sep_file = platform == "win32" ? "file:///" : "file://";
-const slice_len_file = platform == "win32" ? 8 : 7;
-const originalLog = console.log;
-const originalError = console.error;
-const reset = "\x1b[0m";
-const dim = "\x1b[30m";
-const red = "\x1b[31m";
-const green = "\x1b[92m";
-const cyan = "\x1b[97m";
-const yellow = "\x1b[93m";
-const blue = "\x1b[94m";
-function uuid(len = 16) {
-    return crypto.randomBytes(len).toString("base64url");
-}
-function stack() {
-    const stack = new Error("STACK").stack.split("\n");
-    originalLog(stack);
-    return stack;
-}
-async function aloadyml(filePath) {
+async function loadyml(filePath) {
     try {
         const absolutePath = path.isAbsolute(filePath)
             ? filePath
@@ -55,7 +34,7 @@ function parseENV(content) {
     }
     return result;
 }
-async function aloadenv(filePath) {
+async function loadenv(filePath) {
     try {
         const absolutePath = path.isAbsolute(filePath)
             ? filePath
@@ -67,7 +46,7 @@ async function aloadenv(filePath) {
         throw new Error(`Error loading ENV file ${filePath}: ${error.message}`);
     }
 }
-async function aloadjson(filePath) {
+async function loadjson(filePath) {
     try {
         const absolutePath = path.isAbsolute(filePath)
             ? filePath
@@ -186,7 +165,7 @@ async function prompt(promptText = "ENTER continue , CTRL+C exit: ", validator =
         }
     });
 }
-async function arf(filename, option = "utf8") {
+async function rf(filename, option = "utf8") {
     try {
         const data = await fs.promises.readFile(xpath(filename), option);
         return data;
@@ -197,9 +176,9 @@ async function arf(filename, option = "utf8") {
         }
     }
 }
-async function awf(filename, data, append = false, option = "utf8") {
+async function wf(filename, data, append = false, option = "utf8") {
     try {
-        await amkdir(path.dirname(filename));
+        await mkdir(path.dirname(filename));
         const writeOption = append ? { encoding: option, flag: "a" } : option;
         await fs.promises.writeFile(filename, data, writeOption);
         return true;
@@ -208,7 +187,7 @@ async function awf(filename, data, append = false, option = "utf8") {
         console.error("写入" + filename + "文件失败:", error);
     }
 }
-async function amkdir(dir) {
+async function mkdir(dir) {
     try {
         return await fs.promises.mkdir(dir, { recursive: true });
     }
@@ -216,7 +195,7 @@ async function amkdir(dir) {
         console.error(err.message);
     }
 }
-async function aisdir(path) {
+async function isdir(path) {
     try {
         const stats = await fs.promises.lstat(path);
         return stats.isDirectory();
@@ -226,7 +205,7 @@ async function aisdir(path) {
         return;
     }
 }
-async function aisfile(path) {
+async function isfile(path) {
     try {
         const stats = await fs.promises.lstat(path);
         return stats.isFile();
@@ -235,7 +214,7 @@ async function aisfile(path) {
         return;
     }
 }
-async function adir(path) {
+async function dir(path) {
     try {
         return await fs.promises.readdir(path);
     }
@@ -244,7 +223,7 @@ async function adir(path) {
         return;
     }
 }
-async function aexist(path) {
+async function exist(path) {
     try {
         await fs.promises.access(path);
         return true;
@@ -253,7 +232,7 @@ async function aexist(path) {
         return false;
     }
 }
-async function arm(targetPath, confirm = false) {
+async function rm(targetPath, confirm = false) {
     try {
         if (confirm)
             await prompt(`确认删除? ${targetPath} `);
@@ -319,223 +298,4 @@ function xpath(targetPath, basePath, separator = "/") {
     catch (error) {
         console.error(error);
     }
-}
-function rm(targetPath) {
-    try {
-        const stats = fs.statSync(targetPath);
-        fs.rmSync(targetPath, { recursive: true });
-        return true;
-    }
-    catch (err) {
-        return;
-    }
-}
-function exist(path) {
-    try {
-        return fs.existsSync(path);
-    }
-    catch (err) {
-        console.error(err.message);
-    }
-}
-function dir(path) {
-    try {
-        return fs.readdirSync(path);
-    }
-    catch (err) {
-        return;
-    }
-}
-function isfile(path) {
-    try {
-        return fs.lstatSync(path).isFile();
-    }
-    catch (err) {
-        return;
-    }
-}
-function isdir(path) {
-    try {
-        return fs.lstatSync(path).isDirectory();
-    }
-    catch (err) {
-        return;
-    }
-}
-function mkdir(dir) {
-    try {
-        return fs.mkdirSync(dir, { recursive: true });
-    }
-    catch (err) {
-        console.error(err.message);
-    }
-}
-function ast_jsbuild(code) {
-    let comments = [];
-    const ast = parse(code, {
-        ecmaVersion: "latest",
-        sourceType: "module",
-        onComment: comments,
-    });
-    let cursor = 0;
-    let newContent = "";
-    comments.forEach((item) => {
-        if (item.type == "Block" && item.value.match(/\*(\r\n|\n)/))
-            return;
-        newContent += code.slice(cursor, item.start);
-        cursor = item.end;
-    });
-    return (newContent + code.slice(cursor)).replace(/^\s*[\r\n]/gm, "");
-}
-function xreq(path) {
-    const require = createRequire(process.argv[1]);
-    return require(path);
-}
-function rf(filename, option = "utf8") {
-    try {
-        const data = fs.readFileSync(xpath(filename), option);
-        return data;
-    }
-    catch (error) {
-        if (error.code === "ENOENT") {
-            return;
-        }
-    }
-}
-function wf(filename, data, append = false, option = "utf8") {
-    try {
-        mkdir(path.dirname(filename));
-        append ? (option = { encoding: option, flag: "a" }) : 0;
-        fs.writeFileSync(filename, data, option);
-        return true;
-    }
-    catch (error) {
-        console.error("写入" + filename + "文件失败:", error);
-    }
-}
-function getTimestamp() {
-    const now = new Date();
-    return `${(now.getMonth() + 1).toString().padStart(2, "0")}-${now
-        .getDate()
-        .toString()
-        .padStart(2, "0")} ${now.getHours().toString().padStart(2, "0")}:${now
-        .getMinutes()
-        .toString()
-        .padStart(2, "0")}:${now.getSeconds().toString().padStart(2, "0")}.${now
-        .getMilliseconds()
-        .toString()
-        .padStart(3, "0")}`;
-}
-function getLineInfo(i = 3) {
-    const arr = new Error().stack.split("\n");
-    let res = arr[i].split("(").at(-1).split(sep_file).at(-1);
-    if (res?.endsWith(")"))
-        res = res.slice(0, -1);
-    if (!res)
-        originalLog(555, arr);
-    return res;
-}
-function xlog(...args) {
-    const timeString = getTimestamp();
-    const line = getLineInfo();
-    let pre;
-    switch (this) {
-        case 0:
-            pre = "";
-            break;
-        case 1:
-            pre = `${dim}[${timeString}]: ${reset}`;
-            break;
-        case 2:
-            pre = `${blue}${line}: ${reset}`;
-            break;
-        default:
-            pre = `${dim}[${timeString}]${blue} ${line}: ${reset}`;
-    }
-    process.stdout.write(pre);
-    originalLog(...args);
-}
-function xerr(...args) {
-    const timeString = getTimestamp();
-    const line = getLineInfo(4);
-    let pre;
-    switch (this) {
-        case 1:
-            pre = `${dim}[${timeString}]: ${red}`;
-            break;
-        case 2:
-            pre = `${blue}${line}: ${red}`;
-            break;
-        case 3:
-            pre = `${dim}[${timeString}]${blue} ${line}: ${red}`;
-            break;
-        default:
-            pre = "";
-    }
-    process.stdout.write(pre);
-    originalError(...args, `${reset}`);
-}
-function xconsole(rewrite = 3) {
-    console.log = xlog.bind(rewrite);
-    console.error = xerr.bind(rewrite);
-}
-function mreplace(str, replacements) {
-    for (const [search, replacement] of replacements) {
-        str = str.replace(new RegExp(search), (...args) => {
-            return replacement.replace(/(\$)?\$(\d+)/g, (...args_$) => {
-                if (args_$[1]) {
-                    return args_$[1] + args_$[2];
-                }
-                else {
-                    return args[args_$[2]] || args_$[0];
-                }
-            });
-        });
-    }
-    return str;
-}
-function mreplace_calc(str, replacements) {
-    const counts = [];
-    const detail = [];
-    counts.sum = 0;
-    let result = str;
-    for (const [search, replacement] of replacements) {
-        let count = 0;
-        result = result.replace(new RegExp(search), (...args) => {
-            count++;
-            detail.push([args.at(-2), args[0]]);
-            return replacement.replace(/(\$)?\$(\d+)/g, (...args_$) => {
-                if (args_$[1]) {
-                    return args_$[1] + args_$[2];
-                }
-                else {
-                    return args[args_$[2]] || args_$[0];
-                }
-            });
-        });
-        counts.push([count, search]);
-        counts.sum += count;
-    }
-    return [result, counts, detail];
-}
-function cookie_obj(str) {
-    let obj = {};
-    if (str) {
-        str
-            .split(";")
-            .map((r) => r.trim())
-            .forEach((r) => {
-            let a = r.split("=");
-            obj[a[0]] = a[1];
-        });
-    }
-    return obj;
-}
-function cookie_str(obj) {
-    return Object.entries(obj)
-        .map((r) => r[0] + "=" + r[1])
-        .join(";");
-}
-function cookie_merge(str1, str2) {
-    return cookie_str({ ...cookie_obj(str1), ...cookie_obj(str2) });
 }

@@ -1,4 +1,4 @@
-import { xpath, rf } from "../basic.js";
+import { xpath, rf, cookie_obj } from "../basic.js";
 import EventEmitter from "events";
 import { router_find_resolve } from "./router.js";
 export { hd_stream, getArgv, simulateHttp2Stream };
@@ -11,6 +11,7 @@ function hd_stream(server, stream, headers) {
             method: headers[":method"],
             ct: headers["content-type"],
             httpVersion: stream.httpVersion,
+            cookie: cookie_obj(headers["cookie"]),
             param: undefined,
             data: undefined,
             body: "",

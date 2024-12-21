@@ -37,6 +37,8 @@ export {
   interval,
   timelog,
   prompt,
+  stack,
+  uuid,
 };
 import { createRequire } from "module";
 import { parse } from "acorn";
@@ -56,6 +58,15 @@ const cyan = "\x1b[97m";
 const yellow = "\x1b[93m";
 const blue = "\x1b[94m";
 /*********************************************/
+// 通用唯一识别码 Universally unique identifier,此函数16位已强于36位的uuidv4
+function uuid(len = 16) {
+  return crypto.randomBytes(len).toString("base64url");
+}
+function stack() {
+  const stack = new Error("STACK").stack.split("\n");
+  originalLog(stack);
+  return stack;
+}
 /**
  * Load and parse YAML file
  * @param {string} filePath - Absolute or relative path to YAML file
@@ -140,13 +151,13 @@ async function aloadjson(filePath) {
     // 预处理内容以移除注释
     const processedContent = content
       // 移除多行注释 /* ... */
-      .replace(/\/\*[\s\S]*?\*\//g, '')
+      .replace(/\/\*[\s\S]*?\*\//g, "")
       // 移除单行注释 // ...
-      .replace(/\/\/.*/g, '')
+      .replace(/\/\/.*/g, "")
       // 移除行尾的逗号
-      .replace(/,(\s*[}\]])/g, '$1')
+      .replace(/,(\s*[}\]])/g, "$1")
       // 处理多余的换行和空格
-      .replace(/^\s+|\s+$/gm, '');
+      .replace(/^\s+|\s+$/gm, "");
 
     // 尝试解析JSON
     try {
@@ -157,19 +168,14 @@ async function aloadjson(filePath) {
         // 确保属性名使用双引号
         .replace(/(['"])?([a-zA-Z0-9_]+)(['"])?:/g, '"$2":')
         // 处理未转义的换行符
-        .replace(/\n/g, '\\n')
+        .replace(/\n/g, "\\n")
         // 处理未转义的制表符
-        .replace(/\t/g, '\\t');
+        .replace(/\t/g, "\\t");
 
       return JSON.parse(strictContent);
     }
   } catch (error) {
-    // 添加更多上下文信息到错误消息
-    const errorMessage = `Error loading JSONC file ${filePath}: ${error.message}`;
-    const enhancedError = new Error(errorMessage);
-    enhancedError.code = error.code;
-    enhancedError.path = absolutePath;
-    throw enhancedError;
+    console.error(error.message);
   }
 }
 async function aonedir(dir) {
@@ -183,7 +189,7 @@ async function aonedir(dir) {
     return undefined;
   }
 }
-function prompt(
+async function prompt(
   promptText = "ENTER continue , CTRL+C exit: ",
   validator = () => true,
   option
@@ -383,7 +389,7 @@ function sleep(ms) {
  * @param {number} ms - 两次函数执行之间的时间间隔，以毫秒为单位。
  * @param {number} [PX] - 可选参数，总持续时间，以毫秒为单位。超过此时间后将停止执行。因函数有运行时间,通常运行次数是PX/ms-1向上取整
  */
-function interval(fn, ms, PX) {
+async function interval(fn, ms, PX) {
   const start = Date.now();
   let id = setInterval(() => {
     if (PX && Date.now() - start > PX) {
@@ -608,29 +614,29 @@ function getTimestamp() {
     .padStart(3, "0")}`;
 }
 function getLineInfo(i = 3) {
-  const arr = new Error().stack.split("\n")[i].split(sep_file);
+  const arr = new Error().stack.split("\n");
   // const res = arr[1]?.replace(/:[^:]*$/, "");
-  let res = arr[1];
-  if (res.endsWith(")")) res = res.slice(0, -1);
-  // if (!res) console.log(arr);
+  let res = arr[i].split("(").at(-1).split(sep_file).at(-1);
+  if (res?.endsWith(")")) res = res.slice(0, -1);
+  if (!res) originalLog(555, arr);
   return res;
 }
 function xlog(...args) {
   const timeString = getTimestamp();
-  const line = getLineInfo(3);
+  const line = getLineInfo();
   let pre;
   switch (this) {
+    case 0:
+      pre = "";
+      break;
     case 1:
       pre = `${dim}[${timeString}]: ${reset}`;
       break;
     case 2:
       pre = `${blue}${line}: ${reset}`;
       break;
-    case 3:
-      pre = `${dim}[${timeString}]${blue} ${line}: ${reset}`;
-      break;
     default:
-      pre = "";
+      pre = `${dim}[${timeString}]${blue} ${line}: ${reset}`;
   }
   process.stdout.write(pre);
   originalLog(...args);

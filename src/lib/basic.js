@@ -17,6 +17,9 @@ export {
   aexist,
   arm,
   aonedir,
+  aloadyml,
+  aloadenv,
+  aloadjson,
   cookie_merge,
   cookie_obj,
   cookie_str,
@@ -31,11 +34,14 @@ export {
   interval,
   timelog,
   prompt,
+  stack,
+  uuid,
 };
 import { createRequire } from "module";
 import { parse } from "acorn";
 import fs from "fs";
 import path from "path";
+import yaml from "yaml";
 const platform = process.platform; 
 const sep_file = platform == "win32" ? "file:///" : "file://";
 const slice_len_file = platform == "win32" ? 8 : 7;
@@ -48,6 +54,96 @@ const green = "\x1b[92m";
 const cyan = "\x1b[97m";
 const yellow = "\x1b[93m";
 const blue = "\x1b[94m";
+function uuid(len = 16) {
+  return crypto.randomBytes(len).toString("base64url");
+}
+function stack() {
+  const stack = new Error("STACK").stack.split("\n");
+  originalLog(stack);
+  return stack;
+}
+/**
+ * Load and parse YAML file
+ * @param {string} filePath - Absolute or relative path to YAML file
+ * @returns {Promise<any>} Parsed YAML content
+ */
+async function aloadyml(filePath) {
+  try {
+    const absolutePath = path.isAbsolute(filePath)
+      ? filePath
+      : path.resolve(process.cwd(), filePath);
+    const content = await fs.promises.readFile(absolutePath, "utf8");
+    return yaml.parse(content);
+  } catch (error) {
+    console.error(error.message);
+  }
+}
+/**
+ * 解析 ENV 内容
+ * @param {string} content - ENV 文件内容
+ * @returns {object} 解析后的对象
+ */
+function parseENV(content) {
+  const result = {};
+  const lines = content.split("\n");
+  for (let line of lines) {
+    if (
+      !line.trim() ||
+      line.trim().startsWith("#") ||
+      line.trim().startsWith("export")
+    ) {
+      continue;
+    }
+    const separatorIndex = line.indexOf("=");
+    if (separatorIndex !== -1) {
+      const key = line.slice(0, separatorIndex).trim();
+      let value = line.slice(separatorIndex + 1).trim();
+      value = value.replace(/^["'](.*)["']$/, "$1");
+      result[key] = value;
+    }
+  }
+  return result;
+}
+/**
+ * 加载并解析 ENV 文件
+ * @param {string} filePath - ENV 文件的绝对或相对路径
+ * @returns {Promise<object>} 解析后的对象
+ */
+async function aloadenv(filePath) {
+  try {
+    const absolutePath = path.isAbsolute(filePath)
+      ? filePath
+      : path.resolve(path.dirname(process.argv[1]), filePath);
+    const content = await fs.promises.readFile(absolutePath, "utf8");
+    return parseENV(content);
+  } catch (error) {
+    throw new Error(`Error loading ENV file ${filePath}: ${error.message}`);
+  }
+}
+async function aloadjson(filePath) {
+  try {
+    const absolutePath = path.isAbsolute(filePath)
+      ? filePath
+      : path.resolve(path.dirname(process.argv[1]), filePath);
+    const content = await fs.promises.readFile(absolutePath, "utf8");
+    const processedContent = content
+      .replace(/\/\*[\s\S]*?\*\//g, "")
+      .replace(/\/\/.*/g, "")
+      .replace(/,(\s*[}\]])/g, "$1")
+      .replace(/^\s+|\s+$/gm, "");
+    try {
+      return JSON.parse(processedContent);
+    } catch (parseError) {
+      const strictContent = processedContent
+        .replace(/(['"])?([a-zA-Z0-9_]+)(['"])?:/g, '"$2":')
+        .replace(/\n/g, "\\n")
+        .replace(/\t/g, "\\t");
+      return JSON.parse(strictContent);
+    }
+  } catch (error) {
+    console.error(error.message);
+  }
+}
 async function aonedir(dir) {
   try {
     const dirHandle = await fs.promises.opendir(dir);
@@ -58,7 +154,7 @@ async function aonedir(dir) {
     return undefined;
   }
 }
-function prompt(
+async function prompt(
   promptText = "ENTER continue , CTRL+C exit: ",
   validator = () => true,
   option
@@ -241,7 +337,7 @@ function sleep(ms) {
  * @param {number} ms - 两次函数执行之间的时间间隔，以毫秒为单位。
  * @param {number} [PX] - 可选参数，总持续时间，以毫秒为单位。超过此时间后将停止执行。因函数有运行时间,通常运行次数是PX/ms-1向上取整
  */
-function interval(fn, ms, PX) {
+async function interval(fn, ms, PX) {
   const start = Date.now();
   let id = setInterval(() => {
     if (PX && Date.now() - start > PX) {
@@ -275,7 +371,10 @@ function xpath(targetPath, basePath, separator = "/") {
       if (path.isAbsolute(basePath)) {
         resPath = path.resolve(basePath, targetPath);
       } else {
-        resPath = path.resolve(process.cwd(), path.join(basePath, targetPath));
+        resPath = path.resolve(
+          path.dirname(process.argv[1]),
+          path.join(basePath, targetPath)
+        );
       }
     }
     if (separator === "/" && slice_len_file === 7) {
@@ -437,10 +536,11 @@ function getTimestamp() {
     .toString()
     .padStart(3, "0")}`;
 }
-function getLineInfo() {
-  const arr = new Error().stack.split("\n")[3].split(sep_file);
-  let res = arr[1];
-  if (res.endsWith(")")) res = res.slice(0, -1);
+function getLineInfo(i = 3) {
+  const arr = new Error().stack.split("\n");
+  let res = arr[i].split("(").at(-1).split(sep_file).at(-1);
+  if (res?.endsWith(")")) res = res.slice(0, -1);
+  if (!res) originalLog(555, arr);
   return res;
 }
 function xlog(...args) {
@@ -448,24 +548,24 @@ function xlog(...args) {
   const line = getLineInfo();
   let pre;
   switch (this) {
+    case 0:
+      pre = "";
+      break;
     case 1:
       pre = `${dim}[${timeString}]: ${reset}`;
       break;
     case 2:
       pre = `${blue}${line}: ${reset}`;
       break;
-    case 3:
-      pre = `${dim}[${timeString}]${blue} ${line}: ${reset}`;
-      break;
     default:
-      pre = "";
+      pre = `${dim}[${timeString}]${blue} ${line}: ${reset}`;
   }
   process.stdout.write(pre);
   originalLog(...args);
 }
 function xerr(...args) {
   const timeString = getTimestamp();
-  const line = getLineInfo();
+  const line = getLineInfo(4);
   let pre;
   switch (this) {
     case 1:

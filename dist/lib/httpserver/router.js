@@ -146,7 +146,7 @@ function router_find_resolve(server, stream, gold) {
             await router_target[3](gold);
         }
         catch (err) {
-            console.error(err);
+            console.error(err.message);
             gold.err();
         }
     });

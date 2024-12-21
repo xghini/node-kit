@@ -1,4 +1,5 @@
 import * as basic from "./lib/basic.js";
+import * as async from "./lib/abasic.js";
 import * as codec from "./lib/codec.js";
 import * as hs from "./lib/httpserver/hs.js";
 import * as xdb from "./lib/xdb/xdb.js";
@@ -6,6 +7,7 @@ import * as pg from "./lib/pg/pg.js";
 import * as redis from "./lib/redis/redis.js";
 const kit = {
     ...basic,
+    async,
     ...codec,
     ...hs,
     ...xdb,
