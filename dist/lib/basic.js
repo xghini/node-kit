@@ -1,7 +1,8 @@
-export { rf, wf, mkdir, isdir, isfile, dir, exist, xpath, rm, arf, awf, amkdir, aisdir, aisfile, adir, aexist, arm, aonedir, aloadyml, aloadenv, aloadjson, cookie_merge, cookie_obj, cookie_str, xconsole, xlog, xerr, mreplace, mreplace_calc, xreq, ast_jsbuild, sleep, interval, timelog, prompt, stack, uuid, };
+export { rf, wf, mkdir, isdir, isfile, dir, exist, xpath, rm, arf, awf, amkdir, aisdir, aisfile, adir, aexist, arm, aonedir, aloadyml, aloadenv, aloadjson, cookie_merge, cookie_obj, cookie_str, xconsole, xlog, xerr, mreplace, mreplace_calc, xreq, ast_jsbuild, sleep, interval, timelog, prompt, stack, uuid, getDate, rint, rside, vcode, };
 import { createRequire } from "module";
 import { parse } from "acorn";
 import fs from "fs";
+import crypto from "crypto";
 import path from "path";
 import yaml from "yaml";
 const platform = process.platform;
@@ -16,6 +17,39 @@ const green = "\x1b[92m";
 const cyan = "\x1b[97m";
 const yellow = "\x1b[93m";
 const blue = "\x1b[94m";
+function vcode(n = 4) {
+    const characters = "23457ACDFGHJKLPQRSTUVWXY23457";
+    let result = "";
+    for (let i = 0; i < n; i++) {
+        const idx = Math.floor(Math.random() * characters.length);
+        result += characters[idx];
+    }
+    return result;
+}
+function rside() {
+    return Math.random() > 0.5 ? 1 : -1;
+}
+function rint(a, b = 0) {
+    if (a > b) {
+        return Math.floor(Math.random() * (a + 1 - b)) + b;
+    }
+    else {
+        return Math.floor(Math.random() * (b + 1 - a)) + a;
+    }
+}
+function randint(a, b = 0) {
+    if (a > b) {
+        return Math.floor(Math.random() * (a + 1 - b)) + b;
+    }
+    else {
+        return Math.floor(Math.random() * (b + 1 - a)) + a;
+    }
+}
+function getDate(offset = 8) {
+    const now = new Date();
+    const beijingTime = new Date(now.getTime() + offset * 3600000);
+    return beijingTime.toISOString().replace("T", " ").substring(0, 19);
+}
 function uuid(len = 16) {
     return crypto.randomBytes(len).toString("base64url");
 }
@@ -437,9 +471,9 @@ function getLineInfo(i = 3) {
 }
 function xlog(...args) {
     const timeString = getTimestamp();
-    const line = getLineInfo();
+    const line = getLineInfo(this.log.trace);
     let pre;
-    switch (this) {
+    switch (this.log.info) {
         case 0:
             pre = "";
             break;
@@ -457,9 +491,9 @@ function xlog(...args) {
 }
 function xerr(...args) {
     const timeString = getTimestamp();
-    const line = getLineInfo(4);
+    const line = getLineInfo(this.err.trace);
     let pre;
-    switch (this) {
+    switch (this.err.info) {
         case 1:
             pre = `${dim}[${timeString}]: ${red}`;
             break;
@@ -475,9 +509,28 @@ function xerr(...args) {
     process.stdout.write(pre);
     originalError(...args, `${reset}`);
 }
-function xconsole(rewrite = 3) {
-    console.log = xlog.bind(rewrite);
-    console.error = xerr.bind(rewrite);
+function xconsole(config = {}) {
+    if (typeof config === "object") {
+        config = {
+            ...{
+                log: {
+                    info: 3,
+                    trace: 3,
+                },
+                err: {
+                    info: 3,
+                    trace: 3,
+                },
+            },
+            ...config,
+        };
+        console.log = xlog.bind(config);
+        console.error = xerr.bind(config);
+    }
+    else {
+        console.log = originalLog;
+        console.error = originalError;
+    }
 }
 function mreplace(str, replacements) {
     for (const [search, replacement] of replacements) {

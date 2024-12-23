@@ -5,7 +5,10 @@ export * from "./lib/httpserver/hs.js";
 export * from "./lib/xdb/xdb.js";
 export * from "./lib/pg/pg.js";
 export * from "./lib/redis/redis.js";
+export * from "./lib/captcha/captcha.js";
 declare const kit: {
+    captcha: typeof captcha.captcha;
+    fnv1a: typeof captcha.fnv1a;
     newRedis: typeof redis.newRedis;
     newRedisCluster: typeof redis.newRedisCluster;
     pg: typeof pg.pg;
@@ -60,7 +63,12 @@ declare const kit: {
     prompt: typeof basic.prompt;
     stack: typeof basic.stack;
     uuid: typeof basic.uuid;
+    getDate: typeof basic.getDate;
+    rint: typeof basic.rint;
+    rside: typeof basic.rside;
+    vcode: typeof basic.vcode;
 };
+import * as captcha from "./lib/captcha/captcha.js";
 import * as redis from "./lib/redis/redis.js";
 import * as pg from "./lib/pg/pg.js";
 import * as xdb from "./lib/xdb/xdb.js";

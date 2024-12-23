@@ -1,24 +1,20 @@
 import kit from "@ghini/kit/dev";
 import Redis from "ioredis";
-import crypto from "crypto";
 // import * as auth from "./auth.js";
 // import * as user from "./user.js";
 import conf from "./conf.js";
+import lua from "./lua.js";
+
 kit.xconsole();
 
 const server = kit.hs();
 const redis = new Redis();
-// redis.hsetnx('user:admin@xship.top',"fff",'6aasd545')
-// redis.hdel("user:admin@xship.top", "fff");
-const luaScript = `
-local keys = redis.call('KEYS', 'token*')
-if #keys > 0 then
-    return redis.call('DEL', unpack(keys))
-else
-    return 0
-end
-`;
-redis.eval(luaScript,0);
+// const data = {
+//   token: "asfdass",
+// };
+// console.log(await redis.eval(lua.signin, 2, "admin@xship.top"));
+// redis.eval(lua.dels,1,"sess");
+
 // 1.cookie:admin@xship.top cookie:admin@xship.top1
 // 2.jwt
 // console.log(await redis.hgetall("user:admin@xship.top"));
@@ -26,37 +22,51 @@ redis.eval(luaScript,0);
 server.addr("/v1/auth/signup", "post", signup);
 server.addr("/v1/auth/signin", "post", signin);
 server.addr("/v1/auth/reset", "post", reset);
+server.addr("/v1/auth/captcha", captcha);
 server.addr("/v1/auth/sendemail", "post", sendemail);
 server.addr("/v1/user/signout", signout);
+server.addr("/v1/user/signoutall", signoutall);
 server.addr("/v1/user/profile", profile);
 
 export async function signin(gold) {
-  let { email, pwd } = gold.data;
+  const { email, pwd } = gold.data;
   const hashKey = "user:" + email;
-  redis.hgetall(hashKey, (err, res) => {
-    if (err || !res || res.pwd !== pwd) {
-      gold.json("账号或密码错误");
-    } else {
-      // 生成免密token 返回cookie
-      const token = makeToken();
-      redis.setex("session:" + token, 3888000, email, (err) => {
-        if (err) {
-          gold.json("服务器错误，请稍后再试");
-        } else {
-          gold.respond({
-            "Set-Cookie": `auth_token=${token}; Max-Age=3888000; HttpOnly; Path=/; Secure; SameSite=Strict`,
-          });
-          gold.json("登录成功");
-        }
+  let res = await redis.hgetall(hashKey);
+  console.log(res);
+  if (Object.keys(res).length > 0 && res.pwd === pwd) {
+    // 生成免密token 返回cookie
+    const token = kit.uuid();
+    const fields = [
+      "token",
+      token,
+      "agent",
+      gold.headers["user-agent"],
+      "ip",
+      gold.ip,
+      "time",
+      kit.getDate(),
+    ];
+    const user = await redis.eval(lua.signin, 2, email, 20, ...fields);
+    if (user) {
+      gold.respond({
+        "Set-Cookie": [
+          `auth_token=${token}; Max-Age=3888000; HttpOnly; Path=/; Secure; SameSite=Strict`,
+          `user=${user}; Max-Age=3888000; HttpOnly; Path=/; Secure; SameSite=Strict`,
+        ],
       });
+      gold.json("登录成功");
+    } else {
+      gold.err("服务器错误，请稍后再试", 503);
     }
-  });
+  } else {
+    gold.err("账号或密码错误");
+  }
 }
 export async function signup(gold) {
   // user:admin@xship.top @123321 18812345678
   let { email, pwd, phone } = gold.data;
   const hashKey = "user:" + email;
-  const fields = ["pwd", pwd, "phone", phone, "regdate", getDate(8)];
+  const fields = ["pwd", pwd, "phone", phone, "regdate", kit.getDate(8)];
   // 使用Lua脚本一次连接搞定 ：检查键是否存在，如果不存在则创建
   const luaScript = `
     if redis.call('EXISTS', KEYS[1]) == 0 then
@@ -75,6 +85,16 @@ export async function signup(gold) {
 }
 export async function reset(gold) {
   gold.end("resetpwd");
+}
+export async function captcha(gold) {
+  const { svg, code } = kit.captcha();
+  const captchaId = kit.fnv1a(code);
+  gold.respond({
+    "content-type": "image/svg+xml",
+    "Cache-Control": "no-cache, no-store, must-revalidate",
+    "set-cookie": `captchaId=${captchaId}; HttpOnly; Secure; SameSite=Strict; Max-Age=300`,
+  });
+  gold.end(svg);
 }
 
 export async function sendemail(gold) {
@@ -116,35 +136,52 @@ export async function sendemail(gold) {
   }
 }
 export async function signout(gold) {
-  const token = "session:" + gold.cookie["auth_token"];
-  const luaScript = `
-    local value = redis.call("GET", KEYS[1])
-    if value then
-        redis.call("DEL", KEYS[1])
-        return true
-    end
-    return nil
-  `;
-  const result = await redis.eval(luaScript, 1, token);
+  const token = "sess:" + gold.cookie["auth_token"];
+  const result = await redis.eval(
+    lua.signout,
+    2,
+    gold.cookie["user"],
+    gold.cookie["auth_token"]
+  );
   if (result) {
     gold.respond({
-      "set-cookie": "auth_token=; Path=/; HttpOnly; Max-Age=0",
+      "set-cookie": [
+        "auth_token=; Path=/; HttpOnly; Max-Age=0",
+        "user=; Path=/; HttpOnly; Max-Age=0",
+      ],
     });
     gold.end("ok");
   } else {
-    gold.end("需要登录");
+    gold.err("需要登录");
+  }
+}
+export async function signoutall(gold) {
+  const token = "sess:" + gold.cookie["auth_token"];
+  const result = await redis.eval(
+    lua.signoutall,
+    2,
+    gold.cookie["user"],
+    gold.cookie["auth_token"]
+  );
+  if (result) {
+    gold.respond({
+      "set-cookie": [
+        "auth_token=; Path=/; HttpOnly; Max-Age=0",
+        "user=; Path=/; HttpOnly; Max-Age=0",
+      ],
+    });
+    gold.end("ok");
+  } else {
+    gold.err("需要登录");
   }
 }
 async function profile(gold) {
-  const token = "session:" + gold.cookie["auth_token"];
-  const luaScript = `
-    local email = redis.call("GET", KEYS[1])
-    if not email then
-        return nil
-    end
-    return redis.call("HGETALL", "user:" .. email)
-  `;
-  const result = await redis.eval(luaScript, 1, token);
+  const result = await redis.eval(
+    lua.profile,
+    2,
+    gold.cookie["user"],
+    gold.cookie["auth_token"]
+  );
   if (result) {
     const obj = {};
     for (let i = 0; i < result.length; i += 2) {
@@ -152,14 +189,5 @@ async function profile(gold) {
     }
     delete obj.pwd;
     gold.json(obj);
-  } else gold.end("需要登录");
-}
-// Token 生成函数
-function makeToken(len = 16) {
-  return crypto.randomBytes(len).toString("base64url");
-}
-function getDate(offset = 8) {
-  const now = new Date(); // 当前时间
-  const beijingTime = new Date(now.getTime() + offset * 60 * 60 * 1000); // UTC 时间加 8 小时
-  return beijingTime.toISOString().replace("T", " ").substring(0, 19); // 格式化为 'YYYY-MM-DD HH:MM:SS'
+  } else gold.err("需要登录");
 }

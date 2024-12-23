@@ -1,4 +1,4 @@
-import { xpath, rf,cookie_obj } from "../basic.js";
+import { xpath, rf, cookie_obj } from "../basic.js";
 import EventEmitter from "events";
 import { router_find_resolve } from "./router.js";
 export { hd_stream, getArgv, simulateHttp2Stream };
@@ -12,10 +12,11 @@ function hd_stream(server, stream, headers) {
       method: headers[":method"],
       ct: headers["content-type"],
       httpVersion: stream.httpVersion,
-      cookie:cookie_obj(headers["cookie"]),
-      param: undefined,
-      data: undefined,
+      cookie: cookie_obj(headers["cookie"]),
+      param: {}, //统一为空对象,避免从undefined取值报错
+      data: {},
       body: "",
+      // ip: stream.session.socket.remoteAddress,
       config: {
         // 默认配置
         MAX_BODY: 4 * 1024 * 1024,
@@ -47,14 +48,14 @@ function hd_stream(server, stream, headers) {
         else if (typeof data === "number" && !code && data >= 100 && data < 600)
           code = data;
         else if (typeof data === "number") data = { msg: data };
-        code = code || 500;
+        code = code || 400;
         data = { ...{ code }, ...data };
         gold.respond({
           ":status": data.code,
           "content-type": "application/json; charset=utf-8",
         });
-        data=JSON.stringify(data)
-        console.error(gold.headers[':path']+'\n', data);
+        data = JSON.stringify(data);
+        console.error(gold.headers[":path"] + "\n", data);
         gold.end(data);
       },
     };

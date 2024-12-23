@@ -12,8 +12,8 @@ function hd_stream(server, stream, headers) {
             ct: headers["content-type"],
             httpVersion: stream.httpVersion,
             cookie: cookie_obj(headers["cookie"]),
-            param: undefined,
-            data: undefined,
+            param: {},
+            data: {},
             body: "",
             config: {
                 MAX_BODY: 4 * 1024 * 1024,
@@ -47,14 +47,14 @@ function hd_stream(server, stream, headers) {
                     code = data;
                 else if (typeof data === "number")
                     data = { msg: data };
-                code = code || 500;
+                code = code || 400;
                 data = { ...{ code }, ...data };
                 gold.respond({
                     ":status": data.code,
                     "content-type": "application/json; charset=utf-8",
                 });
                 data = JSON.stringify(data);
-                console.error(gold.headers[':path'] + '\n', data);
+                console.error(gold.headers[":path"] + "\n", data);
                 gold.end(data);
             },
         };

@@ -22,7 +22,7 @@ export function aloadjson(filePath: any): Promise<any>;
 export function cookie_merge(str1: any, str2: any): string;
 export function cookie_obj(str: any): {};
 export function cookie_str(obj: any): string;
-export function xconsole(rewrite?: number): {
+export function xconsole(config?: {}): {
     log: Function;
     err: Function;
 };
@@ -37,4 +37,8 @@ export function interval(fn: Function, ms: number, PX?: number): Promise<void>;
 export function timelog(fn: any): Promise<void>;
 export function prompt(promptText: string, validator: () => boolean, option: any): Promise<any>;
 export function stack(): string[];
-export function uuid(len?: number): any;
+export function uuid(len?: number): string;
+export function getDate(offset?: number): string;
+export function rint(a: any, b?: number): any;
+export function rside(): 1 | -1;
+export function vcode(n?: number): string;

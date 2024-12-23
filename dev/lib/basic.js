@@ -39,10 +39,16 @@ export {
   prompt,
   stack,
   uuid,
+  getDate,
+  // Math
+  rint,
+  rside,
+  vcode,
 };
 import { createRequire } from "module";
 import { parse } from "acorn";
 import fs from "fs";
+import crypto from "crypto";
 import path from "path";
 import yaml from "yaml";
 const platform = process.platform; //win32|linux|darwin
@@ -58,6 +64,47 @@ const cyan = "\x1b[97m";
 const yellow = "\x1b[93m";
 const blue = "\x1b[94m";
 /*********************************************/
+// 生成易于识别图像验证的验证码,服务端应设置最大8位,防止堵塞 n>8?n=8:n;
+function vcode(n = 4) {
+  const characters = "23457ACDFGHJKLPQRSTUVWXY23457";
+  /* 舍弃的易混淆0O I 1 8B NZ EM 69
+  推荐canvas设置
+    const fontSize = height * 0.65;
+    ctx.font = `bold ${fontSize}px Arial`;
+  */
+  let result = "";
+  for (let i = 0; i < n; i++) {
+    const idx = Math.floor(Math.random() * characters.length);
+    result += characters[idx];
+  }
+  return result;
+}
+// 返回1或-1
+function rside() {
+  return Math.random() > 0.5 ? 1 : -1;
+}
+// 随机例如-3到10 10到-3的整数,可单写5:0-5
+function rint(a, b = 0) {
+  if (a > b) {
+    return Math.floor(Math.random() * (a + 1 - b)) + b;
+  } else {
+    return Math.floor(Math.random() * (b + 1 - a)) + a;
+  }
+}
+// 随机例如-3到10 10到-3的整数,可单写5:0-5
+function randint(a, b = 0) {
+  if (a > b) {
+    return Math.floor(Math.random() * (a + 1 - b)) + b;
+  } else {
+    return Math.floor(Math.random() * (b + 1 - a)) + a;
+  }
+}
+// 生成各时区时间,默认北京时间
+function getDate(offset = 8) {
+  const now = new Date(); // 当前时间
+  const beijingTime = new Date(now.getTime() + offset * 3600000); // UTC 时间加 8 小时
+  return beijingTime.toISOString().replace("T", " ").substring(0, 19); // 格式化为 'YYYY-MM-DD HH:MM:SS'
+}
 // 通用唯一识别码 Universally unique identifier,此函数16位已强于36位的uuidv4
 function uuid(len = 16) {
   return crypto.randomBytes(len).toString("base64url");
@@ -623,9 +670,9 @@ function getLineInfo(i = 3) {
 }
 function xlog(...args) {
   const timeString = getTimestamp();
-  const line = getLineInfo();
+  const line = getLineInfo(this.log.trace);
   let pre;
-  switch (this) {
+  switch (this.log.info) {
     case 0:
       pre = "";
       break;
@@ -644,9 +691,9 @@ function xlog(...args) {
 function xerr(...args) {
   // console.log(new Error().stack);
   const timeString = getTimestamp();
-  const line = getLineInfo(4);
+  const line = getLineInfo(this.err.trace);
   let pre;
-  switch (this) {
+  switch (this.err.info) {
     case 1:
       pre = `${dim}[${timeString}]: ${red}`;
       break;
@@ -669,9 +716,27 @@ function xerr(...args) {
  * - `log(...args: any[]): void` 用于日志输出。
  * - `err(...args: any[]): void` 用于错误输出。
  */
-function xconsole(rewrite = 3) {
-  console.log = xlog.bind(rewrite);
-  console.error = xerr.bind(rewrite);
+function xconsole(config = {}) {
+  if (typeof config === "object") {
+    config = {
+      ...{
+        log: {
+          info: 3,
+          trace: 3,
+        },
+        err: {
+          info: 3,
+          trace: 3,
+        },
+      },
+      ...config,
+    };
+    console.log = xlog.bind(config);
+    console.error = xerr.bind(config);
+  } else {
+    console.log = originalLog;
+    console.error = originalError;
+  }
 }
 
 /**
