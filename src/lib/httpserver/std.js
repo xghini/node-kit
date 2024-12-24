@@ -1,17 +1,18 @@
-import { xpath, rf, cookie_obj } from "../basic.js";
+import { xpath, rf, cookies_obj, cookie_merge, xerr } from "../basic.js";
 import EventEmitter from "events";
 import { router_find_resolve } from "./router.js";
 export { hd_stream, getArgv, simulateHttp2Stream };
 function hd_stream(server, stream, headers) {
   const gold = (() => {
     let notresponded = true; 
+    let respond_headers = { ":status": 200 };
     return {
       headers,
       path: headers[":path"],
       method: headers[":method"],
       ct: headers["content-type"],
       httpVersion: stream.httpVersion,
-      cookie: cookie_obj(headers["cookie"]),
+      cookie: cookies_obj(headers["cookie"]),
       param: {}, 
       data: {},
       body: "",
@@ -20,22 +21,36 @@ function hd_stream(server, stream, headers) {
       },
       end: stream.end.bind(stream),
       write: stream.write.bind(stream),
+      setcookie: (arr) => {
+        typeof arr === "string" ? (arr = [arr]) : 0;
+        respond_headers["set-cookie"] = arr.map((ck) =>
+          cookie_merge(
+            "HttpOnly; Path=/; Secure; SameSite=Strict;Max-Age=300",
+            ck
+          )
+        );
+      },
+      delcookie: (arr) => {
+        typeof arr === "string" ? (arr = [arr]) : 0;
+        respond_headers["set-cookie"] = arr.map(
+          (ck) => ck + "=;HttpOnly; Path=/; Secure; SameSite=Strict;Max-Age=0"
+        );
+      },
       respond: (obj) => {
         if (notresponded) {
           notresponded = false;
-          stream.respond.bind(stream)(obj);
+          stream.respond.bind(stream)({ ...respond_headers, ...obj });
         }
       },
       json: (data) => {
         gold.respond({
-          ":status": 200,
           "content-type": "application/json; charset=utf-8",
         });
+        if (typeof data === "string") data = { msg: data };
         gold.end(JSON.stringify(data));
       },
       raw: (data) => {
         gold.respond({
-          ":status": 200,
           "content-type": "text/plain; charset=utf-8",
         });
         gold.end(`${data}`);
@@ -52,7 +67,7 @@ function hd_stream(server, stream, headers) {
           "content-type": "application/json; charset=utf-8",
         });
         data = JSON.stringify(data);
-        console.error(gold.headers[":path"] + "\n", data);
+        xerr(gold.headers[":path"] + "\n", data);
         gold.end(data);
       },
     };

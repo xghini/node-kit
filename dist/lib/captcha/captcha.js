@@ -1,4 +1,4 @@
-export { captcha, fnv1a };
+export { captcha };
 const DEFAULT_CONFIG = {
     width: 120,
     height: 40,
@@ -23,10 +23,6 @@ function captcha(options = {}) {
         svg,
         code,
     };
-}
-function fnv1a(code) {
-    const h = Array.from(code).reduce((h, c) => ((h ^ c.charCodeAt(0)) * 16777619) >>> 0, 2166136261);
-    return h.toString(36);
 }
 function randomColor(min, max) {
     const r = Math.floor(Math.random() * (max - min) + min);

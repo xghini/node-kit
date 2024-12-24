@@ -1,4 +1,5 @@
-export { captcha, fnv1a };
+// 加密使用sha256就行,高效安全,开销10微秒级;自定义fnv1a意义不大
+export { captcha };
 const DEFAULT_CONFIG = {
   width: 120,
   height: 40,
@@ -31,14 +32,6 @@ function captcha(options = {}) {
     svg,
     code,
   };
-}
-// FNV-1a 快,碰撞率1%(前4字节:sha1 0.8,sha256 0.7)
-function fnv1a(code) {
-  const h = Array.from(code).reduce(
-    (h, c) => ((h ^ c.charCodeAt(0)) * 16777619) >>> 0,
-    2166136261
-  );
-  return h.toString(36);
 }
 function randomColor(min, max) {
   const r = Math.floor(Math.random() * (max - min) + min);

@@ -8,6 +8,7 @@ export {
   exist,
   xpath,
   rm,
+  cp,
   arf,
   awf,
   amkdir,
@@ -20,12 +21,15 @@ export {
   aloadyml,
   aloadenv,
   aloadjson,
-  cookie_merge,
-  cookie_obj,
-  cookie_str,
   xconsole,
   xlog,
   xerr,
+  cookie_obj,
+  cookie_str,
+  cookie_merge,
+  cookies_obj,
+  cookies_str,
+  cookies_merge,
   mreplace,
   mreplace_calc,
   xreq,
@@ -39,7 +43,8 @@ export {
   getDate,
   rint,
   rside,
-  vcode,
+  gchar,
+  fhash,
 };
 import { createRequire } from "module";
 import { parse } from "acorn";
@@ -59,8 +64,39 @@ const green = "\x1b[92m";
 const cyan = "\x1b[97m";
 const yellow = "\x1b[93m";
 const blue = "\x1b[94m";
-function vcode(n = 4) {
-  const characters = "23457ACDFGHJKLPQRSTUVWXY23457";
+/**
+ * 生成易于识别图像验证的验证码,服务端应设置最大8位,防止堵塞 n>8?n=8:n;也可以用来随机生码测试性能
+ * @param {string|Buffer|TypedArray|DataView} cx - 要计算哈希的输入数据，可以是字符串、Buffer 或其他支持的数据类型。
+ * @param {string} [encode='base64url'] - 指定哈希值的输出编码格式，支持 'hex'、'base64'、'base64url' 等。
+ * @param {string} [type='sha256'] - 指定哈希算法，默认使用 'sha256'，支持 'md5'、'sha1'、'sha512' 等。
+ * @returns {string} 生成的哈希值，编码格式由 `encode` 参数决定。
+ */
+function fhash(cx, encode = "base64url", type = "sha256") {
+  return crypto.createHash(type).update(cx).digest(encode);
+}
+function gchar(n = 6, characters = 0) {
+  if (typeof characters === "number") {
+    switch (characters) {
+      case 0: 
+        characters = "0123456789";
+        break;
+      case 1: 
+        characters = "23457ACDFGHJKLPQRSTUVWXY23457";
+        break;
+      case 2: 
+        characters =
+          "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz012345678901234567890123456789";
+        break;
+      case 2: 
+        characters =
+          "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789-_";
+        break;
+      case 3: 
+        characters =
+          "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/";
+        break;
+    }
+  }
   let result = "";
   for (let i = 0; i < n; i++) {
     const idx = Math.floor(Math.random() * characters.length);
@@ -423,6 +459,34 @@ function xpath(targetPath, basePath, separator = "/") {
   }
 }
 /**
+ * 递归复制文件或目录
+ * @param {string} oldPath - 源路径
+ * @param {string} newPath - 目标路径
+ * @throws {Error} 当路径不存在或复制过程出错时抛出异常
+ */
+function cp(oldPath, newPath) {
+  try {
+      const stats = fs.statSync(oldPath);
+      if (stats.isDirectory()) {
+          fs.mkdirSync(newPath, { recursive: true });
+          const entries = fs.readdirSync(oldPath);
+          for (const entry of entries) {
+              const srcPath = path.join(oldPath, entry);
+              const destPath = path.join(newPath, entry);
+              cp(srcPath, destPath);
+          }
+      } else if (stats.isFile()) {
+          const targetDir = path.dirname(newPath);
+          fs.mkdirSync(targetDir, { recursive: true });
+          fs.copyFileSync(oldPath, newPath);
+      } else {
+          throw new Error(`不支持的文件类型: ${oldPath}`);
+      }
+  } catch (error) {
+      throw new Error(`复制失败 "${oldPath}" -> "${newPath}": ${error.message}`);
+  }
+}
+/**
  * 删除指定路径的文件或文件夹（同步方法）。
  * @param {string} targetPath - 要删除的文件或文件夹路径，支持相对路径或绝对路径。
  * @returns {undefined} - 无返回值。如果删除失败，会打印错误信息。
@@ -581,9 +645,9 @@ function getLineInfo(i = 3) {
 }
 function xlog(...args) {
   const timeString = getTimestamp();
-  const line = getLineInfo(this.log.trace);
+  const line = getLineInfo(this?.trace || 4); 
   let pre;
-  switch (this.log.info) {
+  switch (this?.info) {
     case 0:
       pre = "";
       break;
@@ -601,20 +665,20 @@ function xlog(...args) {
 }
 function xerr(...args) {
   const timeString = getTimestamp();
-  const line = getLineInfo(this.err.trace);
+  const line = getLineInfo(this?.trace || 4);
   let pre;
-  switch (this.err.info) {
+  switch (this?.info) {
+    case 0:
+      pre = "";
+      break;
     case 1:
       pre = `${dim}[${timeString}]: ${red}`;
       break;
     case 2:
       pre = `${blue}${line}: ${red}`;
       break;
-    case 3:
-      pre = `${dim}[${timeString}]${blue} ${line}: ${red}`;
-      break;
     default:
-      pre = "";
+      pre = `${dim}[${timeString}]${blue} ${line}: ${red}`;
   }
   process.stdout.write(pre);
   originalError(...args, `${reset}`);
@@ -641,8 +705,8 @@ function xconsole(config = {}) {
       },
       ...config,
     };
-    console.log = xlog.bind(config);
-    console.error = xerr.bind(config);
+    console.log = xlog.bind(config.log);
+    console.error = xerr.bind(config.err);
   } else {
     console.log = originalLog;
     console.error = originalError;
@@ -704,40 +768,84 @@ function mreplace_calc(str, replacements) {
   }
   return [result, counts, detail];
 }
+function cookies_obj(str) {
+  if (!str) return {};
+  return str.split("; ").reduce((obj, pair) => {
+    const [key, value] = pair.split("=");
+    if (key && value) {
+      obj[key] = value;
+    }
+    return obj;
+  }, {});
+}
+function cookies_str(obj) {
+  if (!obj || Object.keys(obj).length === 0) return "";
+  return Object.entries(obj)
+    .filter(([key, value]) => key && value) 
+    .map(([key, value]) => `${key}=${value}`)
+    .join("; ");
+}
+function cookies_merge(str1, str2) {
+  const obj1 = cookies_obj(str1);
+  const obj2 = cookies_obj(str2);
+  const merged = { ...obj1, ...obj2 };
+  return cookies_str(merged);
+}
 /**
  * 解析一个 cookie 字符串并返回键值对对象。
  * @param str 要解析的 cookie 字符串。
- * @returns 表示 cookies 的对象。
+ * @returns 表示 cookies 的对象, 如果没有 cookie 字符串，则返回一个空对象。
  */
 function cookie_obj(str) {
-  let obj = {};
-  if (str) {
-    str
-      .split(";")
-      .map((r) => r.trim())
-      .forEach((r) => {
-        let a = r.split("=");
-        obj[a[0]] = a[1];
-      });
-  }
-  return obj;
+  const cookieFlags = [
+    "Max-Age",
+    "Path",
+    "Domain",
+    "SameSite",
+    "Secure",
+    "HttpOnly",
+  ];
+  const result = {
+    value: {}, 
+    flags: {}, 
+  };
+  str
+    .split(";")
+    .map((part) => part.trim())
+    .forEach((part) => {
+      if (!part.includes("=")) {
+        result.flags[part] = true;
+        return;
+      }
+      const [key, value] = part.split("=", 2).map((s) => s.trim());
+      if (cookieFlags.includes(key)) {
+        result.flags[key] = value;
+      } else {
+        result.value[key] = value;
+      }
+    });
+  return result;
 }
-/**
- * 将键值对对象转换为 cookie 字符串。
- * @param obj 要转换为 cookie 字符串的对象。
- * @returns 表示 cookies 的字符串。
- */
 function cookie_str(obj) {
-  return Object.entries(obj)
-    .map((r) => r[0] + "=" + r[1])
-    .join(";");
+  const parts = [];
+  for (const [key, value] of Object.entries(obj.value)) {
+    parts.push(`${key}=${value}`);
+  }
+  for (const [key, value] of Object.entries(obj.flags)) {
+    if (value === true) {
+      parts.push(key);
+    } else {
+      parts.push(`${key}=${value}`);
+    }
+  }
+  return parts.join("; ");
 }
-/**
- * 合并两个 cookie 字符串，第二个字符串的值会覆盖第一个字符串中的重复键。
- * @param str1 第一个 cookie 字符串。
- * @param str2 第二个 cookie 字符串。
- * @returns 合并后的 cookie 字符串。
- */
 function cookie_merge(str1, str2) {
-  return cookie_str({ ...cookie_obj(str1), ...cookie_obj(str2) });
+  const obj1 = cookie_obj(str1);
+  const obj2 = cookie_obj(str2);
+  const merged = {
+    value: { ...obj1.value, ...obj2.value }, 
+    flags: { ...obj1.flags, ...obj2.flags }, 
+  };
+  return cookie_str(merged);
 }

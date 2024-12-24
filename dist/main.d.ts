@@ -8,7 +8,6 @@ export * from "./lib/redis/redis.js";
 export * from "./lib/captcha/captcha.js";
 declare const kit: {
     captcha: typeof captcha.captcha;
-    fnv1a: typeof captcha.fnv1a;
     newRedis: typeof redis.newRedis;
     newRedisCluster: typeof redis.newRedisCluster;
     pg: typeof pg.pg;
@@ -35,6 +34,7 @@ declare const kit: {
     exist: typeof basic.exist;
     xpath: typeof basic.xpath;
     rm: typeof basic.rm;
+    cp: typeof basic.cp;
     arf: typeof basic.arf;
     awf: typeof basic.awf;
     amkdir: typeof basic.amkdir;
@@ -47,12 +47,15 @@ declare const kit: {
     aloadyml: typeof basic.aloadyml;
     aloadenv: typeof basic.aloadenv;
     aloadjson: typeof basic.aloadjson;
-    cookie_merge: typeof basic.cookie_merge;
-    cookie_obj: typeof basic.cookie_obj;
-    cookie_str: typeof basic.cookie_str;
     xconsole: typeof basic.xconsole;
     xlog: typeof basic.xlog;
     xerr: typeof basic.xerr;
+    cookie_obj: typeof basic.cookie_obj;
+    cookie_str: typeof basic.cookie_str;
+    cookie_merge: typeof basic.cookie_merge;
+    cookies_obj: typeof basic.cookies_obj;
+    cookies_str: typeof basic.cookies_str;
+    cookies_merge: typeof basic.cookies_merge;
     mreplace: typeof basic.mreplace;
     mreplace_calc: typeof basic.mreplace_calc;
     xreq: typeof basic.xreq;
@@ -66,7 +69,8 @@ declare const kit: {
     getDate: typeof basic.getDate;
     rint: typeof basic.rint;
     rside: typeof basic.rside;
-    vcode: typeof basic.vcode;
+    gchar: typeof basic.gchar;
+    fhash: typeof basic.fhash;
 };
 import * as captcha from "./lib/captcha/captcha.js";
 import * as redis from "./lib/redis/redis.js";

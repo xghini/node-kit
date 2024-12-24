@@ -6,24 +6,18 @@ import conf from "./conf.js";
 import lua from "./lua.js";
 
 kit.xconsole();
-
 const server = kit.hs();
 const redis = new Redis();
-// const data = {
-//   token: "asfdass",
-// };
-// console.log(await redis.eval(lua.signin, 2, "admin@xship.top"));
-// redis.eval(lua.dels,1,"sess");
 
 // 1.cookie:admin@xship.top cookie:admin@xship.top1
 // 2.jwt
 // console.log(await redis.hgetall("user:admin@xship.top"));
 // cookie 或 jwt
-server.addr("/v1/auth/signup", "post", signup);
 server.addr("/v1/auth/signin", "post", signin);
-server.addr("/v1/auth/reset", "post", reset);
 server.addr("/v1/auth/captcha", captcha);
-server.addr("/v1/auth/sendemail", "post", sendemail);
+server.addr("/v1/auth/emailverify", "post", emailverify);
+server.addr("/v1/auth/signup", "post", signup);
+server.addr("/v1/auth/reset", "post", reset);
 server.addr("/v1/user/signout", signout);
 server.addr("/v1/user/signoutall", signoutall);
 server.addr("/v1/user/profile", profile);
@@ -32,7 +26,6 @@ export async function signin(gold) {
   const { email, pwd } = gold.data;
   const hashKey = "user:" + email;
   let res = await redis.hgetall(hashKey);
-  console.log(res);
   if (Object.keys(res).length > 0 && res.pwd === pwd) {
     // 生成免密token 返回cookie
     const token = kit.uuid();
@@ -48,12 +41,10 @@ export async function signin(gold) {
     ];
     const user = await redis.eval(lua.signin, 2, email, 20, ...fields);
     if (user) {
-      gold.respond({
-        "Set-Cookie": [
-          `auth_token=${token}; Max-Age=3888000; HttpOnly; Path=/; Secure; SameSite=Strict`,
-          `user=${user}; Max-Age=3888000; HttpOnly; Path=/; Secure; SameSite=Strict`,
-        ],
-      });
+      gold.setcookie([
+        `auth_token=${token};Max-Age=3888000`,
+        `user=${user}; Max-Age=3888000`,
+      ]);
       gold.json("登录成功");
     } else {
       gold.err("服务器错误，请稍后再试", 503);
@@ -64,51 +55,122 @@ export async function signin(gold) {
 }
 export async function signup(gold) {
   // user:admin@xship.top @123321 18812345678
-  let { email, pwd, phone } = gold.data;
-  const hashKey = "user:" + email;
-  const fields = ["pwd", pwd, "phone", phone, "regdate", kit.getDate(8)];
-  // 使用Lua脚本一次连接搞定 ：检查键是否存在，如果不存在则创建
-  const luaScript = `
-    if redis.call('EXISTS', KEYS[1]) == 0 then
-      redis.call('HSET', KEYS[1], unpack(ARGV))
-      return 1
-    else
-      return 0
-    end
-  `;
-  const result = await redis.eval(luaScript, 1, hashKey, ...fields);
-  if (result === 1) {
+  const { email, pwd, code } = gold.data;
+  const fields = [
+    "pwd",
+    pwd,
+    "name",
+    email.replace(/@.*/, ""),
+    "regdate",
+    kit.getDate(8),
+  ];
+  // 使用Lua脚本一次连接搞定 ：验证邮箱,检查键是否存在，如果不存在则创建
+  const result = await redis.eval(lua.signup, 2, email, code, ...fields);
+  if (result[0]) {
+    const token = kit.uuid();
+    const fields = [
+      "token",
+      token,
+      "agent",
+      gold.headers["user-agent"],
+      "ip",
+      gold.ip,
+      "time",
+      kit.getDate(),
+    ];
+    const user = await redis.eval(lua.signin, 2, email, 20, ...fields);
+    gold.setcookie([
+      `auth_token=${token}; Max-Age=3888000`,
+      `user=${user}; Max-Age=3888000`,
+    ]);
     gold.json("注册成功");
   } else {
-    gold.json("用户已存在");
+    gold.err(result[1]);
   }
 }
 export async function reset(gold) {
-  gold.end("resetpwd");
+  // 重置密码防护级别要高一些
+  const { email, pwd, code } = gold.data;
+  // 使用Lua脚本一次连接搞定 ：验证邮箱,检查键是否存在，如果不存在则创建
+  const result = await redis.eval(lua.reset, 2, email, code, "pwd", pwd);
+  if (result[0]) {
+    const token = kit.uuid();
+    const fields = [
+      "token",
+      token,
+      "agent",
+      gold.headers["user-agent"],
+      "ip",
+      gold.ip,
+      "time",
+      kit.getDate(),
+    ];
+    const user = await redis.eval(lua.signin, 2, email, 20, ...fields);
+    gold.setcookie([
+      `auth_token=${token}; Max-Age=3888000`,
+      `user=${user}; Max-Age=3888000`,
+    ]);
+    gold.json("ok");
+  } else {
+    gold.err(result[1]);
+  }
 }
 export async function captcha(gold) {
+  // 要防止高频恶意刷,速率限制,不过nodejs这块比较弱,交给rust nginx cf等网关处理
   const { svg, code } = kit.captcha();
-  const captchaId = kit.fnv1a(code);
+  const hash = kit.uuid(8);
+  redis.set("captcha:" + hash, code, "EX", 300);
   gold.respond({
     "content-type": "image/svg+xml",
     "Cache-Control": "no-cache, no-store, must-revalidate",
-    "set-cookie": `captchaId=${captchaId}; HttpOnly; Secure; SameSite=Strict; Max-Age=300`,
+    "set-cookie": `captchaId=${hash}; Secure; HttpOnly;Path=/; SameSite=Strict; Max-Age=300`,
   });
   gold.end(svg);
 }
 
-export async function sendemail(gold) {
-  let { type, email, code } = gold.data;
-  const subject = type === "register" ? "注册验证码" : "重置密码验证码";
+export async function emailverify(gold) {
+  const { type, email, code } = gold.data;
+  const captchaId = gold.cookie.captchaId;
+  console.log(type, email, code, captchaId);
+  if (!captchaId) {
+    gold.err("验证码已过期");
+    return;
+  }
+  // 验证hash,尽量减少无效请求开销,如果参数合规,携带了captchaId就要给它查一次
+  if (
+    code?.length === 4 &&
+    /.+@.+\..+/.test(email) &&
+    ["signup", "reset"].includes(type)
+  ) {
+    // 邮箱是否存在&&验证码校验
+    const res = await redis.eval(
+      lua.emailverify,
+      0,
+      email,
+      type === "signup" ? 1 : 0,
+      captchaId,
+      code
+    );
+    if (!res[0]) {
+      gold.err(res[1]);
+      return;
+    }
+  } else {
+    gold.err("参数错误");
+    return;
+  }
+  const subject = type === "signup" ? "注册验证码" : "重置密码验证码";
+  const newcode =
+    type === "signup" ? kit.gchar(6, "0123456789666888") : kit.gchar(8, 2);
   const html = `
       <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px;">
         <h2 style="color: #333; text-align: center;">XShip ${subject}</h2>
         <div style="background-color: #f8f9fa; border-radius: 5px; padding: 20px; margin: 20px 0;">
           <p style="color: #666; font-size: 16px;">您的验证码是：</p>
           <p style="color: #333; font-size: 24px; font-weight: bold; text-align: center; letter-spacing: 5px;">
-            $-{code}
+            ${newcode}
           </p>
-          <p style="color: #666; font-size: 14px;">验证码有效期为5分钟，请勿泄露给他人。</p>
+          <p style="color: #666; font-size: 14px;">验证码有效期为15分钟，请勿泄露给他人。</p>
         </div>
         <p style="color: #999; font-size: 12px; text-align: center;">
           此邮件由系统自动发送，请勿回复
@@ -129,10 +191,10 @@ export async function sendemail(gold) {
     }),
   });
   if (!response.ok) {
-    gold.end("Failed to send email");
-    console.log(response);
+    gold.err("Failed to send email");
   } else {
-    gold.json(response);
+    redis.set("verify:" + email, newcode, "EX", 900);
+    gold.json("ok");
   }
 }
 export async function signout(gold) {
@@ -144,13 +206,8 @@ export async function signout(gold) {
     gold.cookie["auth_token"]
   );
   if (result) {
-    gold.respond({
-      "set-cookie": [
-        "auth_token=; Path=/; HttpOnly; Max-Age=0",
-        "user=; Path=/; HttpOnly; Max-Age=0",
-      ],
-    });
-    gold.end("ok");
+    gold.delcookie(["auth_token", "user"]);
+    gold.json("ok");
   } else {
     gold.err("需要登录");
   }
@@ -164,13 +221,8 @@ export async function signoutall(gold) {
     gold.cookie["auth_token"]
   );
   if (result) {
-    gold.respond({
-      "set-cookie": [
-        "auth_token=; Path=/; HttpOnly; Max-Age=0",
-        "user=; Path=/; HttpOnly; Max-Age=0",
-      ],
-    });
-    gold.end("ok");
+    gold.delcookie(["auth_token", "user"]);
+    gold.json("ok");
   } else {
     gold.err("需要登录");
   }

@@ -1,12 +1,14 @@
+// redis.log(redis.LOG_NOTICE, 'captchaValue: ' .. tostring(captchaValue)) -- 打印调试日志
+
 export default {
   signin: `
-local pattern = "sess:"..KEYS[1] .. ":*"
-local keys = redis.call("KEYS", pattern)
+local pattern = 'sess:'..KEYS[1] .. ':*'
+local keys = redis.call('KEYS', pattern)
 local number_keys = {} -- 存储数字结尾的key及其数字
 local non_number_keys = {} -- 存储非数字结尾的key
 -- 遍历所有键，分离数字结尾和非数字结尾的key
 for _, key in ipairs(keys) do
-  local match = key:match("(%d+)$")
+  local match = key:match('(%d+)$')
   if match then
     local number = tonumber(match)
     table.insert(number_keys, {
@@ -23,54 +25,101 @@ table.sort(number_keys, function(a, b)
 end)
 -- 删除所有非数字结尾的key
 for _, key in ipairs(non_number_keys) do
-  redis.call("DEL", key)
+  redis.call('DEL', key)
 end
 -- 删除多余的数字key，只保留最大的KEYS[2]个, 因为还有新增的key，所以从第KEYS[2]个开始删除
 for i = KEYS[2], #number_keys do
-  redis.call("DEL", number_keys[i].key)
+  redis.call('DEL', number_keys[i].key)
 end
 local new_number = 1
 if #number_keys > 0 then
   new_number = number_keys[1].number + 1
 end
-local new_key = KEYS[1] ..":".. new_number
-redis.call("HSET", "sess:"..new_key, unpack(ARGV))
+local new_key = KEYS[1] ..':'.. new_number
+redis.call('HSET', 'sess:'..new_key, unpack(ARGV))
 return new_key
   `,
   signout: `
-    local key="sess:"..KEYS[1]
-    local token = redis.call("HGET", key, "token")
-    if token == KEYS[2] then
-      redis.call("DEL", key)
-      return true
-    end
-    return nil
+local key='sess:'..KEYS[1]
+local token = redis.call('HGET', key, 'token')
+if token == KEYS[2] then
+  redis.call('DEL', key)
+  return true
+end
+return nil
   `,
   signoutall: `
-    local key="sess:"..KEYS[1]
-    local token = redis.call("HGET", key, "token")
-    if token == KEYS[2] then
-      key=string.gsub(key, ":[^:]*$", ":*")
-      local keys = redis.call("KEYS", key)
-      redis.call("DEL", unpack(keys))
-      return #keys
-    end
-    return nil
+local key='sess:'..KEYS[1]
+local token = redis.call('HGET', key, 'token')
+if token == KEYS[2] then
+  key=string.gsub(key, ':[^:]*$', ':*')
+  local keys = redis.call('KEYS', key)
+  redis.call('DEL', unpack(keys))
+  return #keys
+end
+return nil
   `,
   profile: `
-    local token = redis.call("HGET", "sess:"..KEYS[1], "token")
-    if token == KEYS[2] then
-      local user =string.gsub(KEYS[1], ":[^:]*$", "")
-      return redis.call("HGETALL", "user:" .. user)
-    end
-    return nil
+local token = redis.call('HGET', 'sess:'..KEYS[1], 'token')
+if token == KEYS[2] then
+  local user =string.gsub(KEYS[1], ':[^:]*$', '')
+  return redis.call('HGETALL', 'user:' .. user)
+end
+return nil
   `,
+  emailverify:`
+local userExists = redis.call('EXISTS', 'user:' .. ARGV[1])
+local message
+if userExists==tonumber(ARGV[2]) then
+  if userExists == 1 then
+      message = '邮箱已注册'
+  else
+      message = '邮箱未注册'
+  end
+  return {false, message}
+end
+local captchaValue = redis.call('GET', 'captcha:' .. ARGV[3])
+if captchaValue == false then
+    return {false, '验证码已过期'}
+end
+if captchaValue ~= ARGV[4] then
+    return {false, '验证码错误'}
+end
+redis.call('DEL', 'captcha:' .. ARGV[3])
+return {true, '校验成功'}
+  `,
+  signup:`
+local userExists = redis.call('EXISTS', 'user:' .. KEYS[1])
+if userExists==1 then
+  return {false, '邮箱已注册,请直接登录'}
+end
+local verify = redis.call('GET', 'verify:' .. KEYS[1])
+if verify == false then
+  return {false,'验证码已过期,请重新发送'}
+elseif verify ~= KEYS[2] then
+  return {false,'验证码错误'}
+end
+redis.call('DEL', 'verify:'..KEYS[1])
+redis.call('HSET', 'user:'..KEYS[1], unpack(ARGV))
+return {true, '注册成功'}
+  `,
+  reset:`
+local verify = redis.call('GET', 'verify:' .. KEYS[1])
+if verify == false then
+  return {false,'验证码已过期,请重新发送'}
+elseif verify ~= KEYS[2] then
+  return {false,'验证码错误'}
+end
+redis.call('DEL', 'verify:'..KEYS[1])
+redis.call('HSET', 'user:'..KEYS[1], unpack(ARGV))
+return {true, '密码重置成功'}
+    `,
   dels: `
-    local keys = redis.call("KEYS", KEYS[1].."*")
-    if #keys > 0 then
-      return redis.call("DEL", unpack(keys))
-    else
-      return 0
-    end
+local keys = redis.call('KEYS', KEYS[1]..'*')
+if #keys > 0 then
+  return redis.call('DEL', unpack(keys))
+else
+  return 0
+end
   `,
 };

@@ -56,6 +56,7 @@ function h2s(...argv) {
 }
 
 function connect(curlString) {
+  // 'post'
   // Parse curl-like command string
   const urlMatch = curlString.match(/https?:\/\/[^\s]+/);
   if (!urlMatch) {

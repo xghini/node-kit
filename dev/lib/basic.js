@@ -9,6 +9,7 @@ export {
   exist,
   xpath,
   rm,
+  cp,
   // 异步版本
   arf,
   awf,
@@ -23,12 +24,15 @@ export {
   aloadenv,
   aloadjson,
   //
-  cookie_merge,
-  cookie_obj,
-  cookie_str,
   xconsole,
   xlog,
   xerr,
+  cookie_obj,
+  cookie_str,
+  cookie_merge,
+  cookies_obj,
+  cookies_str,
+  cookies_merge,
   mreplace,
   mreplace_calc,
   xreq,
@@ -43,7 +47,8 @@ export {
   // Math
   rint,
   rside,
-  vcode,
+  gchar,
+  fhash,
 };
 import { createRequire } from "module";
 import { parse } from "acorn";
@@ -64,14 +69,40 @@ const cyan = "\x1b[97m";
 const yellow = "\x1b[93m";
 const blue = "\x1b[94m";
 /*********************************************/
-// 生成易于识别图像验证的验证码,服务端应设置最大8位,防止堵塞 n>8?n=8:n;
-function vcode(n = 4) {
-  const characters = "23457ACDFGHJKLPQRSTUVWXY23457";
-  /* 舍弃的易混淆0O I 1 8B NZ EM 69
-  推荐canvas设置
-    const fontSize = height * 0.65;
-    ctx.font = `bold ${fontSize}px Arial`;
-  */
+/**
+ * 生成易于识别图像验证的验证码,服务端应设置最大8位,防止堵塞 n>8?n=8:n;也可以用来随机生码测试性能
+ * @param {string|Buffer|TypedArray|DataView} cx - 要计算哈希的输入数据，可以是字符串、Buffer 或其他支持的数据类型。
+ * @param {string} [encode='base64url'] - 指定哈希值的输出编码格式，支持 'hex'、'base64'、'base64url' 等。
+ * @param {string} [type='sha256'] - 指定哈希算法，默认使用 'sha256'，支持 'md5'、'sha1'、'sha512' 等。
+ * @returns {string} 生成的哈希值，编码格式由 `encode` 参数决定。
+ */
+function fhash(cx, encode = "base64url", type = "sha256") {
+  //fast-hash,nodejs原生中,sha256表现最好,安全性也高,可以通杀,开销10微秒级
+  return crypto.createHash(type).update(cx).digest(encode);
+}
+function gchar(n = 6, characters = 0) {
+  if (typeof characters === "number") {
+    switch (characters) {
+      case 0: //数字
+        characters = "0123456789";
+        break;
+      case 1: //用于生成易识别的验证码,去掉了混淆字符
+        characters = "23457ACDFGHJKLPQRSTUVWXY23457";
+        break;
+      case 2: //英文字母大小写+数字
+        characters =
+          "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz012345678901234567890123456789";
+        break;
+      case 2: //base64url
+        characters =
+          "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789-_";
+        break;
+      case 3: //base64
+        characters =
+          "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/";
+        break;
+    }
+  }
   let result = "";
   for (let i = 0; i < n; i++) {
     const idx = Math.floor(Math.random() * characters.length);
@@ -105,7 +136,7 @@ function getDate(offset = 8) {
   const beijingTime = new Date(now.getTime() + offset * 3600000); // UTC 时间加 8 小时
   return beijingTime.toISOString().replace("T", " ").substring(0, 19); // 格式化为 'YYYY-MM-DD HH:MM:SS'
 }
-// 通用唯一识别码 Universally unique identifier,此函数16位已强于36位的uuidv4
+// 通用唯一识别码 Universally unique identifier,此函数16位已强于36位的uuidv4,这里的len是字节数,不是最终生成字符的长度
 function uuid(len = 16) {
   return crypto.randomBytes(len).toString("base64url");
 }
@@ -492,6 +523,45 @@ function xpath(targetPath, basePath, separator = "/") {
   }
 }
 /**
+ * 递归复制文件或目录
+ * @param {string} oldPath - 源路径
+ * @param {string} newPath - 目标路径
+ * @throws {Error} 当路径不存在或复制过程出错时抛出异常
+ */
+function cp(oldPath, newPath) {
+  try {
+      // 获取源文件/目录的状态
+      const stats = fs.statSync(oldPath);
+      
+      if (stats.isDirectory()) {
+          // 处理目录复制
+          fs.mkdirSync(newPath, { recursive: true });
+          
+          // 读取并遍历目录内容
+          const entries = fs.readdirSync(oldPath);
+          for (const entry of entries) {
+              // 构建源和目标的完整路径
+              const srcPath = path.join(oldPath, entry);
+              const destPath = path.join(newPath, entry);
+              // 递归复制子项
+              cp(srcPath, destPath);
+          }
+      } else if (stats.isFile()) {
+          // 处理文件复制
+          // 确保目标文件的父目录存在
+          const targetDir = path.dirname(newPath);
+          fs.mkdirSync(targetDir, { recursive: true });
+          
+          // 执行文件复制
+          fs.copyFileSync(oldPath, newPath);
+      } else {
+          throw new Error(`不支持的文件类型: ${oldPath}`);
+      }
+  } catch (error) {
+      throw new Error(`复制失败 "${oldPath}" -> "${newPath}": ${error.message}`);
+  }
+}
+/**
  * 删除指定路径的文件或文件夹（同步方法）。
  * @param {string} targetPath - 要删除的文件或文件夹路径，支持相对路径或绝对路径。
  * @returns {undefined} - 无返回值。如果删除失败，会打印错误信息。
@@ -670,9 +740,9 @@ function getLineInfo(i = 3) {
 }
 function xlog(...args) {
   const timeString = getTimestamp();
-  const line = getLineInfo(this.log.trace);
+  const line = getLineInfo(this?.trace || 4); // 一般直接使用xlog,xerr的是需要定制this,不是最终调用者,所以trace+1
   let pre;
-  switch (this.log.info) {
+  switch (this?.info) {
     case 0:
       pre = "";
       break;
@@ -691,20 +761,20 @@ function xlog(...args) {
 function xerr(...args) {
   // console.log(new Error().stack);
   const timeString = getTimestamp();
-  const line = getLineInfo(this.err.trace);
+  const line = getLineInfo(this?.trace || 4);
   let pre;
-  switch (this.err.info) {
+  switch (this?.info) {
+    case 0:
+      pre = "";
+      break;
     case 1:
       pre = `${dim}[${timeString}]: ${red}`;
       break;
     case 2:
       pre = `${blue}${line}: ${red}`;
       break;
-    case 3:
-      pre = `${dim}[${timeString}]${blue} ${line}: ${red}`;
-      break;
     default:
-      pre = "";
+      pre = `${dim}[${timeString}]${blue} ${line}: ${red}`;
   }
   process.stdout.write(pre);
   originalError(...args, `${reset}`);
@@ -731,8 +801,8 @@ function xconsole(config = {}) {
       },
       ...config,
     };
-    console.log = xlog.bind(config);
-    console.error = xerr.bind(config);
+    console.log = xlog.bind(config.log);
+    console.error = xerr.bind(config.err);
   } else {
     console.log = originalLog;
     console.error = originalError;
@@ -815,41 +885,122 @@ function mreplace_calc(str, replacements) {
   // }
   return [result, counts, detail];
 }
-/**
- * 解析一个 cookie 字符串并返回键值对对象。
- * @param str 要解析的 cookie 字符串。
- * @returns 表示 cookies 的对象。
- */
-function cookie_obj(str) {
-  let obj = {};
-  if (str) {
-    str
-      .split(";")
-      .map((r) => r.trim())
-      .forEach((r) => {
-        let a = r.split("=");
-        obj[a[0]] = a[1];
-      });
-  }
-  return obj;
+
+function cookies_obj(str) {
+  // 如果输入为空字符串，返回空对象
+  if (!str) return {};
+
+  // 将 cookies 字符串转换为对象
+  return str.split("; ").reduce((obj, pair) => {
+    // 处理每一个键值对
+    const [key, value] = pair.split("=");
+    if (key && value) {
+      // 确保键和值都存在
+      obj[key] = value;
+    }
+    return obj;
+  }, {});
+}
+
+function cookies_str(obj) {
+  // 如果输入为空对象，返回空字符串
+  if (!obj || Object.keys(obj).length === 0) return "";
+
+  // 将对象转换回 cookies 字符串
+  return Object.entries(obj)
+    .filter(([key, value]) => key && value) // 确保键和值都存在
+    .map(([key, value]) => `${key}=${value}`)
+    .join("; ");
+}
+
+function cookies_merge(str1, str2) {
+  // 将两个字符串都转换为对象
+  const obj1 = cookies_obj(str1);
+  const obj2 = cookies_obj(str2);
+
+  // 合并对象，str2 的值会覆盖 str1 中的重复键
+  const merged = { ...obj1, ...obj2 };
+
+  // 转换回字符串
+  return cookies_str(merged);
 }
 
 /**
- * 将键值对对象转换为 cookie 字符串。
- * @param obj 要转换为 cookie 字符串的对象。
- * @returns 表示 cookies 的字符串。
+ * 解析一个 cookie 字符串并返回键值对对象。
+ * @param str 要解析的 cookie 字符串。
+ * @returns 表示 cookies 的对象, 如果没有 cookie 字符串，则返回一个空对象。
  */
-function cookie_str(obj) {
-  return Object.entries(obj)
-    .map((r) => r[0] + "=" + r[1])
-    .join(";");
+function cookie_obj(str) {
+  // 定义所有可能的属性标志
+  const cookieFlags = [
+    "Max-Age",
+    "Path",
+    "Domain",
+    "SameSite",
+    "Secure",
+    "HttpOnly",
+  ];
+
+  // 结果对象会包含两个部分
+  const result = {
+    value: {}, // 存储实际的数据
+    flags: {}, // 存储所有的属性标志
+  };
+
+  // 解析 cookie 字符串
+  str
+    .split(";")
+    .map((part) => part.trim())
+    .forEach((part) => {
+      // 处理不带等号的标志位
+      if (!part.includes("=")) {
+        result.flags[part] = true;
+        return;
+      }
+
+      // 处理带等号的部分
+      const [key, value] = part.split("=", 2).map((s) => s.trim());
+
+      // 判断是属性标志还是实际数据
+      if (cookieFlags.includes(key)) {
+        result.flags[key] = value;
+      } else {
+        result.value[key] = value;
+      }
+    });
+
+  return result;
 }
-/**
- * 合并两个 cookie 字符串，第二个字符串的值会覆盖第一个字符串中的重复键。
- * @param str1 第一个 cookie 字符串。
- * @param str2 第二个 cookie 字符串。
- * @returns 合并后的 cookie 字符串。
- */
+
+function cookie_str(obj) {
+  const parts = [];
+
+  // 首先添加实际的数据值
+  for (const [key, value] of Object.entries(obj.value)) {
+    parts.push(`${key}=${value}`);
+  }
+
+  // 然后添加属性标志
+  for (const [key, value] of Object.entries(obj.flags)) {
+    if (value === true) {
+      parts.push(key);
+    } else {
+      parts.push(`${key}=${value}`);
+    }
+  }
+
+  return parts.join("; ");
+}
+
 function cookie_merge(str1, str2) {
-  return cookie_str({ ...cookie_obj(str1), ...cookie_obj(str2) });
+  const obj1 = cookie_obj(str1);
+  const obj2 = cookie_obj(str2);
+
+  // 合并结果，注意保持结构
+  const merged = {
+    value: { ...obj1.value, ...obj2.value }, // 合并数据值
+    flags: { ...obj1.flags, ...obj2.flags }, // 合并属性标志
+  };
+
+  return cookie_str(merged);
 }

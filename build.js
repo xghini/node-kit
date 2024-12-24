@@ -12,6 +12,9 @@ import {
   rm,
 } from "@ghini/kit/dev";
 xconsole();
+// const version = process.env.npm_config_aaa || "0.0.1";
+// console.log(version,process.argv);
+// process.exit(0);
 
 // 清空指定目录下所有.js和.ts文件
 function clearDir(dirPath) {
@@ -44,4 +47,16 @@ function traverseAndProcess(inputDir, outputDir) {
 rm("./src");
 rm("./dist");
 traverseAndProcess("./dev", "./src");
+
+// 每次加个小版本发布 +0.0.1
+const packageJson = JSON.parse(rf("./package.json"));
+const parts = packageJson.version.split(".").map(Number);
+parts[2]+=1;
+const newVersion = parts.join(".");
+// 更新 package.json 中的版本号
+packageJson.version = newVersion;
+// 将更新后的 package.json 写回文件
+// 原配置拷贝一份
+// cp("./package.json", "./package.jsonc");
+wf("./package.json", JSON.stringify(packageJson, null, 2));
 // process.stdin.resume();
