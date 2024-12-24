@@ -4,10 +4,12 @@ import Redis from "ioredis";
 // import * as user from "./user.js";
 import conf from "./conf.js";
 import lua from "./lua.js";
-
 kit.xconsole();
 const server = kit.hs();
 const redis = new Redis();
+// const redis = new Redis("199.7.140.74", {password: "@1z2z3z123z",});
+
+// redis.eval(lua.dels,1,'hy2:*')
 
 // 1.cookie:admin@xship.top cookie:admin@xship.top1
 // 2.jwt
@@ -21,6 +23,44 @@ server.addr("/v1/auth/reset", "post", reset);
 server.addr("/v1/user/signout", signout);
 server.addr("/v1/user/signoutall", signoutall);
 server.addr("/v1/user/profile", profile);
+server.addr("/v1/user/orderplan", orderplan);
+server.addr("/subscribe", "get", subscribe);
+server.addr("/hy2auth", hy2auth);
+export async function hy2auth(gold) {
+  console.log(gold.headers);
+  console.log(gold.data);
+  gold.end(
+    JSON.stringify({
+      ok: true,
+      id: "john_doe",
+    })
+  );
+}
+export async function subscribe(gold) {
+  let data,
+    agent = gold.headers["user-agent"];
+  console.log(agent);
+  if (agent.startsWith("ClashforWindows")) {
+    data = await kit.arf("./clash.yaml");
+  } else if (agent.match(/clash/i)) {
+    data = await kit.arf("./clash-verge.yaml");
+  }
+  // else if (agent.match(/v2ray/i)) {
+  //   data = Buffer.from(rf('./v2ray.txt')).toString('base64');
+  // }
+  else {
+    data = "ok";
+  }
+  gold.respond({
+    ":status": 200,
+    "content-type": "application/octet-stream; charset=UTF-8", // 或 application/octet-stream
+    // "content-encoding": "gzip",
+    "subscription-userinfo": `upload=100000000; download=10000000; total=107374182400; expire=1762502400`,
+    "content-disposition": "attachment; filename=xship.com",
+    // "profile-web-page-url": "https://stream.topchat.vip",
+  });
+  gold.end(data);
+}
 
 export async function signin(gold) {
   const { email, pwd } = gold.data;
@@ -159,7 +199,7 @@ export async function emailverify(gold) {
     gold.err("参数错误");
     return;
   }
-  const subject = type === "signup" ? "注册验证码" : "重置密码验证码";
+  const subject = type === "signup" ? "注册账号" : "重置密码";
   const newcode =
     type === "signup" ? kit.gchar(6, "0123456789666888") : kit.gchar(8, 2);
   const html = `
@@ -227,7 +267,7 @@ export async function signoutall(gold) {
     gold.err("需要登录");
   }
 }
-async function profile(gold) {
+export async function profile(gold) {
   const result = await redis.eval(
     lua.profile,
     2,
@@ -235,11 +275,41 @@ async function profile(gold) {
     gold.cookie["auth_token"]
   );
   if (result) {
-    const obj = {};
-    for (let i = 0; i < result.length; i += 2) {
-      obj[result[i]] = result[i + 1];
-    }
-    delete obj.pwd;
-    gold.json(obj);
+    gold.json(result);
   } else gold.err("需要登录");
+}
+export async function orderplan(gold) {
+  // orderplan plan:维护列表,
+  const key = "plan:admin@xship.top:" + kit.uuid();
+  const data = {
+    upload: 0,
+    download: 0,
+    total: 107374182400,
+    expire: 1762502400,
+    title:"凌日拓途计划",
+    type: "hy2",
+    resetDate: 0,
+  };
+  await redis.hset(key, data);
+  await redis.expireat(key, 1762502400);
+  // 添加订阅,并将订阅添加到user.subscribe中
+  // const res = await redis.eval(lua.orderplan, 2, key, email, ...obj2arr(data));
+  // await redis.hset(key,data);
+  // await redis.expireat(key,1762502400);
+  // await redis.hgetall(key);
+  // await redis.ttl(key);
+  // const a = await redis.keys();
+  // redis.hset("user:admin@xship.top", "subscribe", JSON.stringify(a));
+  gold.json("ok");
+}
+
+function obj2arr(obj) {
+  const arr = [];
+  for (const key in data) {
+    if (data.hasOwnProperty(key)) {
+      //确保只处理自身属性
+      arr.push(key, String(data[key])); //将值转换为字符串（Redis HSET 格式要求）
+    }
+  }
+  return arr;
 }

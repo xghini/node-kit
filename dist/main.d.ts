@@ -65,8 +65,8 @@ declare const kit: {
     timelog: typeof basic.timelog;
     prompt: typeof basic.prompt;
     stack: typeof basic.stack;
-    uuid: typeof basic.uuid;
     getDate: typeof basic.getDate;
+    uuid: typeof basic.uuid;
     rint: typeof basic.rint;
     rside: typeof basic.rside;
     gchar: typeof basic.gchar;

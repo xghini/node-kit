@@ -42,9 +42,9 @@ export {
   timelog,
   prompt,
   stack,
-  uuid,
   getDate,
   // Math
+  uuid,
   rint,
   rside,
   gchar,

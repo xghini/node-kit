@@ -47,11 +47,22 @@ function hd_stream(server, stream, headers) {
           stream.respond.bind(stream)({ ...respond_headers, ...obj });
         }
       },
+      // 任何类型的data都能返回,包括json字符串
       json: (data) => {
         gold.respond({
           "content-type": "application/json; charset=utf-8",
         });
-        if (typeof data === "string") data = { msg: data };
+        try {
+          if (typeof data === "string") {
+            data = JSON.parse(data);
+          }
+        } catch (error) {
+          data = { msg: data };
+        }
+        // 再次确保 data 是一个对象，非对象类型统一包装
+        if (typeof data !== "object" || data === null) {
+          data = { msg: data };
+        }
         gold.end(JSON.stringify(data));
       },
       raw: (data) => {

@@ -62,10 +62,34 @@ return nil
   profile: `
 local token = redis.call('HGET', 'sess:'..KEYS[1], 'token')
 if token == KEYS[2] then
-  local user =string.gsub(KEYS[1], ':[^:]*$', '')
-  return redis.call('HGETALL', 'user:' .. user)
+  local user = string.gsub(KEYS[1], ':[^:]*$', '')
+  local user_data = redis.call('HGETALL', 'user:' .. user)
+  local result = {}
+  for i = 1, #user_data, 2 do
+    result[user_data[i]] = user_data[i + 1]
+  end
+  result['pwd'] = nil
+  local plans = redis.call('KEYS', 'plan:' .. user .. ':*')
+  local plan_list = {}
+  for _, plan_key in ipairs(plans) do
+    local plan_data = redis.call('HGETALL', plan_key)
+    local plan_result = {}
+    for i = 1, #plan_data, 2 do
+      plan_result[plan_data[i]] = plan_data[i + 1]
+    end
+    table.insert(plan_list, plan_result)
+  end
+  result['plans'] = plan_list
+  return cjson.encode(result)
 end
 return nil
+  `,
+  orderplan:`
+  local key=KEYS[1]
+  local email=KEYS[2]
+  redis.call('HSET', key, unpack(ARGV))
+  redis.call('HSET','user:'..email,'subscribe',key)
+  return nil
   `,
   emailverify:`
 local userExists = redis.call('EXISTS', 'user:' .. ARGV[1])

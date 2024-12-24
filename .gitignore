@@ -1,6 +1,8 @@
 **/.env
 **/conf.js
 **/*.conf.js
+**/*.yaml
+**/*.yml
 
 
 

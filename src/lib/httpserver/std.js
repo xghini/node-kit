@@ -46,7 +46,16 @@ function hd_stream(server, stream, headers) {
         gold.respond({
           "content-type": "application/json; charset=utf-8",
         });
-        if (typeof data === "string") data = { msg: data };
+        try {
+          if (typeof data === "string") {
+            data = JSON.parse(data);
+          }
+        } catch (error) {
+          data = { msg: data };
+        }
+        if (typeof data !== "object" || data === null) {
+          data = { msg: data };
+        }
         gold.end(JSON.stringify(data));
       },
       raw: (data) => {
