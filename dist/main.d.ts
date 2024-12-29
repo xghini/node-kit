@@ -3,14 +3,12 @@ export * from "./lib/basic.js";
 export * from "./lib/codec.js";
 export * from "./lib/httpserver/hs.js";
 export * from "./lib/xdb/xdb.js";
-export * from "./lib/pg/pg.js";
 export * from "./lib/redis/redis.js";
 export * from "./lib/captcha/captcha.js";
 declare const kit: {
     captcha: typeof captcha.captcha;
     newRedis: typeof redis.newRedis;
     newRedisCluster: typeof redis.newRedisCluster;
-    pg: typeof pg.pg;
     Xdb: typeof xdb.Xdb;
     h2s: typeof hs.h2s;
     hs: typeof hs.hs;
@@ -74,7 +72,6 @@ declare const kit: {
 };
 import * as captcha from "./lib/captcha/captcha.js";
 import * as redis from "./lib/redis/redis.js";
-import * as pg from "./lib/pg/pg.js";
 import * as xdb from "./lib/xdb/xdb.js";
 import * as hs from "./lib/httpserver/hs.js";
 import * as codec from "./lib/codec.js";

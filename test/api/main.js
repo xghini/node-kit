@@ -6,9 +6,9 @@ import conf from "./conf.js";
 import lua from "./lua.js";
 kit.xconsole();
 const server = kit.hs();
-const redis = new Redis();
-// const redis = new Redis("199.7.140.74", {password: "@1z2z3z123z",});
-
+// const redis = new Redis();
+const redis = new Redis(conf.redis[0]);
+// console.log(await redis.keys("*"));
 // redis.eval(lua.dels,1,'hy2:*')
 
 // 1.cookie:admin@xship.top cookie:admin@xship.top1
@@ -74,12 +74,12 @@ export async function signin(gold) {
       token,
       "agent",
       gold.headers["user-agent"],
-      "ip",
-      gold.ip,
+      // "ip",
+      // gold.ip,
       "time",
       kit.getDate(),
     ];
-    const user = await redis.eval(lua.signin, 2, email, 20, ...fields);
+    const user = await redis.eval(lua.signin, 2, email, 10, ...fields);
     if (user) {
       gold.setcookie([
         `auth_token=${token};Max-Age=3888000`,

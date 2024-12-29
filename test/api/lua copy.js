@@ -7,43 +7,37 @@ export default {
 local pattern = 'sess:'..KEYS[1] .. ':*'
 local keys = redis.call('KEYS', pattern)
 
--- 创建表存储 key、空闲时间和序号
-local key_info = {}
-local max_number = 0
+-- 创建一个表来存储所有 key 及其空闲时间
+local key_idles = {}
 
--- 获取每个 key 的空闲时间和序号
+-- 获取每个 key 的空闲时间
 for _, key in ipairs(keys) do
   local idle_time = redis.call('OBJECT', 'IDLETIME', key)
-  -- 提取序号
-  local number = tonumber(key:match(':(%d+)$'))
-  if number then
-    max_number = math.max(max_number, number)
-    table.insert(key_info, {
-      key = key,
-      idle = idle_time,
-      number = number
-    })
-  end
+  table.insert(key_idles, {
+    key = key,
+    idle = idle_time
+  })
 end
 
 -- 按空闲时间排序（空闲时间越长，越靠后）
-table.sort(key_info, function(a, b)
+table.sort(key_idles, function(a, b)
   return a.idle < b.idle
 end)
 
 -- 如果现有 key 数量超过限制，删除最久未使用的 key
 -- KEYS[2] 是允许的最大 session 数量
-if #key_info >= tonumber(KEYS[2]) then
-  for i = tonumber(KEYS[2]), #key_info do
-    redis.call('DEL', key_info[i].key)
+if #key_idles >= tonumber(KEYS[2]) then
+  for i = tonumber(KEYS[2]), #key_idles do
+    redis.call('DEL', key_idles[i].key)
   end
 end
 
--- 生成新的序号（最大序号 + 1）
-local new_number = max_number + 1
+-- 生成新的 key
+-- 获取当前时间戳作为新 key 的后缀
+local timestamp = redis.call('TIME')[1]
+local new_key = KEYS[1] .. ':' .. timestamp
 
--- 设置新的 session
-local new_key = KEYS[1] .. ':' .. new_number
+-- 设置新的 session 数据
 redis.call('HSET', 'sess:'..new_key, unpack(ARGV))
 
 -- 设置 TTL (3888000 秒，约 45 天)

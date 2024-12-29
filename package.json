@@ -1,6 +1,6 @@
 {
   "name": "@ghini/kit",
-  "version": "2.5.3",
+  "version": "2.5.5",
   "scripts": {
     "build": "node ./build.js && tsc",
     "pub": "npm run build && npm publish"
@@ -22,19 +22,17 @@
     "http2",
     "db",
     "redis",
-    "pg",
     "io"
   ],
   "author": "Ghini",
   "license": "MIT",
   "dependencies": {
-    "acorn": "^8.14.0",
-    "ioredis": "^5.4.1",
-    "pg": "^8.13.1",
-    "yaml": "^2.6.1"
+    "acorn": "8.14.0",
+    "ioredis": "5.4.2",
+    "yaml": "2.6.1"
   },
   "devDependencies": {
-    "@types/node": "^22.10.2",
-    "typescript": "^5.7.2"
+    "@types/node": "22.10.2",
+    "typescript": "5.7.2"
   }
 }
