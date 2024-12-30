@@ -24,11 +24,20 @@ server.addr("/v1/user/signout", signout);
 server.addr("/v1/user/signoutall", signoutall);
 server.addr("/v1/user/profile", profile);
 server.addr("/v1/user/orderplan", orderplan);
-server.addr("/subscribe", "get", subscribe);
+server.addr("/v1/subscribe", "get", subscribe);
 server.addr("/hy2auth", hy2auth);
+server.addr("/v1/sh/frps", frps);
+export async function frps(gold) {
+  gold.respond({
+    'content-type': 'text/plain',
+    'cache-control': 'no-cache,no-store,must-revalidate',
+  })
+  gold.end(await kit.arf('./sh/frps'))
+}
 export async function hy2auth(gold) {
-  console.log(gold.headers);
-  console.log(gold.data);
+  // delete gold.headers
+  // console.log(gold);
+  console.log('hy2auth:', gold.data);
   gold.end(
     JSON.stringify({
       ok: true,
@@ -286,7 +295,7 @@ export async function orderplan(gold) {
     download: 0,
     total: 107374182400,
     expire: 1762502400,
-    title:"凌日拓途计划",
+    title: "凌日拓途计划",
     type: "hy2",
     resetDate: 0,
   };

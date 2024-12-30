@@ -1,0 +1,35 @@
+#frps (在win32可以使用nssm将frpc注册为服务)
+# /usr/local/bin/frps -c /etc/frp/frps.toml
+# 相关端口 7000 7777 8080(客户端设置)
+# 下载 frp 压缩包
+# ${VERSION#v} 是一种 Shell 参数扩展 语法，具体含义是从变量 ${VERSION} 的值中去掉开头的 v 字符。${变量名#前缀} 去掉变量值中 最短匹配的前缀。
+VERSION=$(curl -s https://api.github.com/repos/fatedier/frp/releases/latest | grep tag_name | cut -d '"' -f 4)
+wget https://github.com/fatedier/frp/releases/download/${VERSION}/frp_${VERSION#v}_linux_amd64.tar.gz
+tar -zxvf frp_${VERSION#v}_linux_amd64.tar.gz
+cp frp_${VERSION#v}_linux_amd64/frps /usr/local/bin/frps
+rm -rf frp_${VERSION#v}_linux_amd64*
+mkdir -p /etc/frp
+cat>/etc/frp/frps.toml<<EOF
+bindPort = 7000
+auth.method = "token"
+auth.token = "YourStrongPassword0085"
+webServer.addr = "0.0.0.0"
+webServer.port = 7777
+webServer.user = "admin"
+webServer.password = "YourStrongPassword0085"
+EOF
+
+cat>/etc/systemd/system/frps.service<<EOF
+[Unit]
+Description=frps service
+After=network.target
+[Service]
+Type=simple
+User=root
+Restart=on-failure
+ExecStart=/usr/local/bin/frps -c /etc/frp/frps.toml
+[Install]
+WantedBy=multi-user.target
+EOF
+systemctl enable frps
+systemctl start frps
