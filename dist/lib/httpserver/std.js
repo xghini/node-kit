@@ -16,6 +16,7 @@ function hd_stream(server, stream, headers) {
             param: {},
             data: {},
             body: "",
+            ip: stream.ip || stream.session.socket.remoteAddress,
             config: {
                 MAX_BODY: 4 * 1024 * 1024,
             },
@@ -124,6 +125,7 @@ function simulateHttp2Stream(req, res) {
     headers[":authority"] = req.headers.host || "";
     const stream = new EventEmitter();
     stream.httpVersion = req.httpVersion;
+    stream.ip = req.socket.remoteAddress;
     stream.respond = (responseHeaders) => {
         const status = responseHeaders[":status"] || 200;
         const filteredHeaders = Object.fromEntries(Object.entries(responseHeaders).filter(([key]) => !key.startsWith(":")));

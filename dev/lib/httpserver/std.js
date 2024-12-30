@@ -18,7 +18,7 @@ function hd_stream(server, stream, headers) {
       param: {}, //统一为空对象,避免从undefined取值报错
       data: {},
       body: "",
-      // ip: stream.session.socket.remoteAddress,
+      ip: stream.ip||stream.session.socket.remoteAddress,
       config: {
         // 默认配置
         MAX_BODY: 4 * 1024 * 1024,
@@ -146,6 +146,7 @@ function simulateHttp2Stream(req, res) {
   headers[":authority"] = req.headers.host || "";
   const stream = new EventEmitter(); // 添加事件发射器功能
   stream.httpVersion = req.httpVersion;
+  stream.ip = req.socket.remoteAddress;
   stream.respond = (responseHeaders) => {
     const status = responseHeaders[":status"] || 200; // 默认状态码 200
     const filteredHeaders = Object.fromEntries(

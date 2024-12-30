@@ -1,15 +1,16 @@
 import http2 from "http2";
 import http from "http";
-
 import { hd_stream, getArgv, simulateHttp2Stream } from "./std.js";
 import { addr, _404 } from "./router.js";
+import { xlog } from "../basic.js";
 
 export { h2s, hs, connect };
 export * from "./routes.js";
 function hs(...argv) {
   let { port, config } = getArgv(argv),
     server,
-    scheme;
+    scheme,
+    ok = false;
   if (config?.key) {
     server = http2.createSecureServer(config);
     scheme = "https";
@@ -18,6 +19,7 @@ function hs(...argv) {
     scheme = "http";
   }
   server.listen(port, () => {
+    ok = true;
     console.log(`\x1b[92m✓\x1b[0m Running on ${scheme}://localhost:${port}`);
     if (config?.key) {
       server.on("stream", (stream, headers) => {
@@ -35,19 +37,25 @@ function hs(...argv) {
   });
   server.on("error", (err) => {
     if (err.code === "EADDRINUSE" && port < 65535) {
-      console.error(`\x1b[93m⚠\x1b[0m Port ${port} is in use, trying ${port+1} instead.`);
+      console.error(
+        `\x1b[93m⚠\x1b[0m Port ${port} is in use, trying ${port + 1} instead.`
+      );
       port++;
       server.listen(port);
     } else {
       console.error(`Server error: ${err.message}`);
     }
   });
+  xlog(scheme+" server...");
   // return router(server);
   // return server;
   return Object.assign(server, {
+    http_local:true,
+    https_local:false,
     routes: [],
     addr,
     _404,
+    router_begin: (server,gold) => {},
   });
 }
 function h2s(...argv) {

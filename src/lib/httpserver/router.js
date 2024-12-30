@@ -53,6 +53,13 @@ function addr(...argv) {
   this.routes.push([path, method, ct, fn_end, fn_data, config]);
 }
 function router_find_resolve(server, stream, gold) {
+  server.router_begin?.(server,gold);
+  if((server.http_local&&gold.headers[':scheme']==='http')||(server.https_local&&gold.headers[':scheme']==='https')){
+    if(gold.ip!=='127.0.0.1'&&gold.ip!=='::1'&&gold.ip!=='::ffff:127.0.0.1'){
+      server._404?.(gold);
+      return;
+    }
+  }
   let arr,
     arr0 = [],
     arr1 = [];
@@ -72,7 +79,7 @@ function router_find_resolve(server, stream, gold) {
   } else if (arr1.length > 0) {
     arr = arr1;
   } else {
-    server._404(gold);
+    server._404?.(gold);
     return;
   }
   arr0 = [];
@@ -89,7 +96,7 @@ function router_find_resolve(server, stream, gold) {
   } else if (arr1.length > 0) {
     arr = arr1;
   } else {
-    server._404(gold);
+    server._404?.(gold);
     return;
   }
   arr0 = undefined;
@@ -107,7 +114,7 @@ function router_find_resolve(server, stream, gold) {
   } else if (arr1) {
     router_target = arr1;
   } else {
-    server._404(gold);
+    server._404?.(gold);
     return;
   }
   gold.config = { ...gold.config, ...router_target.at(-1) };
@@ -138,7 +145,7 @@ function router_find_resolve(server, stream, gold) {
   stream.on("end", async () => {
     try {
       gold.body = Buffer.concat(chunks).toString();
-      gold.data = body2data(gold);
+      gold.data = body2data(gold)||{};
       await router_target[3](gold);
     } catch (err) {
       xerr(err.message);
