@@ -84,7 +84,7 @@ function hd_stream(server, stream, headers) {
         });
         data = JSON.stringify(data);
         // console.error(gold.headers[":path"] + "\n", data);
-        xerr(gold.headers[":path"] + "\n", data);
+        xerr(gold.ip,gold.headers[":path"] + "\n", data);
         gold.end(data);
       },
     };

@@ -77,7 +77,7 @@ function hd_stream(server, stream, headers) {
           "content-type": "application/json; charset=utf-8",
         });
         data = JSON.stringify(data);
-        xerr(gold.headers[":path"] + "\n", data);
+        xerr(gold.ip,gold.headers[":path"] + "\n", data);
         gold.end(data);
       },
     };
