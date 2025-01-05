@@ -1,6 +1,6 @@
 {
   "name": "@ghini/kit",
-  "version": "2.5.11",
+  "version": "2.5.12",
   "scripts": {
     "build": "node ./build.js && tsc",
     "pub": "npm run build && npm publish"

@@ -18,7 +18,10 @@ function hd_stream(server, stream, headers) {
       param: {}, //统一为空对象,避免从undefined取值报错
       data: {},
       body: "",
-      ip: stream.ip||stream.session.socket.remoteAddress,
+      ip: function () {
+        if (this.startsWith("::ffff:")) return this.slice(7);
+        else return this;
+      }.call(stream.ip || stream.session.socket.remoteAddress),
       config: {
         // 默认配置
         MAX_BODY: 4 * 1024 * 1024,
@@ -84,7 +87,7 @@ function hd_stream(server, stream, headers) {
         });
         data = JSON.stringify(data);
         // console.error(gold.headers[":path"] + "\n", data);
-        xerr(gold.ip,gold.headers[":path"] + "\n", data);
+        xerr(gold.ip, gold.headers[":path"] + "\n", data);
         gold.end(data);
       },
     };

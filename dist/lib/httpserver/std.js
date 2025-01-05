@@ -16,7 +16,12 @@ function hd_stream(server, stream, headers) {
             param: {},
             data: {},
             body: "",
-            ip: stream.ip || stream.session.socket.remoteAddress,
+            ip: function () {
+                if (this.startsWith("::ffff:"))
+                    return this.slice(7);
+                else
+                    return this;
+            }.call(stream.ip || stream.session.socket.remoteAddress),
             config: {
                 MAX_BODY: 4 * 1024 * 1024,
             },
