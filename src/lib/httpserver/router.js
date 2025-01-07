@@ -53,9 +53,16 @@ function addr(...argv) {
   this.routes.push([path, method, ct, fn_end, fn_data, config]);
 }
 function router_find_resolve(server, stream, gold) {
-  server.router_begin?.(server,gold);
-  if((server.http_local&&gold.headers[':scheme']==='http')||(server.https_local&&gold.headers[':scheme']==='https')){
-    if(gold.ip!=='127.0.0.1'&&gold.ip!=='::1'&&gold.ip!=='::ffff:127.0.0.1'){
+  server.router_begin?.(server, gold);
+  if (
+    (server.http_local && gold.headers[":scheme"] === "http") ||
+    (server.https_local && gold.headers[":scheme"] === "https")
+  ) {
+    if (
+      gold.direct_ip !== "127.0.0.1" &&
+      gold.direct_ip !== "::1" &&
+      gold.direct_ip !== "::ffff:127.0.0.1"
+    ) {
       server._404?.(gold);
       return;
     }
@@ -145,7 +152,7 @@ function router_find_resolve(server, stream, gold) {
   stream.on("end", async () => {
     try {
       gold.body = Buffer.concat(chunks).toString();
-      gold.data = body2data(gold)||{};
+      gold.data = body2data(gold) || {};
       await router_target[3](gold);
     } catch (err) {
       xerr(err.message);

@@ -50,3 +50,4 @@ export function rint(a: any, b?: number): any;
 export function rside(): 1 | -1;
 export function gchar(n?: number, characters?: number): string;
 export function fhash(cx: string | Buffer | TypedArray | DataView, encode?: string, type?: string): string;
+export function empty(x: any, recursive?: boolean): any;

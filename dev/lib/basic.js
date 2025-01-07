@@ -49,6 +49,7 @@ export {
   rside,
   gchar,
   fhash,
+  empty,
 };
 import { createRequire } from "module";
 import { parse } from "acorn";
@@ -69,8 +70,26 @@ const cyan = "\x1b[97m";
 const yellow = "\x1b[93m";
 const blue = "\x1b[94m";
 /*********************************************/
+// 判断一切空,主要是{}和[],为true
+// 如果递归:{a:[[[[[]]]],{}],b:false,c:null,d:0,e:NaN,f:''} 全是无意义的值,也判断为空返回true
+function empty(x,recursive=false) {
+  if(recursive){
+    // 如果是 falsy 值（null, undefined, false, 0, NaN, ''），直接返回 true
+    if (!x) return true;
+    if (Array.isArray(x)) {
+      // 数组长度为 0 或者所有元素递归判断也为空
+      return x.length === 0 || x.every(item => empty(item,true));
+    }
+    if (typeof x === 'object') {
+      // 对象没有键值对，或者所有键的值递归判断也为空
+      return Object.keys(x).length === 0 || Object.values(x).every(value => empty(value,true));
+    }
+    return false;
+  }
+  return !x || (typeof x === 'object' && Object.keys(x).length === 0);
+}
 /**
- * 生成易于识别图像验证的验证码,服务端应设置最大8位,防止堵塞 n>8?n=8:n;也可以用来随机生码测试性能
+ * fhash(fasthash) 生成易于识别图像验证的验证码,服务端应设置最大8位,防止堵塞 n>8?n=8:n;也可以用来随机生码测试性能
  * @param {string|Buffer|TypedArray|DataView} cx - 要计算哈希的输入数据，可以是字符串、Buffer 或其他支持的数据类型。
  * @param {string} [encode='base64url'] - 指定哈希值的输出编码格式，支持 'hex'、'base64'、'base64url' 等。
  * @param {string} [type='sha256'] - 指定哈希算法，默认使用 'sha256'，支持 'md5'、'sha1'、'sha512' 等。
@@ -136,9 +155,13 @@ function getDate(offset = 8) {
   const beijingTime = new Date(now.getTime() + offset * 3600000); // UTC 时间加 8 小时
   return beijingTime.toISOString().replace("T", " ").substring(0, 19); // 格式化为 'YYYY-MM-DD HH:MM:SS'
 }
-// 通用唯一识别码 Universally unique identifier,此函数16位已强于36位的uuidv4,这里的len是字节数,不是最终生成字符的长度
-function uuid(len = 16) {
-  return crypto.randomBytes(len).toString("base64url");
+// 通用唯一识别码 Universally unique identifier,此函数21位(64^21=2^126)已强于36位的uuidv4(2^122),这里的len为最终生成字符的长度
+function uuid(len = 21) {
+  // 计算需要的字节数，确保生成的 base64url 字符串长度至少为 len
+  const byteLength = Math.ceil((len * 3) / 4);
+  const randomString = crypto.randomBytes(byteLength).toString("base64url");
+  // 截取到指定长度，确保返回结果为 len
+  return randomString.substring(0, len);
 }
 function stack() {
   const stack = new Error("STACK").stack.split("\n");
@@ -530,35 +553,35 @@ function xpath(targetPath, basePath, separator = "/") {
  */
 function cp(oldPath, newPath) {
   try {
-      // 获取源文件/目录的状态
-      const stats = fs.statSync(oldPath);
-      
-      if (stats.isDirectory()) {
-          // 处理目录复制
-          fs.mkdirSync(newPath, { recursive: true });
-          
-          // 读取并遍历目录内容
-          const entries = fs.readdirSync(oldPath);
-          for (const entry of entries) {
-              // 构建源和目标的完整路径
-              const srcPath = path.join(oldPath, entry);
-              const destPath = path.join(newPath, entry);
-              // 递归复制子项
-              cp(srcPath, destPath);
-          }
-      } else if (stats.isFile()) {
-          // 处理文件复制
-          // 确保目标文件的父目录存在
-          const targetDir = path.dirname(newPath);
-          fs.mkdirSync(targetDir, { recursive: true });
-          
-          // 执行文件复制
-          fs.copyFileSync(oldPath, newPath);
-      } else {
-          throw new Error(`不支持的文件类型: ${oldPath}`);
+    // 获取源文件/目录的状态
+    const stats = fs.statSync(oldPath);
+
+    if (stats.isDirectory()) {
+      // 处理目录复制
+      fs.mkdirSync(newPath, { recursive: true });
+
+      // 读取并遍历目录内容
+      const entries = fs.readdirSync(oldPath);
+      for (const entry of entries) {
+        // 构建源和目标的完整路径
+        const srcPath = path.join(oldPath, entry);
+        const destPath = path.join(newPath, entry);
+        // 递归复制子项
+        cp(srcPath, destPath);
       }
+    } else if (stats.isFile()) {
+      // 处理文件复制
+      // 确保目标文件的父目录存在
+      const targetDir = path.dirname(newPath);
+      fs.mkdirSync(targetDir, { recursive: true });
+
+      // 执行文件复制
+      fs.copyFileSync(oldPath, newPath);
+    } else {
+      throw new Error(`不支持的文件类型: ${oldPath}`);
+    }
   } catch (error) {
-      throw new Error(`复制失败 "${oldPath}" -> "${newPath}": ${error.message}`);
+    throw new Error(`复制失败 "${oldPath}" -> "${newPath}": ${error.message}`);
   }
 }
 /**

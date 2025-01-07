@@ -1,37 +1,7 @@
-export { xredis };
-import Redis from "ioredis";
-function xredis(...argv) {
-  const redis = new Redis(...argv);
-  return Object.assign(redis, {
-    scankey,
-    scankeys,    
-    sync,
-  });
-}
-async function scankey(pattern) {
-  let cursor = '0';
-  const batchSize = 1000; 
-  do {
-      const [newCursor, keys] = await this.scan(cursor, 'MATCH', pattern, 'COUNT', batchSize);
-      if (keys.length > 0) {
-          return keys[0];
-      }
-      cursor = newCursor;
-  } while (cursor !== '0'); 
-  return null; 
-}
-async function scankeys(pattern) {
-  let cursor = '0';
-  const batchSize = 1000; 
-  const allKeys = [];
-  do {
-      const [newCursor, keys] = await this.scan(cursor, 'MATCH', pattern, 'COUNT', batchSize);
-      allKeys.push(...keys);
-      cursor = newCursor;
-  } while (cursor !== '0'); 
-  return allKeys;
-}
-async function sync(targetRedisList, pattern) {
+export { sync };
+import { Redis } from "ioredis";
+import {xlog,xerr} from "../basic.js";
+async function sync(targetRedisList, pattern = "*") {
   if (!Array.isArray(targetRedisList)) {
     if (targetRedisList instanceof Redis) {
       targetRedisList = [targetRedisList];

@@ -7,8 +7,7 @@ export * from "./lib/redis/redis.js";
 export * from "./lib/captcha/captcha.js";
 declare const kit: {
     captcha: typeof captcha.captcha;
-    newRedis: typeof redis.newRedis;
-    newRedisCluster: typeof redis.newRedisCluster;
+    xredis: typeof redis.xredis;
     Xdb: typeof xdb.Xdb;
     h2s: typeof hs.h2s;
     hs: typeof hs.hs;
@@ -69,6 +68,7 @@ declare const kit: {
     rside: typeof basic.rside;
     gchar: typeof basic.gchar;
     fhash: typeof basic.fhash;
+    empty: typeof basic.empty;
 };
 import * as captcha from "./lib/captcha/captcha.js";
 import * as redis from "./lib/redis/redis.js";

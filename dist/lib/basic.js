@@ -1,4 +1,4 @@
-export { rf, wf, mkdir, isdir, isfile, dir, exist, xpath, rm, cp, arf, awf, amkdir, aisdir, aisfile, adir, aexist, arm, aonedir, aloadyml, aloadenv, aloadjson, xconsole, xlog, xerr, cookie_obj, cookie_str, cookie_merge, cookies_obj, cookies_str, cookies_merge, mreplace, mreplace_calc, xreq, ast_jsbuild, sleep, interval, timelog, prompt, stack, getDate, uuid, rint, rside, gchar, fhash, };
+export { rf, wf, mkdir, isdir, isfile, dir, exist, xpath, rm, cp, arf, awf, amkdir, aisdir, aisfile, adir, aexist, arm, aonedir, aloadyml, aloadenv, aloadjson, xconsole, xlog, xerr, cookie_obj, cookie_str, cookie_merge, cookies_obj, cookies_str, cookies_merge, mreplace, mreplace_calc, xreq, ast_jsbuild, sleep, interval, timelog, prompt, stack, getDate, uuid, rint, rside, gchar, fhash, empty, };
 import { createRequire } from "module";
 import { parse } from "acorn";
 import fs from "fs";
@@ -17,6 +17,20 @@ const green = "\x1b[92m";
 const cyan = "\x1b[97m";
 const yellow = "\x1b[93m";
 const blue = "\x1b[94m";
+function empty(x, recursive = false) {
+    if (recursive) {
+        if (!x)
+            return true;
+        if (Array.isArray(x)) {
+            return x.length === 0 || x.every(item => empty(item, true));
+        }
+        if (typeof x === 'object') {
+            return Object.keys(x).length === 0 || Object.values(x).every(value => empty(value, true));
+        }
+        return false;
+    }
+    return !x || (typeof x === 'object' && Object.keys(x).length === 0);
+}
 function fhash(cx, encode = "base64url", type = "sha256") {
     return crypto.createHash(type).update(cx).digest(encode);
 }
@@ -74,8 +88,10 @@ function getDate(offset = 8) {
     const beijingTime = new Date(now.getTime() + offset * 3600000);
     return beijingTime.toISOString().replace("T", " ").substring(0, 19);
 }
-function uuid(len = 16) {
-    return crypto.randomBytes(len).toString("base64url");
+function uuid(len = 21) {
+    const byteLength = Math.ceil((len * 3) / 4);
+    const randomString = crypto.randomBytes(byteLength).toString("base64url");
+    return randomString.substring(0, len);
 }
 function stack() {
     const stack = new Error("STACK").stack.split("\n");

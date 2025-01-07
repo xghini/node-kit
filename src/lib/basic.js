@@ -45,6 +45,7 @@ export {
   rside,
   gchar,
   fhash,
+  empty,
 };
 import { createRequire } from "module";
 import { parse } from "acorn";
@@ -64,8 +65,21 @@ const green = "\x1b[92m";
 const cyan = "\x1b[97m";
 const yellow = "\x1b[93m";
 const blue = "\x1b[94m";
+function empty(x,recursive=false) {
+  if(recursive){
+    if (!x) return true;
+    if (Array.isArray(x)) {
+      return x.length === 0 || x.every(item => empty(item,true));
+    }
+    if (typeof x === 'object') {
+      return Object.keys(x).length === 0 || Object.values(x).every(value => empty(value,true));
+    }
+    return false;
+  }
+  return !x || (typeof x === 'object' && Object.keys(x).length === 0);
+}
 /**
- * 生成易于识别图像验证的验证码,服务端应设置最大8位,防止堵塞 n>8?n=8:n;也可以用来随机生码测试性能
+ * fhash(fasthash) 生成易于识别图像验证的验证码,服务端应设置最大8位,防止堵塞 n>8?n=8:n;也可以用来随机生码测试性能
  * @param {string|Buffer|TypedArray|DataView} cx - 要计算哈希的输入数据，可以是字符串、Buffer 或其他支持的数据类型。
  * @param {string} [encode='base64url'] - 指定哈希值的输出编码格式，支持 'hex'、'base64'、'base64url' 等。
  * @param {string} [type='sha256'] - 指定哈希算法，默认使用 'sha256'，支持 'md5'、'sha1'、'sha512' 等。
@@ -126,8 +140,10 @@ function getDate(offset = 8) {
   const beijingTime = new Date(now.getTime() + offset * 3600000); 
   return beijingTime.toISOString().replace("T", " ").substring(0, 19); 
 }
-function uuid(len = 16) {
-  return crypto.randomBytes(len).toString("base64url");
+function uuid(len = 21) {
+  const byteLength = Math.ceil((len * 3) / 4);
+  const randomString = crypto.randomBytes(byteLength).toString("base64url");
+  return randomString.substring(0, len);
 }
 function stack() {
   const stack = new Error("STACK").stack.split("\n");
@@ -466,24 +482,24 @@ function xpath(targetPath, basePath, separator = "/") {
  */
 function cp(oldPath, newPath) {
   try {
-      const stats = fs.statSync(oldPath);
-      if (stats.isDirectory()) {
-          fs.mkdirSync(newPath, { recursive: true });
-          const entries = fs.readdirSync(oldPath);
-          for (const entry of entries) {
-              const srcPath = path.join(oldPath, entry);
-              const destPath = path.join(newPath, entry);
-              cp(srcPath, destPath);
-          }
-      } else if (stats.isFile()) {
-          const targetDir = path.dirname(newPath);
-          fs.mkdirSync(targetDir, { recursive: true });
-          fs.copyFileSync(oldPath, newPath);
-      } else {
-          throw new Error(`不支持的文件类型: ${oldPath}`);
+    const stats = fs.statSync(oldPath);
+    if (stats.isDirectory()) {
+      fs.mkdirSync(newPath, { recursive: true });
+      const entries = fs.readdirSync(oldPath);
+      for (const entry of entries) {
+        const srcPath = path.join(oldPath, entry);
+        const destPath = path.join(newPath, entry);
+        cp(srcPath, destPath);
       }
+    } else if (stats.isFile()) {
+      const targetDir = path.dirname(newPath);
+      fs.mkdirSync(targetDir, { recursive: true });
+      fs.copyFileSync(oldPath, newPath);
+    } else {
+      throw new Error(`不支持的文件类型: ${oldPath}`);
+    }
   } catch (error) {
-      throw new Error(`复制失败 "${oldPath}" -> "${newPath}": ${error.message}`);
+    throw new Error(`复制失败 "${oldPath}" -> "${newPath}": ${error.message}`);
   }
 }
 /**

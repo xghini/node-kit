@@ -5,6 +5,7 @@ import { addr, _404 } from "./router.js";
 import { xlog } from "../basic.js";
 export { h2s, hs, connect };
 export * from "./routes.js";
+let globalCatchError = false;
 function hs(...argv) {
     let { port, config } = getArgv(argv), server, scheme, ok = false;
     if (config?.key) {
@@ -18,6 +19,15 @@ function hs(...argv) {
     server.listen(port, () => {
         ok = true;
         console.log(`\x1b[92m✓\x1b[0m Running on ${scheme}://localhost:${port}`);
+        if (!globalCatchError) {
+            globalCatchError = true;
+            process.on("unhandledRejection", (reason, promise) => {
+                console.error("异步的未处理错误:", promise, "reason:", reason);
+            });
+            process.on("uncaughtException", (err) => {
+                console.error("同步的未处理错误:", err);
+            });
+        }
         if (config?.key) {
             server.on("stream", (stream, headers) => {
                 stream.httpVersion = "2.0";
@@ -42,7 +52,7 @@ function hs(...argv) {
             console.error(`Server error: ${err.message}`);
         }
     });
-    xlog(scheme + " server...");
+    xlog("Start " + scheme + " server...");
     return Object.assign(server, {
         http_local: true,
         https_local: false,

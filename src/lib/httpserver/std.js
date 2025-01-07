@@ -6,6 +6,10 @@ function hd_stream(server, stream, headers) {
   const gold = (() => {
     let notresponded = true; 
     let respond_headers = { ":status": 200 };
+    const direct_ip = function () {
+      if (this.startsWith("::ffff:")) return this.slice(7);
+      else return this;
+    }.call(stream.ip || stream.session.socket.remoteAddress);
     return {
       headers,
       path: headers[":path"],
@@ -16,10 +20,11 @@ function hd_stream(server, stream, headers) {
       param: {}, 
       data: {},
       body: "",
-      ip: function () {
-        if (this.startsWith("::ffff:")) return this.slice(7);
-        else return this;
-      }.call(stream.ip || stream.session.socket.remoteAddress),
+      direct_ip,
+      ip:
+        headers["cf-connecting-ip"] ||
+        headers["x-forwarded-for"] ||
+        direct_ip,
       config: {
         MAX_BODY: 4 * 1024 * 1024,
       },
@@ -80,7 +85,7 @@ function hd_stream(server, stream, headers) {
           "content-type": "application/json; charset=utf-8",
         });
         data = JSON.stringify(data);
-        xerr(gold.ip, gold.headers[":path"] + "\n", data);
+        xerr(gold.ip, headers["cf-ipcountry"] || "", headers[":path"], data);
         gold.end(data);
       },
     };

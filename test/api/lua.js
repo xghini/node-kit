@@ -1,5 +1,4 @@
 // redis.log(redis.LOG_NOTICE, 'captchaValue: ' .. tostring(captchaValue)) -- 打印调试日志
-
 export default {
   signin: `
 -- sess:admin@xship.top:6 <兼容多用户登录,所以逻辑稍微复杂>
@@ -157,4 +156,22 @@ else
   return 0
 end
   `,
+  subscribe: `
+-- 1.查key是否存在plan:*:key 2.不存在返回false,存在返回hgetall
+local pattern = 'plan:*:' .. KEYS[1]
+local cursor = "0"
+local keys = {}
+repeat
+  local result = redis.call('SCAN', cursor, 'MATCH', pattern)
+  cursor = result[1]
+  for _, key in ipairs(result[2]) do
+    table.insert(keys, key)
+  end
+until cursor == "0"
+if #keys == 0 then
+  return false
+end
+local result = redis.call('hgetall', keys[1])
+return result
+`
 };

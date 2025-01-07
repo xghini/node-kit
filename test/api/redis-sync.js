@@ -1,52 +1,45 @@
-export { xredis };
+/*
+redis数据同步功能
+1.主动拉取(全量和增量,指定区域)
+  主要难点在于增量:
+    1.记录数据为空时,同步;记录数据变更时,同步
+    2.targetRedis
+2.主动推送
+3.自动拉取
+4.自动推送
+*/
+export { sync };
+import kit from "@ghini/kit/dev";
+kit.xconsole();
 import Redis from "ioredis";
-function xredis(...argv) {
-  const redis = new Redis(...argv);
-  return Object.assign(redis, {
-    scankey,
-    scankeys,    
-    sync,
-  });
-}
-async function scankey(pattern) {
-  let cursor = '0';
-  const batchSize = 1000; 
-  do {
-      const [newCursor, keys] = await this.scan(cursor, 'MATCH', pattern, 'COUNT', batchSize);
-      if (keys.length > 0) {
-          return keys[0];
-      }
-      cursor = newCursor;
-  } while (cursor !== '0'); 
-  return null; 
-}
-async function scankeys(pattern) {
-  let cursor = '0';
-  const batchSize = 1000; 
-  const allKeys = [];
-  do {
-      const [newCursor, keys] = await this.scan(cursor, 'MATCH', pattern, 'COUNT', batchSize);
-      allKeys.push(...keys);
-      cursor = newCursor;
-  } while (cursor !== '0'); 
-  return allKeys;
-}
-async function sync(targetRedisList, pattern) {
+import conf from "./conf.js";
+
+const sourceRedis = new Redis(conf.redis[0]);
+const targetRedis1 = new Redis(conf.redis[1]);
+const targetRedis2 = new Redis(conf.redis[2]);
+const targetRedis3 = new Redis(conf.redis[3]);
+const targetRedis4 = new Redis(conf.redis[4]);
+targetRedis1.flushdb();
+targetRedis2.flushdb();
+targetRedis3.flushdb();
+// 使用 pipeline 批量处理以提高性能
+async function sync(pattern = "*", sourceRedis, targetRedisList) {
   if (!Array.isArray(targetRedisList)) {
     if (targetRedisList instanceof Redis) {
       targetRedisList = [targetRedisList];
     } else {
-      xerr("Need Redis clients");
+      console.error("Need Redis clients");
       return;
     }
   } else if (targetRedisList.length === 0) {
-    xerr("Need Redis clients");
+    console.error("Need Redis clients");
     return;
   }
+  console.log(`Sync ${pattern} to ${targetRedisList.length} target`);
   let totalKeys = 0;
   let cursor = "0";
   do {
-    const [newCursor, keys] = await this.scan(
+    const [newCursor, keys] = await sourceRedis.scan(
       cursor,
       "MATCH",
       pattern,
@@ -55,35 +48,39 @@ async function sync(targetRedisList, pattern) {
     );
     cursor = newCursor;
     if (keys.length) {
+      // 为每个目标Redis创建pipeline
       const pipelines = targetRedisList.map((target) => {
         const p = target.pipeline();
         p.org = target;
         return p;
       });
+      // 对每个 key 进行处理
       for (const key of keys) {
-        const type = await this.type(key);
+        // 获取 key 的类型
+        const type = await sourceRedis.type(key);
+        // 获取数据和TTL的Promise
         const dataPromise = (async () => {
           switch (type) {
             case "string":
-              const value = await this.get(key);
+              const value = await sourceRedis.get(key);
               return { type, data: value };
             case "hash":
-              const hash = await this.hgetall(key);
+              const hash = await sourceRedis.hgetall(key);
               return { type, data: hash };
             case "set":
-              const members = await this.smembers(key);
+              const members = await sourceRedis.smembers(key);
               return { type, data: members };
             case "zset":
-              const zrange = await this.zrange(key, 0, -1, "WITHSCORES");
+              const zrange = await sourceRedis.zrange(key, 0, -1, "WITHSCORES");
               return { type, data: zrange };
             case "list":
-              const list = await this.lrange(key, 0, -1);
+              const list = await sourceRedis.lrange(key, 0, -1);
               return { type, data: list };
             default:
               return { type: null, data: null };
           }
         })();
-        const ttlPromise = this.ttl(key);
+        const ttlPromise = sourceRedis.ttl(key);
         const [{ type: keyType, data }, ttl] = await Promise.all([
           dataPromise,
           ttlPromise,
@@ -104,8 +101,8 @@ async function sync(targetRedisList, pattern) {
                 if (data.length) {
                   const args = [key];
                   for (let i = 0; i < data.length; i += 2) {
-                    args.push(data[i + 1]); 
-                    args.push(data[i]); 
+                    args.push(data[i + 1]); // score
+                    args.push(data[i]); // member
                   }
                   pipeline.zadd(...args);
                 }
@@ -121,19 +118,33 @@ async function sync(targetRedisList, pattern) {
         }
       }
       totalKeys += keys.length;
-      console.log(
-        `Sync ${pattern} to ${targetRedisList.length} target , total ${totalKeys} keys`
-      );
+      console.log(`Total ${totalKeys} keys`);
+      // 执行,可以不用等结果
+      // pipelines.forEach(pipeline => pipeline.exec());
       await Promise.all(
         pipelines.map(async (pipeline) => {
           await pipeline.exec();
           if (pipeline.org.status === "ready") {
-            console.log("Sync ok", pipeline.org.options.host);
+            console.log("ok", pipeline.org.options.host);
           } else {
-            xerr("error", pipeline.org.options.host, pipeline.org.status);
+            console.error(
+              "error",
+              pipeline.org.options.host,
+              pipeline.org.status
+            );
           }
         })
       );
     }
   } while (cursor !== "0");
 }
+
+// sync("sess*", sourceRedis, targetRedis1);
+// sync("sess*",sourceRedis,targetRedis4);
+// kit.redis.sync(sourceRedis, [
+//   targetRedis1,
+//   targetRedis2,
+//   targetRedis3,
+//   targetRedis4,
+// ],"sess*");
+// sourceRedis.set('redis-pool',JSON.stringify(conf.redis.slice(1)));

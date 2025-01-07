@@ -6,6 +6,8 @@ import { xlog } from "../basic.js";
 
 export { h2s, hs, connect };
 export * from "./routes.js";
+// 全局处理错误
+let globalCatchError = false;
 function hs(...argv) {
   let { port, config } = getArgv(argv),
     server,
@@ -21,6 +23,19 @@ function hs(...argv) {
   server.listen(port, () => {
     ok = true;
     console.log(`\x1b[92m✓\x1b[0m Running on ${scheme}://localhost:${port}`);
+    if (!globalCatchError) {
+      globalCatchError = true;
+      // 捕获异步的未处理错误
+      process.on("unhandledRejection", (reason, promise) => {
+        // console.error("Unhandled Rejection at:");
+        console.error("异步的未处理错误:", promise, "reason:", reason);
+      });
+      // 捕获同步的未处理错误
+      process.on("uncaughtException", (err) => {
+        // console.error("Uncaught Exception:");
+        console.error("同步的未处理错误:", err);
+      });
+    }
     if (config?.key) {
       server.on("stream", (stream, headers) => {
         stream.httpVersion = "2.0";
@@ -46,16 +61,16 @@ function hs(...argv) {
       console.error(`Server error: ${err.message}`);
     }
   });
-  xlog(scheme+" server...");
+  xlog("Start " + scheme + " server...");
   // return router(server);
   // return server;
   return Object.assign(server, {
-    http_local:true,
-    https_local:false,
+    http_local: true,
+    https_local: false,
     routes: [],
     addr,
     _404,
-    router_begin: (server,gold) => {},
+    router_begin: (server, gold) => {},
   });
 }
 function h2s(...argv) {
