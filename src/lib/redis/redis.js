@@ -121,14 +121,14 @@ async function sync(targetRedisList, pattern) {
         }
       }
       totalKeys += keys.length;
-      console.log(
+      console.dev(
         `Sync ${pattern} to ${targetRedisList.length} target , total ${totalKeys} keys`
       );
       await Promise.all(
         pipelines.map(async (pipeline) => {
           await pipeline.exec();
           if (pipeline.org.status === "ready") {
-            console.log("Sync ok", pipeline.org.options.host);
+            console.dev("Sync ok", pipeline.org.options.host);
           } else {
             xerr("error", pipeline.org.options.host, pipeline.org.status);
           }

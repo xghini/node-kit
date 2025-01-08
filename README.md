@@ -1,11 +1,64 @@
-js的实用工具函数库,开发完整版,有较详细的demo和注释.  
-这是个汇总大模块,使用方便,代价是初始化开销略微大,但对现代性能来说微乎其微.  
-要优化起来也很简单,直接把使用部分单独拎出去就行,仅在最求极致的速度(✅)和蚊子腿内存(❌)时才有可能这么做
+# @ghini/kit
+### 很厉害的JS库哦，看两眼，试一下，轻松上手
+### 基于原生的http,https和http2封装的高性能,拓展性强,安全稳健的httpserver和request,性能远超express,koa,axios,request
+### 所有都是基于高性能,安全及实用性封装
 
-# httpserver
-- 基于原生的http和http2封装
-- 高性能,拓展性强,安全稳健
+## 1. 安装及使用
+```bash
+npm i @ghini/kit
+```
+### 导入,所有在kit命名空间下操作,这是推荐的方式:
+```js
+import kit from "@ghini/kit/dev";
+```
+## 2.快速开始
+快速开始,非常实用,用完就离不开的xconsole:  
+测试文件路径: `./test/t_xconsole.js`
+```js
+import kit from "@ghini/kit/dev";
+kit.xconsole();
+// kit.xconsole(0);
+// kit.xconsole(1);
+// kit.xconsole(2);
+// kit.xconsole(3);
+// kit.xconsole({
+//   dev:{info:3},
+// });
+// kit.xconsole({
+//   dev:{info:6},
+//   err:{info:3},
+//   log:{trace:2},
+// });
+console.log("Let's start!");
+console.info("info");
+console.debug("debug");
+console.warn("warn");
+console.error("error");
+console.dev("dev");
+```
+```bash
+node --watch ./test/t-console.js
+```
+进阶用法: 尝试依序将下方注释解开
 
+## 3.httpserver
+测试文件路径:`./test/api/main.js`
+## 4.request
+测试文件路径:`./test/t-req.js`
+## 5.redis
+测试文件路径:`./test/t-redis.js`
+## 6.pgsql
+
+## 7.诸多使用的工具函数
+测试文件路径:`./test/t-basic.js` `./test/t-codec.js`
+
+
+
+
+
+
+
+# 旧版文档,server相关内容,若新文档没来得及更新,可以先对付看着,有条件建议直接看源码
 ## 1.初识:先使用预设的路由default_routes,涵盖了常见使用示例,便于了解
 ```js
 import kit from "@ghini/kit/dev";

@@ -4,9 +4,14 @@ import Redis from "ioredis";
 // import * as user from "./user.js";
 import conf from "./conf.js";
 import lua from "./lua.js";
-kit.xconsole();
+kit.xconsole({
+  dev: { info: 3 },
+});
+// console.debug.bind({debug:{trace:1}})("debug");
+// const server = kit.hs();
+// const server = kit.hss();
 const server = kit.h2s();
-
+// kit.h2s({ allowHTTP1: false });
 /* Redis */
 // const redis = new Redis();
 const redis = kit.xredis(conf.redis[0]);
@@ -31,9 +36,9 @@ server.addr("/hy2auth", hy2auth);
 server.addr("/test", test);
 server.addr("/test/timeout", () => {});
 export async function test(gold) {
-  console.log(gold.headers);
-  console.log(gold.query);
-  console.log(gold.alpn);
+  // console.log(gold.headers);
+  // console.log(gold.query);
+  // console.log(gold.alpn);
   gold.json({
     query: gold.query,
     data: gold.data,

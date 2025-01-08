@@ -1,0 +1,414 @@
+export { xconsole, cdebug, cinfo, cwarn, clog, cerr, stack, prompt, style };
+/**
+ * error 错误处理
+ * log 日常输出
+ * warn 警告
+ * info 信息
+ * debug 调试
+ * dev(自定义) 开发环境输出,需要特别设置,默认不输出
+ */
+const sep_file = process.platform == "win32" ? "file:///" : "file://"; //win32|linux|darwin
+console.dev = xdev.bind({info:0,trace:3});
+const originalDebug = console.info;
+const originalInfo = console.info;
+const originalWarn = console.warn;
+const originalLog = console.log;
+const originalError = console.error;
+
+const reset = "\x1b[0m"; // 重置所有样式
+const bold = "\x1b[1m"; // 加粗
+const dim = "\x1b[2m"; // 暗淡
+const underline = "\x1b[4m"; // 下划线
+// const blink = "\x1b[5m"; // 闪烁 (windows支持不佳)
+const reverse = "\x1b[7m"; // 反显
+const hidden = "\x1b[8m"; // 隐藏
+// 前景色（字体颜色）
+const black = "\x1b[30m"; // 黑色(灰色)
+const red = "\x1b[31m"; // 红色
+const green = "\x1b[32m"; // 绿色
+const yellow = "\x1b[33m"; // 黄色
+const blue = "\x1b[34m"; // 蓝色
+const magenta = "\x1b[35m"; // 洋红色(暗红)
+const cyan = "\x1b[36m"; // 青色(暗绿)
+const white = "\x1b[37m"; // 白色
+// 明亮的前景色（字体颜色）
+const brightBlack = "\x1b[90m";
+const brightRed = "\x1b[91m";
+const brightGreen = "\x1b[92m";
+const brightYellow = "\x1b[93m";
+const brightBlue = "\x1b[94m";
+const brightMagenta = "\x1b[95m";
+const brightCyan = "\x1b[96m";
+const brightWhite = "\x1b[97m";
+// 背景色
+const bgBlack = "\x1b[40m"; // 黑
+const bgRed = "\x1b[41m"; // 红
+const bgGreen = "\x1b[42m"; // 绿
+const bgYellow = "\x1b[43m"; // 黄
+const bgBlue = "\x1b[44m"; // 蓝
+const bgMagenta = "\x1b[45m"; // 洋红
+const bgCyan = "\x1b[46m"; // 青
+const bgWhite = "\x1b[47m"; // 白
+// 明亮的背景色
+const bgBrightBlack = "\x1b[100m";
+const bgBrightRed = "\x1b[101m";
+const bgBrightGreen = "\x1b[102m";
+const bgBrightYellow = "\x1b[103m";
+const bgBrightBlue = "\x1b[104m";
+const bgBrightMagenta = "\x1b[105m";
+const bgBrightCyan = "\x1b[106m";
+const bgBrightWhite = "\x1b[107m";
+const style = {
+  reset,
+  bold,
+  dim,
+  underline,
+  // blink,
+  reverse,
+  hidden,
+  black,
+  red,
+  green,
+  yellow,
+  blue,
+  magenta,
+  cyan,
+  white,
+  brightBlack,
+  brightRed,
+  brightGreen,
+  brightYellow,
+  brightBlue,
+  brightMagenta,
+  brightCyan,
+  brightWhite,
+  bgBlack,
+  bgRed,
+  bgGreen,
+  bgYellow,
+  bgBlue,
+  bgMagenta,
+  bgCyan,
+  bgWhite,
+  bgBrightBlack,
+  bgBrightRed,
+  bgBrightGreen,
+  bgBrightYellow,
+  bgBrightBlue,
+  bgBrightMagenta,
+  bgBrightCyan,
+  bgBrightWhite,
+};
+/*XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX*/
+function stack() {
+  const stack = new Error("STACK").stack.split("\n");
+  originalLog(stack);
+  return stack;
+}
+function getTimestamp() {
+  const now = new Date();
+  return `${(now.getMonth() + 1).toString().padStart(2, "0")}-${now
+    .getDate()
+    .toString()
+    .padStart(2, "0")} ${now.getHours().toString().padStart(2, "0")}:${now
+    .getMinutes()
+    .toString()
+    .padStart(2, "0")}:${now.getSeconds().toString().padStart(2, "0")}.${now
+    .getMilliseconds()
+    .toString()
+    .padStart(3, "0")}`;
+}
+function getLineInfo(i = 3) {
+  const arr = new Error().stack.split("\n");
+  // const res = arr[1]?.replace(/:[^:]*$/, "");
+  let res = arr[i].split("(").at(-1).split(sep_file).at(-1);
+  if (res?.endsWith(")")) res = res.slice(0, -1);
+  if (!res) originalLog(555, arr);
+  return res;
+}
+function xdev(...args) {
+  let pre,mainstyle=`${reset}${bold}${brightCyan}`;
+  switch (this?.info) {
+    case 0:
+      return;
+    case 1:
+      pre = "";
+      break;
+    case 2:
+      pre = `${black}[${getTimestamp()}]: `+mainstyle;
+      break;
+    case 3:
+      pre = `${blue}${getLineInfo(this?.trace || 3)}: `+mainstyle;
+      break;
+    default:
+      pre = `${black}[${getTimestamp()}] ${dim}${blue}${getLineInfo(this?.trace || 3)}: `+mainstyle;
+  }
+  process.stdout.write(pre);
+  originalLog(...args, `${reset}`);
+}
+function cdebug(...args) {
+  let pre,mainstyle=`${reset}${brightYellow}`;
+  switch (this?.info) {
+    case 0:
+      return;
+    case 1:
+      pre = "";
+      break;
+    case 2:
+      pre = `${black}[${getTimestamp()}]: `+mainstyle;
+      break;
+    case 3:
+      pre = `${blue}${getLineInfo(this?.trace || 3)}: `+mainstyle;
+      break;
+    default:
+      pre = `${black}[${getTimestamp()}] ${dim}${blue}${getLineInfo(this?.trace || 3)}: `+mainstyle;
+  }
+  process.stdout.write(pre);
+  originalInfo(...args, `${reset}`);
+}
+function cinfo(...args) {
+  let pre,mainstyle=`${reset}${bold}${brightWhite}`;
+  switch (this?.info) {
+    case 0:
+      return;
+    case 1:
+      pre = "";
+      break;
+    case 2:
+      pre = `${black}[${getTimestamp()}]: `+mainstyle;
+      break;
+    case 3:
+      pre = `${blue}${getLineInfo(this?.trace || 3)}: `+mainstyle;
+      break;
+    default:
+      pre = `${black}[${getTimestamp()}] ${dim}${blue}${getLineInfo(this?.trace || 3)}: `+mainstyle;
+  }
+  process.stdout.write(pre);
+  originalInfo(...args, `${reset}`);
+}
+function cwarn(...args) {
+  let pre,mainstyle=`${reset}${bold}${brightMagenta}`;
+  switch (this?.info) {
+    case 0:
+      return;
+    case 1:
+      pre = "";
+      break;
+    case 2:
+      pre = `${black}[${getTimestamp()}]: `+mainstyle;
+      break;
+    case 3:
+      pre = `${blue}${getLineInfo(this?.trace || 3)}: `+mainstyle;
+      break;
+    default:
+      pre = `${black}[${getTimestamp()}] ${dim}${blue}${getLineInfo(this?.trace || 3)}: `+mainstyle;
+  }
+  process.stdout.write(pre);
+  originalWarn(...args, `${reset}`);
+}
+function clog(...args) {
+  let pre,mainstyle=`${reset}`;
+  switch (this?.info) {
+    case 0:
+      return;
+    case 1:
+      pre = "";
+      break;
+    case 2:
+      pre = `${black}[${getTimestamp()}]: `+mainstyle;
+      break;
+    case 3:
+      pre = `${blue}${getLineInfo(this?.trace || 4)}: `+mainstyle;
+      break;
+    default:
+      pre = `${black}[${getTimestamp()}] ${dim}${blue}${getLineInfo(this?.trace || 4)}: `+mainstyle;
+  }
+  process.stdout.write(pre);
+  originalLog(...args, `${reset}`);
+}
+function cerr(...args) {
+  let pre,mainstyle=`${reset}${dim}${red}`;
+  switch (this?.info) {
+    case 0:
+      return;
+    case 1:
+      pre = "";
+      break;
+    case 2:
+      pre = `${black}[${getTimestamp()}]: `+mainstyle;
+      break;
+    case 3:
+      pre = `${blue}${getLineInfo(this?.trace || 4)}: `+mainstyle;
+      break;
+    default:
+      pre = `${black}[${getTimestamp()}] ${dim}${blue}${getLineInfo(this?.trace || 4)}: `+mainstyle;
+  }
+  process.stdout.write(pre);
+  originalError(...args, `${reset}`);
+}
+/**
+ * 重写或扩展控制台输出方法，支持带时间戳和调用行号的 `console.log` 和 `console.error`。
+ * @param {number} [rewrite=2] - 是否重写全局 `console.log` 和 `console.error` 方法,重写等级,默认2。
+ * @returns {{ log: Function, err: Function }} - 返回扩展的日志方法：
+ * - `log(...args: any[]): void` 用于日志输出。
+ * - `err(...args: any[]): void` 用于错误输出。
+ */
+function xconsole(config = {}) {
+  if (typeof config === "object") {
+    config = {
+      dev: {...{
+        info: 0,
+        trace: 3,
+      },...config.dev},
+      debug: {...{
+        info: 6,
+        trace: 3,
+      },...config.debug},
+      info: {...{
+        info: 6,
+        trace: 3,
+      },...config.info},
+      warn: {...{
+        info: 6,
+        trace: 3,
+      },...config.warn},
+      log: {...{
+        info: 6,
+        trace: 3,
+      },...config.log},
+      err: {...{
+        info: 6,
+        trace: 3,
+      },...config.err},
+    };
+    console.dev = xdev.bind(config.dev);
+    console.debug = cdebug.bind(config.debug);
+    console.info = cinfo.bind(config.info);
+    console.warn = cwarn.bind(config.warn);
+    console.log = clog.bind(config.log);
+    console.error = cerr.bind(config.err);
+  } else if (typeof config === "number") {
+    config = {
+      debug: {
+        info: config,
+        trace: 3,
+      },
+      info: {
+        info: config,
+        trace: 3,
+      },
+      warn: {
+        info: config,
+        trace: 3,
+      },
+      log: {
+        info: config,
+        trace: 3,
+      },
+      err: {
+        info: config,
+        trace: 3,
+      },
+    };
+    console.debug = cdebug.bind(config.debug);
+    console.info = cinfo.bind(config.info);
+    console.warn = cwarn.bind(config.warn);
+    console.log = clog.bind(config.log);
+    console.error = cerr.bind(config.err);
+  } else {
+    console.debug = originalDebug;
+    console.info = originalInfo;
+    console.warn = originalWarn;
+    console.log = originalLog;
+    console.error = originalError;
+  }
+}
+
+async function prompt(
+  promptText = "ENTER continue , CTRL+C exit: ",
+  validator = () => true,
+  option
+) {
+  option = {
+    ...{ loop: true, show: true },
+    ...option,
+  };
+  let inputBuffer = "";
+  process.stdin.setRawMode(true);
+  process.stdin.resume();
+  process.stdin.setEncoding("utf8");
+  process.stdout.write(promptText);
+
+  return new Promise((resolve) => {
+    process.stdin.on("data", onData);
+    function onData(key) {
+      const char = key.toString();
+      const code = char.codePointAt(0);
+      if (
+        (code > 31 && code < 127) || // ASCII 可打印字符
+        (code > 0x4e00 && code < 0x9fff) || // 常用汉字
+        (code > 0x3000 && code < 0x303f) // 中文标点
+      ) {
+        if (option.show) process.stdout.write(char);
+        inputBuffer += char;
+      }
+      switch (char) {
+        case "\r": // 回车
+        case "\n":
+          process.stdout.write("\n");
+          if (validator(inputBuffer)) {
+            close();
+            resolve(inputBuffer);
+          } else {
+            if (option.loop) {
+              inputBuffer = "";
+              process.stdout.write(promptText);
+            } else {
+              close();
+              resolve(false);
+            }
+          }
+          return;
+        case "\b": // 退格键
+        case "\x7f":
+          if (inputBuffer.length > 0) {
+            if (option.show) {
+              const charWidth = getCharWidth(inputBuffer.at(-1));
+              process.stdout.write("\b".repeat(charWidth));
+              process.stdout.write(" ".repeat(charWidth));
+              process.stdout.write("\b".repeat(charWidth));
+            }
+            inputBuffer = inputBuffer.slice(0, -1);
+          }
+          return;
+        case "\x17": // Ctrl + 退格
+          if (inputBuffer.length > 0) {
+            process.stdout.clearLine();
+            process.stdout.cursorTo(0);
+            process.stdout.write(promptText);
+            inputBuffer = "";
+          }
+          return;
+        case "\u0003": // Ctrl + C
+          process.stdout.write("\x1b[30m^C\n\x1b[0m");
+          close();
+          process.exit();
+      }
+    }
+    function close() {
+      process.stdin.setRawMode(false);
+      process.stdin.removeListener("data", onData);
+      process.stdin.pause();
+    }
+    function getCharWidth(char) {
+      const code = char.codePointAt(0);
+      if (
+        (code > 0x3000 && code < 0x303f) || // 中文标点
+        (code > 0x4e00 && code < 0x9fff)
+      ) {
+        return 2;
+      }
+      return 1;
+    }
+  });
+}

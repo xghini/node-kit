@@ -1,4 +1,5 @@
-export { rf, wf, mkdir, isdir, isfile, dir, exist, xpath, rm, cp, arf, awf, amkdir, aisdir, aisfile, adir, aexist, arm, aonedir, aloadyml, aloadenv, aloadjson, xconsole, xlog, xerr, cookie_obj, cookie_str, cookie_merge, cookies_obj, cookies_str, cookies_merge, mreplace, mreplace_calc, xreq, ast_jsbuild, sleep, interval, timelog, prompt, stack, getDate, gcatch, uuid, rint, rside, gchar, fhash, empty, };
+export { rf, wf, mkdir, isdir, isfile, dir, exist, xpath, rm, cp, arf, awf, amkdir, aisdir, aisfile, adir, aexist, arm, aonedir, aloadyml, aloadenv, aloadjson, cookie_obj, cookie_str, cookie_merge, cookies_obj, cookies_str, cookies_merge, mreplace, mreplace_calc, xreq, ast_jsbuild, sleep, interval, timelog, getDate, gcatch, uuid, rint, rside, gchar, fhash, empty, };
+export * from './console.js';
 import { createRequire } from "module";
 import { parse } from "acorn";
 import fs from "fs";
@@ -8,15 +9,6 @@ import yaml from "yaml";
 const platform = process.platform;
 const sep_file = platform == "win32" ? "file:///" : "file://";
 const slice_len_file = platform == "win32" ? 8 : 7;
-const originalLog = console.log;
-const originalError = console.error;
-const reset = "\x1b[0m";
-const dim = "\x1b[30m";
-const red = "\x1b[31m";
-const green = "\x1b[92m";
-const cyan = "\x1b[97m";
-const yellow = "\x1b[93m";
-const blue = "\x1b[94m";
 let globalCatchError = false;
 function gcatch(open = true) {
     if (open) {
@@ -115,11 +107,6 @@ function uuid(len = 21) {
     const randomString = crypto.randomBytes(byteLength).toString("base64url");
     return randomString.substring(0, len);
 }
-function stack() {
-    const stack = new Error("STACK").stack.split("\n");
-    originalLog(stack);
-    return stack;
-}
 async function aloadyml(filePath) {
     try {
         const absolutePath = path.isAbsolute(filePath)
@@ -199,88 +186,6 @@ async function aonedir(dir) {
     catch {
         return undefined;
     }
-}
-async function prompt(promptText = "ENTER continue , CTRL+C exit: ", validator = () => true, option) {
-    option = {
-        ...{ loop: true, show: true },
-        ...option,
-    };
-    let inputBuffer = "";
-    process.stdin.setRawMode(true);
-    process.stdin.resume();
-    process.stdin.setEncoding("utf8");
-    process.stdout.write(promptText);
-    return new Promise((resolve) => {
-        process.stdin.on("data", onData);
-        function onData(key) {
-            const char = key.toString();
-            const code = char.codePointAt(0);
-            if ((code > 31 && code < 127) ||
-                (code > 0x4e00 && code < 0x9fff) ||
-                (code > 0x3000 && code < 0x303f)) {
-                if (option.show)
-                    process.stdout.write(char);
-                inputBuffer += char;
-            }
-            switch (char) {
-                case "\r":
-                case "\n":
-                    process.stdout.write("\n");
-                    if (validator(inputBuffer)) {
-                        close();
-                        resolve(inputBuffer);
-                    }
-                    else {
-                        if (option.loop) {
-                            inputBuffer = "";
-                            process.stdout.write(promptText);
-                        }
-                        else {
-                            close();
-                            resolve(false);
-                        }
-                    }
-                    return;
-                case "\b":
-                case "\x7f":
-                    if (inputBuffer.length > 0) {
-                        if (option.show) {
-                            const charWidth = getCharWidth(inputBuffer.at(-1));
-                            process.stdout.write("\b".repeat(charWidth));
-                            process.stdout.write(" ".repeat(charWidth));
-                            process.stdout.write("\b".repeat(charWidth));
-                        }
-                        inputBuffer = inputBuffer.slice(0, -1);
-                    }
-                    return;
-                case "\x17":
-                    if (inputBuffer.length > 0) {
-                        process.stdout.clearLine();
-                        process.stdout.cursorTo(0);
-                        process.stdout.write(promptText);
-                        inputBuffer = "";
-                    }
-                    return;
-                case "\u0003":
-                    process.stdout.write("\x1b[30m^C\n\x1b[0m");
-                    close();
-                    process.exit();
-            }
-        }
-        function close() {
-            process.stdin.setRawMode(false);
-            process.stdin.removeListener("data", onData);
-            process.stdin.pause();
-        }
-        function getCharWidth(char) {
-            const code = char.codePointAt(0);
-            if ((code > 0x3000 && code < 0x303f) ||
-                (code > 0x4e00 && code < 0x9fff)) {
-                return 2;
-            }
-            return 1;
-        }
-    });
 }
 async function arf(filename, option = "utf8") {
     try {
@@ -532,91 +437,6 @@ function wf(filename, data, append = false, option = "utf8") {
     }
     catch (error) {
         console.error("写入" + filename + "文件失败:", error);
-    }
-}
-function getTimestamp() {
-    const now = new Date();
-    return `${(now.getMonth() + 1).toString().padStart(2, "0")}-${now
-        .getDate()
-        .toString()
-        .padStart(2, "0")} ${now.getHours().toString().padStart(2, "0")}:${now
-        .getMinutes()
-        .toString()
-        .padStart(2, "0")}:${now.getSeconds().toString().padStart(2, "0")}.${now
-        .getMilliseconds()
-        .toString()
-        .padStart(3, "0")}`;
-}
-function getLineInfo(i = 3) {
-    const arr = new Error().stack.split("\n");
-    let res = arr[i].split("(").at(-1).split(sep_file).at(-1);
-    if (res?.endsWith(")"))
-        res = res.slice(0, -1);
-    if (!res)
-        originalLog(555, arr);
-    return res;
-}
-function xlog(...args) {
-    const timeString = getTimestamp();
-    const line = getLineInfo(this?.trace || 4);
-    let pre;
-    switch (this?.info) {
-        case 0:
-            pre = "";
-            break;
-        case 1:
-            pre = `${dim}[${timeString}]: ${reset}`;
-            break;
-        case 2:
-            pre = `${blue}${line}: ${reset}`;
-            break;
-        default:
-            pre = `${dim}[${timeString}]${blue} ${line}: ${reset}`;
-    }
-    process.stdout.write(pre);
-    originalLog(...args);
-}
-function xerr(...args) {
-    const timeString = getTimestamp();
-    const line = getLineInfo(this?.trace || 4);
-    let pre;
-    switch (this?.info) {
-        case 0:
-            pre = "";
-            break;
-        case 1:
-            pre = `${dim}[${timeString}]: ${red}`;
-            break;
-        case 2:
-            pre = `${blue}${line}: ${red}`;
-            break;
-        default:
-            pre = `${dim}[${timeString}]${blue} ${line}: ${red}`;
-    }
-    process.stdout.write(pre);
-    originalError(...args, `${reset}`);
-}
-function xconsole(config = {}) {
-    if (typeof config === "object") {
-        config = {
-            ...{
-                log: {
-                    info: 3,
-                    trace: 3,
-                },
-                err: {
-                    info: 3,
-                    trace: 3,
-                },
-            },
-            ...config,
-        };
-        console.log = xlog.bind(config.log);
-        console.error = xerr.bind(config.err);
-    }
-    else {
-        console.log = originalLog;
-        console.error = originalError;
     }
 }
 function mreplace(str, replacements) {

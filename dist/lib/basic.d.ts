@@ -1,3 +1,4 @@
+export * from "./console.js";
 export function rf(filename: string, option?: string): string | null;
 export function wf(filename: string, data: string | Buffer, append?: boolean, option?: string): boolean;
 export function mkdir(dir: any): undefined;
@@ -20,12 +21,6 @@ export function aonedir(dir: any): Promise<string>;
 export function aloadyml(filePath: string): Promise<any>;
 export function aloadenv(filePath: string): Promise<object>;
 export function aloadjson(filePath: any): Promise<any>;
-export function xconsole(config?: {}): {
-    log: Function;
-    err: Function;
-};
-export function xlog(...args: any[]): void;
-export function xerr(...args: any[]): void;
 export function cookie_obj(str: any): {
     value: {};
     flags: {};
@@ -42,8 +37,6 @@ export function ast_jsbuild(code: string): string;
 export function sleep(ms: number): Promise<void>;
 export function interval(fn: Function, ms: number, PX?: number): Promise<void>;
 export function timelog(fn: any): Promise<void>;
-export function prompt(promptText: string, validator: () => boolean, option: any): Promise<any>;
-export function stack(): string[];
 export function getDate(offset?: number): string;
 export function gcatch(open?: boolean): void;
 export function uuid(len?: number): string;

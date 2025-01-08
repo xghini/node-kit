@@ -24,9 +24,6 @@ export {
   aloadenv,
   aloadjson,
   //
-  xconsole,
-  xlog,
-  xerr,
   cookie_obj,
   cookie_str,
   cookie_merge,
@@ -40,8 +37,6 @@ export {
   sleep,
   interval,
   timelog,
-  prompt,
-  stack,
   getDate,
   gcatch,
   // Math
@@ -52,6 +47,8 @@ export {
   fhash,
   empty,
 };
+export * from './console.js'
+
 import { createRequire } from "module";
 import { parse } from "acorn";
 import fs from "fs";
@@ -61,15 +58,7 @@ import yaml from "yaml";
 const platform = process.platform; //win32|linux|darwin
 const sep_file = platform == "win32" ? "file:///" : "file://";
 const slice_len_file = platform == "win32" ? 8 : 7;
-const originalLog = console.log;
-const originalError = console.error;
-const reset = "\x1b[0m";
-const dim = "\x1b[30m";
-const red = "\x1b[31m";
-const green = "\x1b[92m";
-const cyan = "\x1b[97m";
-const yellow = "\x1b[93m";
-const blue = "\x1b[94m";
+
 let globalCatchError = false;
 /*XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX*/
 /**
@@ -77,7 +66,7 @@ let globalCatchError = false;
  * @param {boolean} open 是否开启
  */
 function gcatch(open = true) {
-  if(open){
+  if (open) {
     // 避免重复监听
     if (!globalCatchError) {
       globalCatchError = true;
@@ -85,8 +74,8 @@ function gcatch(open = true) {
       process.on("unhandledRejection", fn0);
       // 捕获同步的未处理错误
       process.on("uncaughtException", fn1);
-    }    
-  }else{
+    }
+  } else {
     globalCatchError = false;
     process.off("unhandledRejection", fn0);
     process.off("uncaughtException", fn1);
@@ -97,7 +86,7 @@ function gcatch(open = true) {
   }
   function fn1(err) {
     // console.error("Uncaught Exception:");
-    console.error("gcatch主线程未捕获错误:",err);
+    console.error("gcatch主线程未捕获错误:", err);
   }
 }
 /**
@@ -203,11 +192,7 @@ function uuid(len = 21) {
   // 截取到指定长度，确保返回结果为 len
   return randomString.substring(0, len);
 }
-function stack() {
-  const stack = new Error("STACK").stack.split("\n");
-  originalLog(stack);
-  return stack;
-}
+
 /**
  * Load and parse YAML file
  * @param {string} filePath - Absolute or relative path to YAML file
@@ -330,95 +315,6 @@ async function aonedir(dir) {
     return undefined;
   }
 }
-async function prompt(
-  promptText = "ENTER continue , CTRL+C exit: ",
-  validator = () => true,
-  option
-) {
-  option = {
-    ...{ loop: true, show: true },
-    ...option,
-  };
-  let inputBuffer = "";
-  process.stdin.setRawMode(true);
-  process.stdin.resume();
-  process.stdin.setEncoding("utf8");
-  process.stdout.write(promptText);
-
-  return new Promise((resolve) => {
-    process.stdin.on("data", onData);
-    function onData(key) {
-      const char = key.toString();
-      const code = char.codePointAt(0);
-      if (
-        (code > 31 && code < 127) || // ASCII 可打印字符
-        (code > 0x4e00 && code < 0x9fff) || // 常用汉字
-        (code > 0x3000 && code < 0x303f) // 中文标点
-      ) {
-        if (option.show) process.stdout.write(char);
-        inputBuffer += char;
-      }
-      switch (char) {
-        case "\r": // 回车
-        case "\n":
-          process.stdout.write("\n");
-          if (validator(inputBuffer)) {
-            close();
-            resolve(inputBuffer);
-          } else {
-            if (option.loop) {
-              inputBuffer = "";
-              process.stdout.write(promptText);
-            } else {
-              close();
-              resolve(false);
-            }
-          }
-          return;
-        case "\b": // 退格键
-        case "\x7f":
-          if (inputBuffer.length > 0) {
-            if (option.show) {
-              const charWidth = getCharWidth(inputBuffer.at(-1));
-              process.stdout.write("\b".repeat(charWidth));
-              process.stdout.write(" ".repeat(charWidth));
-              process.stdout.write("\b".repeat(charWidth));
-            }
-            inputBuffer = inputBuffer.slice(0, -1);
-          }
-          return;
-        case "\x17": // Ctrl + 退格
-          if (inputBuffer.length > 0) {
-            process.stdout.clearLine();
-            process.stdout.cursorTo(0);
-            process.stdout.write(promptText);
-            inputBuffer = "";
-          }
-          return;
-        case "\u0003": // Ctrl + C
-          process.stdout.write("\x1b[30m^C\n\x1b[0m");
-          close();
-          process.exit();
-      }
-    }
-    function close() {
-      process.stdin.setRawMode(false);
-      process.stdin.removeListener("data", onData);
-      process.stdin.pause();
-    }
-    function getCharWidth(char) {
-      const code = char.codePointAt(0);
-      if (
-        (code > 0x3000 && code < 0x303f) || // 中文标点
-        (code > 0x4e00 && code < 0x9fff)
-      ) {
-        return 2;
-      }
-      return 1;
-    }
-  });
-}
-
 async function arf(filename, option = "utf8") {
   try {
     const data = await fs.promises.readFile(xpath(filename), option);
@@ -778,97 +674,6 @@ function wf(filename, data, append = false, option = "utf8") {
     return true;
   } catch (error) {
     console.error("写入" + filename + "文件失败:", error);
-  }
-}
-function getTimestamp() {
-  const now = new Date();
-  return `${(now.getMonth() + 1).toString().padStart(2, "0")}-${now
-    .getDate()
-    .toString()
-    .padStart(2, "0")} ${now.getHours().toString().padStart(2, "0")}:${now
-    .getMinutes()
-    .toString()
-    .padStart(2, "0")}:${now.getSeconds().toString().padStart(2, "0")}.${now
-    .getMilliseconds()
-    .toString()
-    .padStart(3, "0")}`;
-}
-function getLineInfo(i = 3) {
-  const arr = new Error().stack.split("\n");
-  // const res = arr[1]?.replace(/:[^:]*$/, "");
-  let res = arr[i].split("(").at(-1).split(sep_file).at(-1);
-  if (res?.endsWith(")")) res = res.slice(0, -1);
-  if (!res) originalLog(555, arr);
-  return res;
-}
-function xlog(...args) {
-  const timeString = getTimestamp();
-  const line = getLineInfo(this?.trace || 4); // 一般直接使用xlog,xerr的是需要定制this,不是最终调用者,所以trace+1
-  let pre;
-  switch (this?.info) {
-    case 0:
-      pre = "";
-      break;
-    case 1:
-      pre = `${dim}[${timeString}]: ${reset}`;
-      break;
-    case 2:
-      pre = `${blue}${line}: ${reset}`;
-      break;
-    default:
-      pre = `${dim}[${timeString}]${blue} ${line}: ${reset}`;
-  }
-  process.stdout.write(pre);
-  originalLog(...args);
-}
-function xerr(...args) {
-  // console.log(new Error().stack);
-  const timeString = getTimestamp();
-  const line = getLineInfo(this?.trace || 4);
-  let pre;
-  switch (this?.info) {
-    case 0:
-      pre = "";
-      break;
-    case 1:
-      pre = `${dim}[${timeString}]: ${red}`;
-      break;
-    case 2:
-      pre = `${blue}${line}: ${red}`;
-      break;
-    default:
-      pre = `${dim}[${timeString}]${blue} ${line}: ${red}`;
-  }
-  process.stdout.write(pre);
-  originalError(...args, `${reset}`);
-}
-/**
- * 重写或扩展控制台输出方法，支持带时间戳和调用行号的 `console.log` 和 `console.error`。
- * @param {number} [rewrite=2] - 是否重写全局 `console.log` 和 `console.error` 方法,重写等级,默认2。
- * @returns {{ log: Function, err: Function }} - 返回扩展的日志方法：
- * - `log(...args: any[]): void` 用于日志输出。
- * - `err(...args: any[]): void` 用于错误输出。
- */
-function xconsole(config = {}) {
-  if (typeof config === "object") {
-    config = {
-      ...{
-        log: {
-          info: 3,
-          trace: 3,
-        },
-        err: {
-          info: 3,
-          trace: 3,
-        },
-      },
-      ...config,
-    };
-    console.log = xlog.bind(config.log);
-    console.error = xerr.bind(config.err);
-  } else {
-    console.log = originalLog;
-    console.error = originalError;
   }
 }
 

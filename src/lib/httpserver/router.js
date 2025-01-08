@@ -1,4 +1,4 @@
-import { xerr } from "../basic.js";
+import { cerr } from "../basic.js";
 export { router_find_resolve, addr, _404 };
 const METHOD_ARRAY = [
   "GET",
@@ -31,7 +31,7 @@ function addr(...argv) {
     } else if (typeof item === "object") config = item;
   });
   if (!path) {
-    xerr("path is required,以'/'开头的精确路径string 或 regexp");
+    cerr("path is required,以'/'开头的精确路径string 或 regexp");
     return;
   }
   if (!method) method = "*";
@@ -145,7 +145,7 @@ function router_find_resolve(server, stream, gold) {
         chunks.push(chunk);
       }
     } catch (err) {
-      xerr(err);
+      cerr(err);
       gold.err();
     }
   });
@@ -155,7 +155,7 @@ function router_find_resolve(server, stream, gold) {
       gold.data = body2data(gold) || {};
       await router_target[3](gold);
     } catch (err) {
-      xerr(err.message);
+      cerr(err.message);
       gold.err();
     }
   });

@@ -1,8 +1,8 @@
-import { xpath, rf, cookies_obj, cookie_merge, xerr } from "../basic.js";
+export { hd_stream, simulateHttp2Stream };
+
+import { cookies_obj, cookie_merge, cerr } from "../basic.js";
 import EventEmitter from "events";
 import { router_find_resolve } from "./router.js";
-export { hd_stream, getArgv, simulateHttp2Stream };
-
 function hd_stream(server, stream, headers) {
   //去掉h2的headers继承于null prototype的多余显示,及无用的Symbol("sensitiveHeaders")
   headers = Object.keys(headers).reduce((obj, key) => {
@@ -20,7 +20,7 @@ function hd_stream(server, stream, headers) {
     const url = new URL(
       `${headers[":scheme"]}://${headers[":authority"]}${headers[":path"]}`
     );
-    console.log(url);
+    // console.log(url);
     return {
       headers: headers,
       method: headers[":method"],
@@ -108,7 +108,7 @@ function hd_stream(server, stream, headers) {
         });
         data = JSON.stringify(data);
         // console.error(gold.headers[":path"] + "\n", data);
-        xerr(gold.ip, headers["cf-ipcountry"] || "", headers[":path"], data);
+        cerr(gold.ip, headers["cf-ipcountry"] || "", headers[":path"], data);
         gold.end(data);
       },
     };
@@ -118,41 +118,6 @@ function hd_stream(server, stream, headers) {
   } catch (error) {
     console.error(error);
   }
-}
-function getArgv(argv, is_https = false) {
-  // 返回端口和配置
-  let port, config;
-  argv.forEach((item) => {
-    if (typeof item === "number") {
-      port = item;
-    } else if (typeof item === "object") {
-      config = item;
-    }
-  });
-  port = port || 3000;
-  let default_config;
-  if (is_https) {
-    default_config = {
-      key: rf(xpath("../../../store/cert/selfsigned.key", import.meta.url)),
-      cert: rf(xpath("../../../store/cert/selfsigned.cert", import.meta.url)),
-      allowHTTP1: true,
-      // settings: {
-      //   maxConcurrentStreams: 100, // 最大并发流数
-      //   maxHeaderListSize: 32 * 1024, // 最大请求头大小 (32KB)
-      // },
-    };
-  } else {
-    // default_config = {
-    //   maxHeaderSize: 32 * 1024, // 32KB - 这个可以生效
-    //   headersTimeout: 60000,
-    //   maxRequestsPerSocket: 100 // 这个可以控制并发连接数
-    // }
-  }
-  config = {
-    ...default_config,
-    ...config,
-  };
-  return { port, config };
 }
 // 模拟 HTTP/2 的 `stream` 对象
 function simulateHttp2Stream(req, res) {

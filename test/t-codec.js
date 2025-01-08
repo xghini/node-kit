@@ -1,4 +1,4 @@
-import d from "./data.js";
+import data from "./data.js";
 
 // async function zstd_compress(data) {
 //   const compressed = await zstd.compress(data,{level:3});
@@ -30,7 +30,7 @@ xconsole();
 test();
 
 async function test() {
-  let a0 = d.long;
+  let a0 = data.long;
   console.log("Original size:", Buffer.from(a0).length, "bytes");
   try {
     let start;

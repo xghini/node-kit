@@ -14,7 +14,7 @@ function hd_default(gold) {
   gold.json(gold);
 }
 function hd_hello(gold) {
-  let data = { hello: gold.alpn };
+  let data = { hello: "http" + gold.httpVersion };
   if (this) data.hi = this;
   gold.json(data);
 }
@@ -39,7 +39,7 @@ function hd_stream(gold) {
 }
 function hd_data(gold) {
   gold.respond({ "Content-Type": "application/json; charset=utf-8" });
-  gold.write(JSON.stringify(gold.query, "", 2) + "\n");
+  gold.write(JSON.stringify(gold.param, "", 2) + "\n");
   gold.end(gold.body);
 }
 async function hd_error(gold) {

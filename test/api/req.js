@@ -44,6 +44,7 @@ function breq(url) {
  * build.jpost()
  * build.send()
  */
+// 最底层req,原始xurl,body,headers,option
 async function req(url, method = "GET", postData = null) {
   const urlObj = new URL(url);
   // console.log(urlObj);
@@ -91,7 +92,10 @@ async function h2req(urlObj, method = "GET", postData = null) {
         clearTimeout(timeoutId);
         resolve({
           statusCode: req.rstCode === 0 ? 200 : req.rstCode, // 简化处理
-          headers: headers,
+          headers: Object.keys(headers).reduce((obj, key) => {
+            obj[key] = headers[key];
+            return obj;
+          }, {}),
           data: parseResponseData(responseData),
           protocol: "h2",
         });
@@ -138,12 +142,12 @@ async function h2detect(urlObj) {
     session.once("connect", () => {
       h2session.set(host, session);
       // session.destroy();
-      // console.log("support h2");
+      console.log("HTTP/2");
       resolve(true);
     });
     session.once("error", () => {
       session.destroy();
-      // console.log("unsupport h2");
+      console.log("HTTP/1.1");
       resolve(false);
     });
   });
@@ -215,17 +219,25 @@ async function h1req(urlObj, method = "GET", postData = null) {
   });
 }
 
-// req('https://mana-x.aizex.net/c/677d9459-6900-8000-a150-51a684b8f05b')
-
 // 测试代码
 let res;
 const postData = { test: "data", timestamp: new Date().toISOString() };
-// // 测数据
+// 测body
 res = await req(
   "https://localhost:3000/test?username=张三&password=123&a=1&a=2&b=李四#part1=#section2",
   "poST",
   postData
 );
+console.log(res);
+// 测持续连接
+setInterval(async () => {
+  res = await req(
+    "https://localhost:3000/test?username=张三&password=123&a=1&a=2&b=李四#part1=#section2",
+    "poST",
+    postData
+  );
+  console.log(res.data);
+}, 5000);
 // 测超时 即时应用层超时,也能马上判断协议
 // res = await req("https://localhost:3000/test/timeout");
 // 测错误协议 能马上响应Error: socket hang up. code: 'ECONNRESET'
@@ -237,11 +249,9 @@ res = await req(
 // delete res.data;
 // console.log(res.headers);
 // console.log(h2session);
-// setInterval(() => {
-//   // 1.服务器首要设置中断
-//   // 2.客户端也酌情设置中断
-//   console.log(h2session.size);
-// }, 1000);
+setInterval(() => {
+  // 1.服务器首要设置中断
+  // 2.客户端也酌情设置中断
+  console.log(h2session.size);
+}, 1000);
 // // console.log(res.data);
-
-
