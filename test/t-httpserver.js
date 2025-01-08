@@ -4,6 +4,7 @@ const server = kit.h2s();
 kit.h2s({ allowHTTP1: false });
 kit.hss();
 kit.hs();
+kit.h2s(8080);
 server.addr("/", (gold) => gold.json(gold));
 server.addr("/post", "post", (gold) => gold.raw("post only"));
 server.addr(/regexp/, (gold) => gold.raw("任意包含regexp的路径  Any path that contains regexp"));
