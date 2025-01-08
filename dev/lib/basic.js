@@ -43,6 +43,7 @@ export {
   prompt,
   stack,
   getDate,
+  gcatch,
   // Math
   uuid,
   rint,
@@ -69,24 +70,63 @@ const green = "\x1b[92m";
 const cyan = "\x1b[97m";
 const yellow = "\x1b[93m";
 const blue = "\x1b[94m";
-/*********************************************/
-// 判断一切空,主要是{}和[],为true
-// 如果递归:{a:[[[[[]]]],{}],b:false,c:null,d:0,e:NaN,f:''} 全是无意义的值,也判断为空返回true
-function empty(x,recursive=false) {
-  if(recursive){
+let globalCatchError = false;
+/*XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX*/
+/**
+ * gcatch 捕获全局异常
+ * @param {boolean} open 是否开启
+ */
+function gcatch(open = true) {
+  if(open){
+    // 避免重复监听
+    if (!globalCatchError) {
+      globalCatchError = true;
+      // 捕获异步的未处理错误
+      process.on("unhandledRejection", fn0);
+      // 捕获同步的未处理错误
+      process.on("uncaughtException", fn1);
+    }    
+  }else{
+    globalCatchError = false;
+    process.off("unhandledRejection", fn0);
+    process.off("uncaughtException", fn1);
+  }
+  function fn0(reason, promise) {
+    // console.error("Unhandled Rejection at:");
+    console.error("gcatch异步中未捕获错误:", promise, "reason:", reason);
+  }
+  function fn1(err) {
+    // console.error("Uncaught Exception:");
+    console.error("gcatch主线程未捕获错误:",err);
+  }
+}
+/**
+ * empty 判断一切空,主要是{}和[],为true
+ * 如果递归recursive=true,当所含内容全是空值,也判断为空返回true:
+ * @example
+ * empty({a:[[[[[]]]],{}],b:false,c:null,d:0,e:NaN,f:''},true) //true
+ * @param {*} x
+ * @param {*} recursive
+ * @returns {bool}
+ */
+function empty(x, recursive = false) {
+  if (recursive) {
     // 如果是 falsy 值（null, undefined, false, 0, NaN, ''），直接返回 true
     if (!x) return true;
     if (Array.isArray(x)) {
       // 数组长度为 0 或者所有元素递归判断也为空
-      return x.length === 0 || x.every(item => empty(item,true));
+      return x.length === 0 || x.every((item) => empty(item, true));
     }
-    if (typeof x === 'object') {
+    if (typeof x === "object") {
       // 对象没有键值对，或者所有键的值递归判断也为空
-      return Object.keys(x).length === 0 || Object.values(x).every(value => empty(value,true));
+      return (
+        Object.keys(x).length === 0 ||
+        Object.values(x).every((value) => empty(value, true))
+      );
     }
     return false;
   }
-  return !x || (typeof x === 'object' && Object.keys(x).length === 0);
+  return !x || (typeof x === "object" && Object.keys(x).length === 0);
 }
 /**
  * fhash(fasthash) 生成易于识别图像验证的验证码,服务端应设置最大8位,防止堵塞 n>8?n=8:n;也可以用来随机生码测试性能

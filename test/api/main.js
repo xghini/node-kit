@@ -5,7 +5,9 @@ import Redis from "ioredis";
 import conf from "./conf.js";
 import lua from "./lua.js";
 kit.xconsole();
-const server = kit.hs();
+const server = kit.h2s();
+
+/* Redis */
 // const redis = new Redis();
 const redis = kit.xredis(conf.redis[0]);
 // const redis = new Redis(conf.redis[0]);
@@ -13,13 +15,8 @@ const redis1 = new Redis(conf.redis[1]);
 // 开发期间保持同步
 redis1.flushdb();
 redis.sync(redis1, "*");
-// console.log(await redis.keys("*"));
-// redis.eval(lua.dels,1,'hy2:*')
 
-// 1.cookie:admin@xship.top cookie:admin@xship.top1
-// 2.jwt
-// console.log(await redis.hgetall("user:admin@xship.top"));
-// cookie 或 jwt
+/* Routes */
 server.addr("/v1/auth/signin", "post", signin);
 server.addr("/v1/auth/captcha", captcha);
 server.addr("/v1/auth/emailverify", "post", emailverify);
@@ -31,20 +28,35 @@ server.addr("/v1/user/profile", profile);
 server.addr("/v1/user/orderplan", orderplan);
 server.addr("/v1/subscribe", "get", subscribe);
 server.addr("/hy2auth", hy2auth);
+server.addr("/test", test);
+server.addr("/test/timeout", () => {});
+export async function test(gold) {
+  console.log(gold.headers);
+  console.log(gold.query);
+  console.log(gold.alpn);
+  gold.json({
+    query: gold.query,
+    data: gold.data,
+  });
+}
 export async function hy2auth(gold) {
-  // delete gold.headers
-  // console.log(gold);
-  console.log("hy2auth:", gold.data);
+  // { addr: '120.85.169.188:5757', auth: 'mSIusSz2Ku3YUWxB85cQa', tx: 0 }
+  const res = await redis.hgetall(`plan` + gold.data.auth);
+  if (kit.empty(res))
+    return gold.end(JSON.stringify({ ok: false, msg: "无效的订阅" }));
+  // 判断流量是否用完
+  if (res.upload + res.download > res.total)
+    return gold.end(JSON.stringify({ ok: false, msg: "流量已用完" }));
   gold.end(
     JSON.stringify({
       ok: true,
-      id: "john_doe",
+      id: gold.data.auth,
     })
   );
 }
 export async function subscribe(gold) {
-  // gold.param.starlink 查相关,填响应头 无结果返回404
-  if (!gold.param.starlink || gold.param.starlink.length !== 21)
+  // gold.query.starlink 查相关,填响应头 无结果返回404
+  if (!gold.query.starlink || gold.query.starlink.length !== 21)
     return gold.end("404");
   let path,
     agent = gold.headers["user-agent"];
@@ -54,12 +66,13 @@ export async function subscribe(gold) {
   } else if (agent.match(/clash/i)) {
     path = "./clash-verge.yaml";
   } else return gold.end("404");
-  // const res = await redis.eval(lua.subscribe, 1, gold.param.starlink);
-  let res = await redis.hgetall("plan:" + gold.param.starlink);
+  // const res = await redis.eval(lua.subscribe, 1, gold.query.starlink);
+  let res = await redis.hgetall("plan:" + gold.query.starlink);
   if (kit.empty(res)) return gold.end("404");
   const data = await kit.arf(path);
-  const filename = encodeURIComponent("星链Starlink");
-  console.log(res);
+  const filename = "星链Starlink";
+  // const filename = encodeURIComponent("星链Starlink");
+  // console.log(res);
   gold.respond({
     ":status": 200,
     "content-type": "application/octet-stream; charset=UTF-8", // 或 application/octet-stream

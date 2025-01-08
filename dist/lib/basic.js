@@ -1,4 +1,4 @@
-export { rf, wf, mkdir, isdir, isfile, dir, exist, xpath, rm, cp, arf, awf, amkdir, aisdir, aisfile, adir, aexist, arm, aonedir, aloadyml, aloadenv, aloadjson, xconsole, xlog, xerr, cookie_obj, cookie_str, cookie_merge, cookies_obj, cookies_str, cookies_merge, mreplace, mreplace_calc, xreq, ast_jsbuild, sleep, interval, timelog, prompt, stack, getDate, uuid, rint, rside, gchar, fhash, empty, };
+export { rf, wf, mkdir, isdir, isfile, dir, exist, xpath, rm, cp, arf, awf, amkdir, aisdir, aisfile, adir, aexist, arm, aonedir, aloadyml, aloadenv, aloadjson, xconsole, xlog, xerr, cookie_obj, cookie_str, cookie_merge, cookies_obj, cookies_str, cookies_merge, mreplace, mreplace_calc, xreq, ast_jsbuild, sleep, interval, timelog, prompt, stack, getDate, gcatch, uuid, rint, rside, gchar, fhash, empty, };
 import { createRequire } from "module";
 import { parse } from "acorn";
 import fs from "fs";
@@ -17,19 +17,41 @@ const green = "\x1b[92m";
 const cyan = "\x1b[97m";
 const yellow = "\x1b[93m";
 const blue = "\x1b[94m";
+let globalCatchError = false;
+function gcatch(open = true) {
+    if (open) {
+        if (!globalCatchError) {
+            globalCatchError = true;
+            process.on("unhandledRejection", fn0);
+            process.on("uncaughtException", fn1);
+        }
+    }
+    else {
+        globalCatchError = false;
+        process.off("unhandledRejection", fn0);
+        process.off("uncaughtException", fn1);
+    }
+    function fn0(reason, promise) {
+        console.error("gcatch异步中未捕获错误:", promise, "reason:", reason);
+    }
+    function fn1(err) {
+        console.error("gcatch主线程未捕获错误:", err);
+    }
+}
 function empty(x, recursive = false) {
     if (recursive) {
         if (!x)
             return true;
         if (Array.isArray(x)) {
-            return x.length === 0 || x.every(item => empty(item, true));
+            return x.length === 0 || x.every((item) => empty(item, true));
         }
-        if (typeof x === 'object') {
-            return Object.keys(x).length === 0 || Object.values(x).every(value => empty(value, true));
+        if (typeof x === "object") {
+            return (Object.keys(x).length === 0 ||
+                Object.values(x).every((value) => empty(value, true)));
         }
         return false;
     }
-    return !x || (typeof x === 'object' && Object.keys(x).length === 0);
+    return !x || (typeof x === "object" && Object.keys(x).length === 0);
 }
 function fhash(cx, encode = "base64url", type = "sha256") {
     return crypto.createHash(type).update(cx).digest(encode);

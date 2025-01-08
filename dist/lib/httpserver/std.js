@@ -3,6 +3,10 @@ import EventEmitter from "events";
 import { router_find_resolve } from "./router.js";
 export { hd_stream, getArgv, simulateHttp2Stream };
 function hd_stream(server, stream, headers) {
+    headers = Object.keys(headers).reduce((obj, key) => {
+        obj[key] = headers[key];
+        return obj;
+    }, {});
     const gold = (() => {
         let notresponded = true;
         let respond_headers = { ":status": 200 };
@@ -12,20 +16,27 @@ function hd_stream(server, stream, headers) {
             else
                 return this;
         }.call(stream.ip || stream.session.socket.remoteAddress);
+        const url = new URL(`${headers[":scheme"]}://${headers[":authority"]}${headers[":path"]}`);
+        console.log(url);
         return {
-            headers,
-            path: headers[":path"],
+            headers: headers,
             method: headers[":method"],
             ct: headers["content-type"],
-            httpVersion: stream.httpVersion,
+            alpn: stream.alpn,
             cookie: cookies_obj(headers["cookie"]),
-            param: {},
+            path: url.pathname,
+            search: url.search,
+            query: (() => {
+                const obj = {}, params = url.searchParams;
+                params.forEach((v, k) => {
+                    obj[k] = params.getAll(k).length > 1 ? params.getAll(k) : v;
+                });
+                return obj;
+            })(),
             data: {},
             body: "",
             direct_ip,
-            ip: headers["cf-connecting-ip"] ||
-                headers["x-forwarded-for"] ||
-                direct_ip,
+            ip: headers["cf-connecting-ip"] || headers["x-forwarded-for"] || direct_ip,
             config: {
                 MAX_BODY: 4 * 1024 * 1024,
             },
@@ -87,11 +98,6 @@ function hd_stream(server, stream, headers) {
             },
         };
     })();
-    let matched = gold.path.match(/\?/);
-    if (matched) {
-        gold.param = Object.fromEntries(new URLSearchParams(gold.path.slice(matched.index + 1)));
-        gold.path = gold.path.slice(0, matched.index);
-    }
     try {
         router_find_resolve(server, stream, gold);
     }
@@ -133,7 +139,7 @@ function simulateHttp2Stream(req, res) {
     headers[":scheme"] = req.scheme;
     headers[":authority"] = req.headers.host || "";
     const stream = new EventEmitter();
-    stream.httpVersion = req.httpVersion;
+    stream.alpn = "HTTP/" + req.httpVersion;
     stream.ip = req.socket.remoteAddress;
     stream.respond = (responseHeaders) => {
         const status = responseHeaders[":status"] || 200;

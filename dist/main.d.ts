@@ -63,6 +63,7 @@ declare const kit: {
     prompt: typeof basic.prompt;
     stack: typeof basic.stack;
     getDate: typeof basic.getDate;
+    gcatch: typeof basic.gcatch;
     uuid: typeof basic.uuid;
     rint: typeof basic.rint;
     rside: typeof basic.rside;

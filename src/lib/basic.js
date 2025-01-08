@@ -40,6 +40,7 @@ export {
   prompt,
   stack,
   getDate,
+  gcatch,
   uuid,
   rint,
   rside,
@@ -65,18 +66,54 @@ const green = "\x1b[92m";
 const cyan = "\x1b[97m";
 const yellow = "\x1b[93m";
 const blue = "\x1b[94m";
-function empty(x,recursive=false) {
-  if(recursive){
+let globalCatchError = false;
+/**
+ * gcatch 捕获全局异常
+ * @param {boolean} open 是否开启
+ */
+function gcatch(open = true) {
+  if(open){
+    if (!globalCatchError) {
+      globalCatchError = true;
+      process.on("unhandledRejection", fn0);
+      process.on("uncaughtException", fn1);
+    }    
+  }else{
+    globalCatchError = false;
+    process.off("unhandledRejection", fn0);
+    process.off("uncaughtException", fn1);
+  }
+  function fn0(reason, promise) {
+    console.error("gcatch异步中未捕获错误:", promise, "reason:", reason);
+  }
+  function fn1(err) {
+    console.error("gcatch主线程未捕获错误:",err);
+  }
+}
+/**
+ * empty 判断一切空,主要是{}和[],为true
+ * 如果递归recursive=true,当所含内容全是空值,也判断为空返回true:
+ * @example
+ * empty({a:[[[[[]]]],{}],b:false,c:null,d:0,e:NaN,f:''},true) //true
+ * @param {*} x
+ * @param {*} recursive
+ * @returns {bool}
+ */
+function empty(x, recursive = false) {
+  if (recursive) {
     if (!x) return true;
     if (Array.isArray(x)) {
-      return x.length === 0 || x.every(item => empty(item,true));
+      return x.length === 0 || x.every((item) => empty(item, true));
     }
-    if (typeof x === 'object') {
-      return Object.keys(x).length === 0 || Object.values(x).every(value => empty(value,true));
+    if (typeof x === "object") {
+      return (
+        Object.keys(x).length === 0 ||
+        Object.values(x).every((value) => empty(value, true))
+      );
     }
     return false;
   }
-  return !x || (typeof x === 'object' && Object.keys(x).length === 0);
+  return !x || (typeof x === "object" && Object.keys(x).length === 0);
 }
 /**
  * fhash(fasthash) 生成易于识别图像验证的验证码,服务端应设置最大8位,防止堵塞 n>8?n=8:n;也可以用来随机生码测试性能

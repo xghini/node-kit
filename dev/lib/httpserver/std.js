@@ -4,6 +4,11 @@ import { router_find_resolve } from "./router.js";
 export { hd_stream, getArgv, simulateHttp2Stream };
 
 function hd_stream(server, stream, headers) {
+  //去掉h2的headers继承于null prototype的多余显示,及无用的Symbol("sensitiveHeaders")
+  headers = Object.keys(headers).reduce((obj, key) => {
+    obj[key] = headers[key];
+    return obj;
+  }, {});
   const gold = (() => {
     // 私有变量
     let notresponded = true; //避免多次响应报错
@@ -12,21 +17,32 @@ function hd_stream(server, stream, headers) {
       if (this.startsWith("::ffff:")) return this.slice(7);
       else return this;
     }.call(stream.ip || stream.session.socket.remoteAddress);
+    const url = new URL(
+      `${headers[":scheme"]}://${headers[":authority"]}${headers[":path"]}`
+    );
+    console.log(url);
     return {
-      headers,
-      path: headers[":path"],
+      headers: headers,
       method: headers[":method"],
       ct: headers["content-type"],
-      httpVersion: stream.httpVersion,
+      alpn: stream.alpn,
       cookie: cookies_obj(headers["cookie"]),
-      param: {}, //统一为空对象,避免从undefined取值报错
+      path: url.pathname,
+      search: url.search,
+      query: (() => {
+        // 最多解析一维数组,更复杂结构就通过search自行解析
+        const obj = {},
+          params = url.searchParams;
+        params.forEach((v, k) => {
+          obj[k] = params.getAll(k).length > 1 ? params.getAll(k) : v;
+        });
+        return obj;
+      })(),
       data: {},
       body: "",
       direct_ip,
       ip:
-        headers["cf-connecting-ip"] ||
-        headers["x-forwarded-for"] ||
-        direct_ip,
+        headers["cf-connecting-ip"] || headers["x-forwarded-for"] || direct_ip,
       config: {
         // 默认配置
         MAX_BODY: 4 * 1024 * 1024,
@@ -97,13 +113,6 @@ function hd_stream(server, stream, headers) {
       },
     };
   })();
-  let matched = gold.path.match(/\?/);
-  if (matched) {
-    gold.param = Object.fromEntries(
-      new URLSearchParams(gold.path.slice(matched.index + 1))
-    );
-    gold.path = gold.path.slice(0, matched.index);
-  }
   try {
     router_find_resolve(server, stream, gold);
   } catch (error) {
@@ -153,7 +162,7 @@ function simulateHttp2Stream(req, res) {
   headers[":scheme"] = req.scheme;
   headers[":authority"] = req.headers.host || "";
   const stream = new EventEmitter(); // 添加事件发射器功能
-  stream.httpVersion = req.httpVersion;
+  stream.alpn = "HTTP/" + req.httpVersion;
   stream.ip = req.socket.remoteAddress;
   stream.respond = (responseHeaders) => {
     const status = responseHeaders[":status"] || 200; // 默认状态码 200

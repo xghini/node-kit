@@ -1,13 +1,12 @@
+export { h2s, hs, connect };
+export * from "./routes.js";
+import { xlog, gcatch } from "../basic.js";
 import http2 from "http2";
 import http from "http";
 import { hd_stream, getArgv, simulateHttp2Stream } from "./std.js";
 import { addr, _404 } from "./router.js";
-import { xlog } from "../basic.js";
-export { h2s, hs, connect };
-export * from "./routes.js";
-let globalCatchError = false;
 function hs(...argv) {
-    let { port, config } = getArgv(argv), server, scheme, ok = false;
+    let { port, config } = getArgv(argv), server, scheme, ok = false, currentConnections = 0;
     if (config?.key) {
         server = http2.createSecureServer(config);
         scheme = "https";
@@ -19,21 +18,19 @@ function hs(...argv) {
     server.listen(port, () => {
         ok = true;
         console.log(`\x1b[92m✓\x1b[0m Running on ${scheme}://localhost:${port}`);
-        if (!globalCatchError) {
-            globalCatchError = true;
-            process.on("unhandledRejection", (reason, promise) => {
-                console.error("异步的未处理错误:", promise, "reason:", reason);
-            });
-            process.on("uncaughtException", (err) => {
-                console.error("同步的未处理错误:", err);
-            });
-        }
+        gcatch();
         if (config?.key) {
             server.on("stream", (stream, headers) => {
-                stream.httpVersion = "2.0";
+                stream.alpn = "HTTP/2";
                 hd_stream(server, stream, headers);
             });
         }
+    });
+    server.on("connection", (socket) => {
+        currentConnections++;
+        socket.on("close", () => {
+            currentConnections--;
+        });
     });
     server.on("request", (req, res) => {
         if (req.headers[":path"])
@@ -53,14 +50,24 @@ function hs(...argv) {
         }
     });
     xlog("Start " + scheme + " server...");
-    return Object.assign(server, {
+    server = Object.assign(server, {
         http_local: true,
         https_local: false,
         routes: [],
         addr,
         _404,
         router_begin: (server, gold) => { },
+        cnn: 0,
     });
+    Object.defineProperties(server, {
+        routes: { writable: false, configurable: false },
+        addr: { writable: false, configurable: false },
+        cnn: {
+            get: () => currentConnections,
+            enumerable: true,
+        },
+    });
+    return server;
 }
 function h2s(...argv) {
     let { port, config } = getArgv(argv, true);
@@ -82,7 +89,6 @@ function connect(curlString) {
             rejectUnauthorized: false,
         });
         client.on("error", (err) => {
-            console.error("Connection error:", err);
             client.close();
             reject(err);
         });
