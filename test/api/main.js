@@ -11,7 +11,7 @@ kit.xconsole({
 // const server = kit.hs();
 // const server = kit.hss();
 const server = kit.h2s();
-// kit.h2s({ allowHTTP1: false });
+
 /* Redis */
 // const redis = new Redis();
 const redis = kit.xredis(conf.redis[0]);
@@ -31,14 +31,24 @@ server.addr("/v1/user/signout", signout);
 server.addr("/v1/user/signoutall", signoutall);
 server.addr("/v1/user/profile", profile);
 server.addr("/v1/user/orderplan", orderplan);
+server.addr("/v1/admin/status", status);
 server.addr("/v1/subscribe", "get", subscribe);
 server.addr("/hy2auth", hy2auth);
 server.addr("/test", test);
-server.addr("/test/timeout", () => {});
+// console.log(server.routes);
+server.addr("/test/timeout", (gold) => console.log(gold));
+export async function status(gold) {
+  // 服务器状态查询
+  if (gold.auth !== conf.auth) return;
+  gold.json({
+    connect_number: server.cnn,
+  });
+}
 export async function test(gold) {
-  // console.log(gold.headers);
+  console.log(gold.headers);
   // console.log(gold.query);
-  // console.log(gold.alpn);
+  // console.log(gold.protocol);
+  console.log(gold.body);
   gold.json({
     query: gold.query,
     data: gold.data,

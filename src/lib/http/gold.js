@@ -1,17 +1,13 @@
-export { hd_stream, simulateHttp2Stream };
-
-import { cookies_obj, cookie_merge, cerr } from "../basic.js";
-import EventEmitter from "events";
+export { hd_stream };
+import { cookies_obj, cookie_merge, cerror } from "../basic.js";
 import { router_find_resolve } from "./router.js";
 function hd_stream(server, stream, headers) {
-  //去掉h2的headers继承于null prototype的多余显示,及无用的Symbol("sensitiveHeaders")
   headers = Object.keys(headers).reduce((obj, key) => {
     obj[key] = headers[key];
     return obj;
   }, {});
   const gold = (() => {
-    // 私有变量
-    let notresponded = true; //避免多次响应报错
+    let notresponded = true; 
     let respond_headers = { ":status": 200 };
     const direct_ip = function () {
       if (this.startsWith("::ffff:")) return this.slice(7);
@@ -20,17 +16,16 @@ function hd_stream(server, stream, headers) {
     const url = new URL(
       `${headers[":scheme"]}://${headers[":authority"]}${headers[":path"]}`
     );
-    // console.log(url);
     return {
       headers: headers,
-      method: headers[":method"],
+      method: headers[":method"].toUpperCase(),
       ct: headers["content-type"],
-      alpn: stream.alpn,
+      auth: headers["authorization"],
+      protocol: stream.protocol,
       cookie: cookies_obj(headers["cookie"]),
       path: url.pathname,
       search: url.search,
       query: (() => {
-        // 最多解析一维数组,更复杂结构就通过search自行解析
         const obj = {},
           params = url.searchParams;
         params.forEach((v, k) => {
@@ -44,11 +39,11 @@ function hd_stream(server, stream, headers) {
       ip:
         headers["cf-connecting-ip"] || headers["x-forwarded-for"] || direct_ip,
       config: {
-        // 默认配置
         MAX_BODY: 4 * 1024 * 1024,
       },
       end: stream.end.bind(stream),
       write: stream.write.bind(stream),
+      pushStream: stream.pushStream?.bind(stream), 
       setcookie: (arr) => {
         typeof arr === "string" ? (arr = [arr]) : 0;
         respond_headers["set-cookie"] = arr.map((ck) =>
@@ -59,7 +54,6 @@ function hd_stream(server, stream, headers) {
         );
       },
       delcookie: (arr) => {
-        // 只需要传键名 ['ck1','ck2']
         typeof arr === "string" ? (arr = [arr]) : 0;
         respond_headers["set-cookie"] = arr.map(
           (ck) => ck + "=;HttpOnly; Path=/; Secure; SameSite=Strict;Max-Age=0"
@@ -71,7 +65,6 @@ function hd_stream(server, stream, headers) {
           stream.respond.bind(stream)({ ...respond_headers, ...obj });
         }
       },
-      // 任何类型的data都能返回,包括json字符串
       json: (data) => {
         gold.respond({
           "content-type": "application/json; charset=utf-8",
@@ -83,7 +76,6 @@ function hd_stream(server, stream, headers) {
         } catch (error) {
           data = { msg: data };
         }
-        // 再次确保 data 是一个对象，非对象类型统一包装
         if (typeof data !== "object" || data === null) {
           data = { msg: data };
         }
@@ -107,8 +99,13 @@ function hd_stream(server, stream, headers) {
           "content-type": "application/json; charset=utf-8",
         });
         data = JSON.stringify(data);
-        // console.error(gold.headers[":path"] + "\n", data);
-        cerr(gold.ip, headers["cf-ipcountry"] || "", headers[":path"], data);
+        cerror(
+          gold.ip,
+          headers["cf-ipcountry"] || "",
+          headers[":path"],
+          headers[":method"],
+          data
+        );
         gold.end(data);
       },
     };
@@ -118,29 +115,4 @@ function hd_stream(server, stream, headers) {
   } catch (error) {
     console.error(error);
   }
-}
-// 模拟 HTTP/2 的 `stream` 对象
-function simulateHttp2Stream(req, res) {
-  const headers = { ...req.headers };
-  headers[":method"] = req.method;
-  headers[":path"] = req.url;
-  headers[":scheme"] = req.scheme;
-  headers[":authority"] = req.headers.host || "";
-  const stream = new EventEmitter(); // 添加事件发射器功能
-  stream.alpn = "HTTP/" + req.httpVersion;
-  stream.ip = req.socket.remoteAddress;
-  stream.respond = (responseHeaders) => {
-    const status = responseHeaders[":status"] || 200; // 默认状态码 200
-    const filteredHeaders = Object.fromEntries(
-      Object.entries(responseHeaders).filter(([key]) => !key.startsWith(":"))
-    );
-    res.writeHead(status, filteredHeaders);
-  };
-  stream.write = res.write.bind(res);
-  stream.end = res.end.bind(res);
-  // 将 req 的数据事件转发到 stream 上
-  req.on("data", (chunk) => stream.emit("data", chunk));
-  req.on("end", () => stream.emit("end"));
-  req.on("error", (err) => stream.emit("error", err));
-  return { stream, headers };
 }

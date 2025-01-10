@@ -1,7 +1,7 @@
 export default kit;
 export * from "./lib/basic.js";
 export * from "./lib/codec.js";
-export * from "./lib/httpserver/hs.js";
+export * from "./lib/http/http.js";
 export * from "./lib/xdb/xdb.js";
 export * from "./lib/redis/redis.js";
 export * from "./lib/captcha/captcha.js";
@@ -9,11 +9,13 @@ declare const kit: {
     captcha: typeof captcha.captcha;
     xredis: typeof redis.xredis;
     Xdb: typeof xdb.Xdb;
-    h2s: typeof hs.h2s;
-    hs: typeof hs.hs;
-    hss: typeof hs.hss;
-    req: typeof hs.req;
-    default_routes: typeof hs.default_routes;
+    h2s: typeof http.h2s;
+    hs: typeof http.hs;
+    hss: typeof http.hss;
+    default_routes: typeof http.default_routes;
+    req: typeof http.req;
+    h2req: typeof http.h2req;
+    h1req: typeof http.h1req;
     gzip: typeof codec.gzip;
     gunzip: typeof codec.gunzip;
     deflate: typeof codec.deflate;
@@ -66,11 +68,12 @@ declare const kit: {
     fhash: typeof basic.fhash;
     empty: typeof basic.empty;
     xconsole: typeof basic.xconsole;
+    cdev: typeof basic.cdev;
     cdebug: typeof basic.cdebug;
     cinfo: typeof basic.cinfo;
     cwarn: typeof basic.cwarn;
     clog: typeof basic.clog;
-    cerr: typeof basic.cerr;
+    cerror: typeof basic.cerror;
     stack: typeof basic.stack;
     prompt: typeof basic.prompt;
     style: {
@@ -117,6 +120,6 @@ declare const kit: {
 import * as captcha from "./lib/captcha/captcha.js";
 import * as redis from "./lib/redis/redis.js";
 import * as xdb from "./lib/xdb/xdb.js";
-import * as hs from "./lib/httpserver/hs.js";
+import * as http from "./lib/http/http.js";
 import * as codec from "./lib/codec.js";
 import * as basic from "./lib/basic.js";

@@ -1,6 +1,5 @@
-export { hd_stream, simulateHttp2Stream };
-import { cookies_obj, cookie_merge, cerr } from "../basic.js";
-import EventEmitter from "events";
+export { hd_stream };
+import { cookies_obj, cookie_merge, cerror } from "../basic.js";
 import { router_find_resolve } from "./router.js";
 function hd_stream(server, stream, headers) {
     headers = Object.keys(headers).reduce((obj, key) => {
@@ -19,9 +18,10 @@ function hd_stream(server, stream, headers) {
         const url = new URL(`${headers[":scheme"]}://${headers[":authority"]}${headers[":path"]}`);
         return {
             headers: headers,
-            method: headers[":method"],
+            method: headers[":method"].toUpperCase(),
             ct: headers["content-type"],
-            alpn: stream.alpn,
+            auth: headers["authorization"],
+            protocol: stream.protocol,
             cookie: cookies_obj(headers["cookie"]),
             path: url.pathname,
             search: url.search,
@@ -41,6 +41,7 @@ function hd_stream(server, stream, headers) {
             },
             end: stream.end.bind(stream),
             write: stream.write.bind(stream),
+            pushStream: stream.pushStream?.bind(stream),
             setcookie: (arr) => {
                 typeof arr === "string" ? (arr = [arr]) : 0;
                 respond_headers["set-cookie"] = arr.map((ck) => cookie_merge("HttpOnly; Path=/; Secure; SameSite=Strict;Max-Age=300", ck));
@@ -92,7 +93,7 @@ function hd_stream(server, stream, headers) {
                     "content-type": "application/json; charset=utf-8",
                 });
                 data = JSON.stringify(data);
-                cerr(gold.ip, headers["cf-ipcountry"] || "", headers[":path"], data);
+                cerror(gold.ip, headers["cf-ipcountry"] || "", headers[":path"], headers[":method"], data);
                 gold.end(data);
             },
         };
@@ -103,25 +104,4 @@ function hd_stream(server, stream, headers) {
     catch (error) {
         console.error(error);
     }
-}
-function simulateHttp2Stream(req, res) {
-    const headers = { ...req.headers };
-    headers[":method"] = req.method;
-    headers[":path"] = req.url;
-    headers[":scheme"] = req.scheme;
-    headers[":authority"] = req.headers.host || "";
-    const stream = new EventEmitter();
-    stream.alpn = "HTTP/" + req.httpVersion;
-    stream.ip = req.socket.remoteAddress;
-    stream.respond = (responseHeaders) => {
-        const status = responseHeaders[":status"] || 200;
-        const filteredHeaders = Object.fromEntries(Object.entries(responseHeaders).filter(([key]) => !key.startsWith(":")));
-        res.writeHead(status, filteredHeaders);
-    };
-    stream.write = res.write.bind(res);
-    stream.end = res.end.bind(res);
-    req.on("data", (chunk) => stream.emit("data", chunk));
-    req.on("end", () => stream.emit("end"));
-    req.on("error", (err) => stream.emit("error", err));
-    return { stream, headers };
 }

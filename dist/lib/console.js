@@ -1,6 +1,6 @@
-export { xconsole, cdebug, cinfo, cwarn, clog, cerr, stack, prompt, style };
+export { xconsole, cdev, cdebug, cinfo, cwarn, clog, cerror, stack, prompt, style, };
 const sep_file = process.platform == "win32" ? "file:///" : "file://";
-console.dev = xdev.bind({ info: 0, trace: 3 });
+console.dev = cdev.bind({ info: 0, trace: 3 });
 const originalDebug = console.info;
 const originalInfo = console.info;
 const originalWarn = console.warn;
@@ -111,25 +111,33 @@ function getLineInfo(i = 3) {
         originalLog(555, arr);
     return res;
 }
-function xdev(...args) {
-    let pre, mainstyle = `${reset}${bold}${brightCyan}`;
+function arvg_final(arvg) {
+    return arvg.map((item) => {
+        if (typeof item === "number")
+            return item + "";
+        return item;
+    });
+}
+function cdev(...args) {
+    let pre, mainstyle = `${reset}${dim}${yellow}`;
     switch (this?.info) {
         case 0:
             return;
         case 1:
-            pre = "";
+            pre = `${brightCyan}[dev] `;
             break;
         case 2:
-            pre = `${black}[${getTimestamp()}]: ` + mainstyle;
+            pre = `${black}[${getTimestamp()}]:${brightCyan}[dev] ` + mainstyle;
             break;
         case 3:
-            pre = `${blue}${getLineInfo(this?.trace || 3)}: ` + mainstyle;
+            pre = `${blue}${getLineInfo(this?.trace || 3)}:${brightCyan}[dev] ` + mainstyle;
             break;
         default:
-            pre = `${black}[${getTimestamp()}] ${dim}${blue}${getLineInfo(this?.trace || 3)}: ` + mainstyle;
+            pre =
+                `${black}[${getTimestamp()}] ${dim}${blue}${getLineInfo(this?.trace || 3)}:${brightCyan}[dev] ` + mainstyle;
     }
     process.stdout.write(pre);
-    originalLog(...args, `${reset}`);
+    originalLog(...arvg_final(args), `${reset}`);
 }
 function cdebug(...args) {
     let pre, mainstyle = `${reset}${brightYellow}`;
@@ -146,10 +154,11 @@ function cdebug(...args) {
             pre = `${blue}${getLineInfo(this?.trace || 3)}: ` + mainstyle;
             break;
         default:
-            pre = `${black}[${getTimestamp()}] ${dim}${blue}${getLineInfo(this?.trace || 3)}: ` + mainstyle;
+            pre =
+                `${black}[${getTimestamp()}] ${dim}${blue}${getLineInfo(this?.trace || 3)}: ` + mainstyle;
     }
     process.stdout.write(pre);
-    originalInfo(...args, `${reset}`);
+    originalInfo(...arvg_final(args), `${reset}`);
 }
 function cinfo(...args) {
     let pre, mainstyle = `${reset}${bold}${brightWhite}`;
@@ -166,10 +175,11 @@ function cinfo(...args) {
             pre = `${blue}${getLineInfo(this?.trace || 3)}: ` + mainstyle;
             break;
         default:
-            pre = `${black}[${getTimestamp()}] ${dim}${blue}${getLineInfo(this?.trace || 3)}: ` + mainstyle;
+            pre =
+                `${black}[${getTimestamp()}] ${dim}${blue}${getLineInfo(this?.trace || 3)}: ` + mainstyle;
     }
     process.stdout.write(pre);
-    originalInfo(...args, `${reset}`);
+    originalInfo(...arvg_final(args), `${reset}`);
 }
 function cwarn(...args) {
     let pre, mainstyle = `${reset}${bold}${brightMagenta}`;
@@ -186,10 +196,11 @@ function cwarn(...args) {
             pre = `${blue}${getLineInfo(this?.trace || 3)}: ` + mainstyle;
             break;
         default:
-            pre = `${black}[${getTimestamp()}] ${dim}${blue}${getLineInfo(this?.trace || 3)}: ` + mainstyle;
+            pre =
+                `${black}[${getTimestamp()}] ${dim}${blue}${getLineInfo(this?.trace || 3)}: ` + mainstyle;
     }
     process.stdout.write(pre);
-    originalWarn(...args, `${reset}`);
+    originalWarn(...arvg_final(args), `${reset}`);
 }
 function clog(...args) {
     let pre, mainstyle = `${reset}`;
@@ -206,12 +217,13 @@ function clog(...args) {
             pre = `${blue}${getLineInfo(this?.trace || 4)}: ` + mainstyle;
             break;
         default:
-            pre = `${black}[${getTimestamp()}] ${dim}${blue}${getLineInfo(this?.trace || 4)}: ` + mainstyle;
+            pre =
+                `${black}[${getTimestamp()}] ${dim}${blue}${getLineInfo(this?.trace || 4)}: ` + mainstyle;
     }
     process.stdout.write(pre);
-    originalLog(...args, `${reset}`);
+    originalLog(...arvg_final(args), `${reset}`);
 }
-function cerr(...args) {
+function cerror(...args) {
     let pre, mainstyle = `${reset}${dim}${red}`;
     switch (this?.info) {
         case 0:
@@ -226,45 +238,78 @@ function cerr(...args) {
             pre = `${blue}${getLineInfo(this?.trace || 4)}: ` + mainstyle;
             break;
         default:
-            pre = `${black}[${getTimestamp()}] ${dim}${blue}${getLineInfo(this?.trace || 4)}: ` + mainstyle;
+            pre =
+                `${black}[${getTimestamp()}] ${dim}${blue}${getLineInfo(this?.trace || 4)}: ` + mainstyle;
     }
     process.stdout.write(pre);
-    originalError(...args, `${reset}`);
+    originalError(...args.map((item) => {
+        if (item instanceof Error) {
+            const stack = item.stack.split("\n");
+            return (stack[0] +
+                " " +
+                underline +
+                (stack.slice(1).find(item => item.match('//')) || stack[1]).split("at ")[1] +
+                reset +
+                mainstyle);
+        }
+        else if (typeof item === "number") {
+            return item + "";
+        }
+        return item;
+    }), `${reset}`);
 }
 function xconsole(config = {}) {
     if (typeof config === "object") {
         config = {
-            dev: { ...{
+            dev: {
+                ...{
                     info: 0,
                     trace: 3,
-                }, ...config.dev },
-            debug: { ...{
+                },
+                ...config.dev,
+            },
+            debug: {
+                ...{
                     info: 6,
                     trace: 3,
-                }, ...config.debug },
-            info: { ...{
+                },
+                ...config.debug,
+            },
+            info: {
+                ...{
                     info: 6,
                     trace: 3,
-                }, ...config.info },
-            warn: { ...{
+                },
+                ...config.info,
+            },
+            warn: {
+                ...{
                     info: 6,
                     trace: 3,
-                }, ...config.warn },
-            log: { ...{
+                },
+                ...config.warn,
+            },
+            log: {
+                ...{
                     info: 6,
                     trace: 3,
-                }, ...config.log },
-            err: { ...{
+                },
+                ...config.log,
+            },
+            error: {
+                ...{
                     info: 6,
                     trace: 3,
-                }, ...config.err },
+                },
+                ...config.error,
+            },
         };
-        console.dev = xdev.bind(config.dev);
+        console.dev = cdev.bind(config.dev);
         console.debug = cdebug.bind(config.debug);
         console.info = cinfo.bind(config.info);
         console.warn = cwarn.bind(config.warn);
         console.log = clog.bind(config.log);
-        console.error = cerr.bind(config.err);
+        console.error = cerror.bind(config.error);
     }
     else if (typeof config === "number") {
         config = {
@@ -284,7 +329,7 @@ function xconsole(config = {}) {
                 info: config,
                 trace: 3,
             },
-            err: {
+            error: {
                 info: config,
                 trace: 3,
             },
@@ -293,7 +338,7 @@ function xconsole(config = {}) {
         console.info = cinfo.bind(config.info);
         console.warn = cwarn.bind(config.warn);
         console.log = clog.bind(config.log);
-        console.error = cerr.bind(config.err);
+        console.error = cerror.bind(config.error);
     }
     else {
         console.debug = originalDebug;

@@ -1,26 +1,29 @@
-import { cerr } from "../basic.js";
+import { cerror } from "../basic.js";
 export { router_find_resolve, addr, _404 };
-const METHOD_ARRAY = [
-    "GET",
-    "POST",
-    "PUT",
-    "DELETE",
-    "PATCH",
-    "HEAD",
-    "OPTIONS",
-    "CONNECT",
-    "TRACE",
-];
 function addr(...argv) {
     let path, method, ct, fn_end, fn_data, config = {};
+    const arr = argv[0].split(" ");
+    if (arr.length > 1) {
+        arr.forEach((item) => {
+            if (item.startsWith("/")) {
+                path = item;
+            }
+            else if (item.includes("/")) {
+                ct = item;
+            }
+            else {
+                method = item.toUpperCase();
+            }
+        });
+    }
     argv.forEach((item) => {
         if (typeof item === "string") {
-            if (item.startsWith("/"))
+            if (!path && item.startsWith("/"))
                 path = item;
-            else if (METHOD_ARRAY.includes(item.toUpperCase()))
-                method = item.toUpperCase();
-            else if (item.includes("/"))
+            else if (!ct && !item.match(" ") && item.includes("/"))
                 ct = item;
+            else if (!method)
+                method = item.toUpperCase();
         }
         else if (item instanceof RegExp)
             path = item;
@@ -34,7 +37,7 @@ function addr(...argv) {
             config = item;
     });
     if (!path) {
-        cerr("path is required,以'/'开头的精确路径string 或 regexp");
+        cerror("path is required,以'/'开头的精确路径string 或 regexp");
         return;
     }
     if (!method)
@@ -146,7 +149,7 @@ function router_find_resolve(server, stream, gold) {
             }
         }
         catch (err) {
-            cerr(err);
+            cerror(err);
             gold.err();
         }
     });
@@ -157,7 +160,7 @@ function router_find_resolve(server, stream, gold) {
             await router_target[3](gold);
         }
         catch (err) {
-            cerr(err.message);
+            cerror(err, err.stack);
             gold.err();
         }
     });
@@ -165,7 +168,12 @@ function router_find_resolve(server, stream, gold) {
 function body2data(gold) {
     let data;
     if (gold.ct === "application/json") {
-        data = JSON.parse(gold.body);
+        try {
+            data = JSON.parse(gold.body);
+        }
+        catch {
+            data = {};
+        }
     }
     else if (gold.ct === "application/x-www-form-urlencoded") {
         data = {};
@@ -249,5 +257,4 @@ function body2data(gold) {
     return data;
 }
 function _404(gold) {
-    gold.err(404);
 }
