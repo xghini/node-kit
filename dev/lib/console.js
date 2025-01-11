@@ -1,12 +1,12 @@
 export {
   xconsole,
+  cbrf,
   cdev,
   cdebug,
   cinfo,
   cwarn,
   clog,
   cerror,
-  stack,
   prompt,
   style,
 };
@@ -19,6 +19,7 @@ export {
  * dev(自定义) 开发环境输出,需要特别设置,默认不输出
  */
 const sep_file = process.platform == "win32" ? "file:///" : "file://"; //win32|linux|darwin
+console.brf = cbrf;
 console.dev = cdev.bind({ info: 0, trace: 3 });
 const originalDebug = console.info;
 const originalInfo = console.info;
@@ -111,11 +112,6 @@ const style = {
   bgBrightWhite,
 };
 /*XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX*/
-function stack() {
-  const stack = new Error("STACK").stack.split("\n");
-  originalLog(stack);
-  return stack;
-}
 function getTimestamp() {
   const now = new Date();
   return `${(now.getMonth() + 1).toString().padStart(2, "0")}-${now
@@ -140,9 +136,54 @@ function getLineInfo(i = 3) {
 // 数字会影响后面的样式,将其转换为string; 还可以将长对象适当收缩显示摘要
 function arvg_final(arvg) {
   return arvg.map((item) => {
-    if (typeof item === "number") return item + "";
+    if (typeof item === "number") item += "";
     return item;
   });
+}
+function arvg_final_brf(arvg) {
+  return arvg.map((item) => {
+    if (typeof item === "number") item += "";
+    else if (typeof item === "object") {
+      return JSON.stringify(
+        item,
+        (key, value) => {
+          if (typeof value === "string" && value.length > 400)
+            return value.slice(0, 200) + ` ...TOTAL:${value.length}`; // 压缩显示
+          return value;
+        },
+        2
+      );
+    }
+    if (item?.length > 200)
+      item = item.slice(0, 100) + "... total:" + item.length;
+    return item;
+  });
+}
+// 简短打印
+function cbrf(...args) {
+  let pre,
+    mainstyle = `${reset}`;
+  switch (this?.info) {
+    case 0:
+      return;
+    case 1:
+      pre = `${brightCyan} `;
+      break;
+    case 2:
+      pre = `${black}[${getTimestamp()}]:${brightCyan} ` + mainstyle;
+      break;
+    case 3:
+      pre =
+        `${blue}${getLineInfo(this?.trace || 3)}:${brightCyan} ` + mainstyle;
+      break;
+    default:
+      pre =
+        `${black}[${getTimestamp()}] ${dim}${blue}${getLineInfo(
+          this?.trace || 3
+        )}:${brightCyan} ` + mainstyle;
+  }
+  process.stdout.write(pre);
+  originalLog(...arvg_final_brf(args), `${reset}`);
 }
 function cdev(...args) {
   let pre,
@@ -157,7 +198,9 @@ function cdev(...args) {
       pre = `${black}[${getTimestamp()}]:${brightCyan}[dev] ` + mainstyle;
       break;
     case 3:
-      pre = `${blue}${getLineInfo(this?.trace || 3)}:${brightCyan}[dev] ` + mainstyle;
+      pre =
+        `${blue}${getLineInfo(this?.trace || 3)}:${brightCyan}[dev] ` +
+        mainstyle;
       break;
     default:
       pre =
@@ -295,7 +338,9 @@ function cerror(...args) {
           " " +
           underline +
           // 带//的有文件路径
-          (stack.slice(1).find(item=>item.match('//'))||stack[1]).split("at ")[1] +
+          (stack.slice(1).find((item) => item.match("//")) || stack[1]).split(
+            "at "
+          )[1] +
           reset +
           mainstyle
         );
@@ -317,6 +362,13 @@ function cerror(...args) {
 function xconsole(config = {}) {
   if (typeof config === "object") {
     config = {
+      brf: {
+        ...{
+          info: 3,
+          trace: 3,
+        },
+        ...config.brf,
+      },
       dev: {
         ...{
           info: 0,
@@ -360,6 +412,7 @@ function xconsole(config = {}) {
         ...config.error,
       },
     };
+    console.brf = cbrf.bind(config.brf);
     console.dev = cdev.bind(config.dev);
     console.debug = cdebug.bind(config.debug);
     console.info = cinfo.bind(config.info);
@@ -368,6 +421,10 @@ function xconsole(config = {}) {
     console.error = cerror.bind(config.error);
   } else if (typeof config === "number") {
     config = {
+      brf: {
+        info: config,
+        trace: 3,
+      },
       debug: {
         info: config,
         trace: 3,
@@ -389,12 +446,14 @@ function xconsole(config = {}) {
         trace: 3,
       },
     };
+    console.brf = cbrf.bind(config.brf);
     console.debug = cdebug.bind(config.debug);
     console.info = cinfo.bind(config.info);
     console.warn = cwarn.bind(config.warn);
     console.log = clog.bind(config.log);
     console.error = cerror.bind(config.error);
   } else {
+    console.brf = cbrf;
     console.debug = originalDebug;
     console.info = originalInfo;
     console.warn = originalWarn;

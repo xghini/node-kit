@@ -1,5 +1,6 @@
-export { xconsole, cdev, cdebug, cinfo, cwarn, clog, cerror, stack, prompt, style, };
+export { xconsole, cbrf, cdev, cdebug, cinfo, cwarn, clog, cerror, prompt, style, };
 const sep_file = process.platform == "win32" ? "file:///" : "file://";
+console.brf = cbrf;
 console.dev = cdev.bind({ info: 0, trace: 3 });
 const originalDebug = console.info;
 const originalInfo = console.info;
@@ -84,11 +85,6 @@ const style = {
     bgBrightCyan,
     bgBrightWhite,
 };
-function stack() {
-    const stack = new Error("STACK").stack.split("\n");
-    originalLog(stack);
-    return stack;
-}
 function getTimestamp() {
     const now = new Date();
     return `${(now.getMonth() + 1).toString().padStart(2, "0")}-${now
@@ -114,9 +110,47 @@ function getLineInfo(i = 3) {
 function arvg_final(arvg) {
     return arvg.map((item) => {
         if (typeof item === "number")
-            return item + "";
+            item += "";
         return item;
     });
+}
+function arvg_final_brf(arvg) {
+    return arvg.map((item) => {
+        if (typeof item === "number")
+            item += "";
+        else if (typeof item === "object") {
+            return JSON.stringify(item, (key, value) => {
+                if (typeof value === "string" && value.length > 400)
+                    return value.slice(0, 200) + ` ...TOTAL:${value.length}`;
+                return value;
+            }, 2);
+        }
+        if (item?.length > 200)
+            item = item.slice(0, 100) + "... total:" + item.length;
+        return item;
+    });
+}
+function cbrf(...args) {
+    let pre, mainstyle = `${reset}`;
+    switch (this?.info) {
+        case 0:
+            return;
+        case 1:
+            pre = `${brightCyan} `;
+            break;
+        case 2:
+            pre = `${black}[${getTimestamp()}]:${brightCyan} ` + mainstyle;
+            break;
+        case 3:
+            pre =
+                `${blue}${getLineInfo(this?.trace || 3)}:${brightCyan} ` + mainstyle;
+            break;
+        default:
+            pre =
+                `${black}[${getTimestamp()}] ${dim}${blue}${getLineInfo(this?.trace || 3)}:${brightCyan} ` + mainstyle;
+    }
+    process.stdout.write(pre);
+    originalLog(...arvg_final_brf(args), `${reset}`);
 }
 function cdev(...args) {
     let pre, mainstyle = `${reset}${dim}${yellow}`;
@@ -130,7 +164,9 @@ function cdev(...args) {
             pre = `${black}[${getTimestamp()}]:${brightCyan}[dev] ` + mainstyle;
             break;
         case 3:
-            pre = `${blue}${getLineInfo(this?.trace || 3)}:${brightCyan}[dev] ` + mainstyle;
+            pre =
+                `${blue}${getLineInfo(this?.trace || 3)}:${brightCyan}[dev] ` +
+                    mainstyle;
             break;
         default:
             pre =
@@ -248,7 +284,7 @@ function cerror(...args) {
             return (stack[0] +
                 " " +
                 underline +
-                (stack.slice(1).find(item => item.match('//')) || stack[1]).split("at ")[1] +
+                (stack.slice(1).find((item) => item.match("//")) || stack[1]).split("at ")[1] +
                 reset +
                 mainstyle);
         }
@@ -261,6 +297,13 @@ function cerror(...args) {
 function xconsole(config = {}) {
     if (typeof config === "object") {
         config = {
+            brf: {
+                ...{
+                    info: 3,
+                    trace: 3,
+                },
+                ...config.brf,
+            },
             dev: {
                 ...{
                     info: 0,
@@ -304,6 +347,7 @@ function xconsole(config = {}) {
                 ...config.error,
             },
         };
+        console.brf = cbrf.bind(config.brf);
         console.dev = cdev.bind(config.dev);
         console.debug = cdebug.bind(config.debug);
         console.info = cinfo.bind(config.info);
@@ -313,6 +357,10 @@ function xconsole(config = {}) {
     }
     else if (typeof config === "number") {
         config = {
+            brf: {
+                info: config,
+                trace: 3,
+            },
             debug: {
                 info: config,
                 trace: 3,
@@ -334,6 +382,7 @@ function xconsole(config = {}) {
                 trace: 3,
             },
         };
+        console.brf = cbrf.bind(config.brf);
         console.debug = cdebug.bind(config.debug);
         console.info = cinfo.bind(config.info);
         console.warn = cwarn.bind(config.warn);
@@ -341,6 +390,7 @@ function xconsole(config = {}) {
         console.error = cerror.bind(config.error);
     }
     else {
+        console.brf = cbrf;
         console.debug = originalDebug;
         console.info = originalInfo;
         console.warn = originalWarn;

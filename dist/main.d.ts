@@ -68,13 +68,13 @@ declare const kit: {
     fhash: typeof basic.fhash;
     empty: typeof basic.empty;
     xconsole: typeof basic.xconsole;
+    cbrf: typeof basic.cbrf;
     cdev: typeof basic.cdev;
     cdebug: typeof basic.cdebug;
     cinfo: typeof basic.cinfo;
     cwarn: typeof basic.cwarn;
     clog: typeof basic.clog;
     cerror: typeof basic.cerror;
-    stack: typeof basic.stack;
     prompt: typeof basic.prompt;
     style: {
         reset: string;

@@ -1,17 +1,14 @@
 import kit from "@ghini/kit/dev";
 kit.xconsole({
-  error: { info: 3 },
-  log: { info: 3 },
   dev: { info: 3 },
 });
-const postData = { test: "data", timestamp: new Date().toISOString() };
-let res;
 
+let res;
+const postData = { test: "data", timestamp: new Date().toISOString() };
 // 测试代码
-// res = await kit.req();
 res = await kit.req(
-  "https://localhost:3000/test?username=张三&password=123&a=1&a=2&b=李四#part1=#section2 post ",
-  JSON.stringify({ a: 1, b: "发多少" }),
+  "http://localhost:3000/v1/test?username=张三&password=123&a=1&a=2&b=李四#part1=#section2 post ",
+  JSON.stringify({ a: 1, b: "测试" }),
   {
     "content-type": "application/json",
     cookie: "a=1;b=2;c=3;",
@@ -19,7 +16,7 @@ res = await kit.req(
     key: "test.key",
   },
   {
-    timeout: 1000,
+    // timeout: 1000,
     cert: false,
     settings: {
       enablePush: false,
@@ -28,11 +25,18 @@ res = await kit.req(
 );
 console.log(res);
 await kit.sleep(1000);
-res = await res.req("/test");
+res = await res.req("/v1/test");
 console.log(res);
 await kit.sleep(1000);
 res = await res.req();
 console.log(res);
+
+
+
+
+
+
+
 // 测持续连接
 // setInterval(async () => {
 //   res = await kit.req("https://localhost:3000/test");

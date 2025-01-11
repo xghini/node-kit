@@ -58,6 +58,13 @@ console.log(server.routes);
 ```
 ## 4.request
 测试文件路径:`./test/t-req.js`
+- 多路复用✅
+- cookie管理✅
+- 灵活的请求参数处理✅
+- 可复用的参数构造✅
+- 可高度自定义请求头,请求体✅
+- 自动解码br,deflate,zstd,gzip压缩的响应体✅
+- 自动解析json✅
 ## 5.redis
 测试文件路径:`./test/t-redis.js`
 ## 6.pgsql

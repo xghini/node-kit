@@ -8,9 +8,9 @@ kit.xconsole({
   dev: { info: 3 },
 });
 // console.debug.bind({debug:{trace:1}})("debug");
-// const server = kit.hs();
+const server = kit.hs();
 // const server = kit.hss();
-const server = kit.h2s();
+// const server = kit.h2s();
 
 /* Redis */
 // const redis = new Redis();
@@ -34,9 +34,24 @@ server.addr("/v1/user/orderplan", orderplan);
 server.addr("/v1/admin/status", status);
 server.addr("/v1/subscribe", "get", subscribe);
 server.addr("/hy2auth", hy2auth);
-server.addr("/test", test);
+server.addr("/v1/test", test);
+server.addr("/v1/test/br", br);
 // console.log(server.routes);
 server.addr("/test/timeout", (gold) => console.log(gold));
+export async function br(gold) {
+  // 返回一段br加密
+  console.log("br", gold.headers);
+  gold.respond({
+    "content-type": "application/json",
+    "content-encoding": "br",
+  });
+  let d0 = JSON.stringify(gold);
+  let d1 = await kit.br_compress(d0);
+  // let d2 = (await kit.br_decompress(d1)).toString();
+  // console.dev(888, d2 === d0, d0, d2);
+  // gold.end(d0);
+  gold.end(d1);
+}
 export async function status(gold) {
   // 服务器状态查询
   if (gold.auth !== conf.auth) return;
@@ -101,6 +116,7 @@ export async function subscribe(gold) {
 
 export async function signin(gold) {
   const { email, pwd } = gold.data;
+  console.dev(gold.headers, email, pwd);
   const hashKey = "user:" + email;
   let res = await redis.hgetall(hashKey);
   if (Object.keys(res).length > 0 && res.pwd === pwd) {

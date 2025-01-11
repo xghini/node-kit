@@ -2,13 +2,13 @@ export function xconsole(config?: {}): {
     log: Function;
     error: Function;
 };
+export function cbrf(...args: any[]): void;
 export function cdev(...args: any[]): void;
 export function cdebug(...args: any[]): void;
 export function cinfo(...args: any[]): void;
 export function cwarn(...args: any[]): void;
 export function clog(...args: any[]): void;
 export function cerror(...args: any[]): void;
-export function stack(): string[];
 export function prompt(promptText: string, validator: () => boolean, option: any): Promise<any>;
 export namespace style {
     export { reset };
