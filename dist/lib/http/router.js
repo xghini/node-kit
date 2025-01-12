@@ -257,4 +257,6 @@ function body2data(gold) {
     return data;
 }
 function _404(gold) {
+    console.error.bind({ line: 3 })('_404:', gold.headers[":path"], gold.headers[":method"], gold.ip, gold.headers["cf-ipcountry"] || "", gold.body);
+    gold.end("404");
 }

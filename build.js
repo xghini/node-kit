@@ -38,7 +38,7 @@ function traverseAndProcess(inputDir, outputDir) {
       const code = rf(inputPath);
       const processedCode = ast_jsbuild(code);
       wf(outputPath, processedCode);
-      console.log(`Processed: ${inputPath} -> ${outputPath}`);
+      console.log.bind({model:3})(`Processed: ${inputPath} -> ${outputPath}`);
     }
   });
 }

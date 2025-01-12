@@ -47,8 +47,9 @@ export {
   fhash,
   empty,
 };
-export * from './console.js'
+export * from "./console.js";
 
+import * as cl from "./console.js";
 import { createRequire } from "module";
 import { parse } from "acorn";
 import fs from "fs";
@@ -66,6 +67,7 @@ let globalCatchError = false;
  * @param {boolean} open 是否开启
  */
 function gcatch(open = true) {
+  console.dev("use gcatch");
   if (open) {
     // 避免重复监听
     if (!globalCatchError) {
@@ -622,7 +624,8 @@ function ast_jsbuild(code) {
   let cursor = 0;
   let newContent = "";
   comments.forEach((item) => {
-    if (item.type == "Block" && item.value.match(/\*(\r\n|\n)/)) return; //放过jsdoc
+    if(item.type == "Block")console.log(8888,item)
+    if (item.type == "Block" && item.value.match(/^\*\s/)) return; //放过jsdoc
     newContent += code.slice(cursor, item.start);
     cursor = item.end;
   });

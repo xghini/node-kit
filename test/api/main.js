@@ -4,10 +4,9 @@ import Redis from "ioredis";
 // import * as user from "./user.js";
 import conf from "./conf.js";
 import lua from "./lua.js";
-kit.xconsole({
-  dev: { info: 3 },
-});
-// console.debug.bind({debug:{trace:1}})("debug");
+kit.xconsole(
+  {dev:{model:3}}
+);
 const server = kit.hs();
 // const server = kit.hss();
 // const server = kit.h2s();
@@ -17,9 +16,13 @@ const server = kit.hs();
 const redis = kit.xredis(conf.redis[0]);
 // const redis = new Redis(conf.redis[0]);
 const redis1 = new Redis(conf.redis[1]);
+const redis2 = new Redis(conf.redis[2]);
+const redis3 = new Redis(conf.redis[3]);
+const redis4 = new Redis(conf.redis[4]);
 // 开发期间保持同步
-redis1.flushdb();
-redis.sync(redis1, "*");
+// redis1.flushdb();
+// redis.sync(redis1,'*');
+redis.sync([redis1, redis2, redis3, redis4], "plan:*");
 
 /* Routes */
 server.addr("/v1/auth/signin", "post", signin);
@@ -60,7 +63,7 @@ export async function status(gold) {
   });
 }
 export async function test(gold) {
-  console.log('test',gold.headers,gold.body);
+  console.log("test", gold.headers, gold.body);
   // console.log(gold.query);
   // console.log(gold.protocol);
   gold.json({
@@ -98,9 +101,12 @@ export async function subscribe(gold) {
   // const res = await redis.eval(lua.subscribe, 1, gold.query.starlink);
   let res = await redis.hgetall("plan:" + gold.query.starlink);
   if (kit.empty(res)) return gold.end("404");
-  const data = await kit.arf(path);
-  const filename = "星链Starlink";
-  // const filename = encodeURIComponent("星链Starlink");
+  const data = (await kit.arf(path)).replace(
+    /YourStrongPassword0085/g,
+    gold.query.starlink
+  );
+  // const filename = "星链Starlink";
+  const filename = encodeURIComponent("星链Starlink");
   // console.log(res);
   gold.respond({
     ":status": 200,

@@ -1,36 +1,36 @@
 import kit from "@ghini/kit/dev";
 kit.xconsole({
-  dev: { info: 3 },
+  dev: { line: 3 },
 });
 // 创建http https h2服务器,并设置/test路由
-const sarr = [kit.hs(3300), kit.hss(3301), kit.h2s(3302)];
+const sarr = await Promise.all([kit.hs(3300), kit.hss(3301), kit.h2s(3302)]);
 function fn(g) {
   const { query, data, cookie } = g;
-  g.setcookie([
-    `t=${performance.now()};max-age=3600`,
-    "a=1;max-age=3600",
-  ])
+  g.setcookie([`t=${performance.now()};max-age=3600`, "a=1;max-age=3600"]);
   g.json({ query, data, cookie });
 }
-sarr.forEach((s) => s.addr("/test", fn));
+sarr.forEach((s) => {
+  s.addr("/timetout", () => {});
+  s.addr("/test", fn);
+});
 
-// req测试
-// http
+// req使用示例
 console.log("超时(错误处理)示例===========================================");
 let [res, res1, res2] = await Promise.all([
-  kit.req("http://localhost:3300").then((res) => console.log(res) || res),
   kit
-    .req("https://localhost:3301", { cert: false, timeout: 4000 })
+    .req("http://localhost:3300/timetout")
     .then((res) => console.log(res) || res),
   kit
-    .req("https://localhost:3302", { cert: false, timeout: 1000 })
+    .req("https://localhost:3301/timetout", { cert: false, timeout: 4000 })
+    .then((res) => console.log(res) || res),
+  kit
+    .req("https://localhost:3302/timetout", { cert: false, timeout: 1000 })
     .then((res) => console.log(res) || res),
 ]);
-
 console.log(res.reqbd);
 console.log(res1.reqbd);
 console.log(res2.reqbd);
-await kit.sleep(3000);
+await kit.sleep(5000);
 console.log(
   "method,query,body,options,headers示例==========================================="
 );

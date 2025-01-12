@@ -185,7 +185,6 @@ const httpAgent = new http.Agent({
 });
 
 // HTTP/1.1 请求
-// /** @type {(argv: any[]) => Promise<ReturnType<typeof resbuild>>} */
 /** @returns {Promise<ReturnType<typeof resbuild>>} */
 async function h1req(...argv) {
   const reqbd = reqbuild(...argv);

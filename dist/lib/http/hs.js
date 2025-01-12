@@ -25,7 +25,7 @@ function hs(...argv) {
         scheme = "http";
     }
     server.listen(port, () => {
-        cinfo.bind({ info: 2 })(`${style.reset}${style.bold}${style.brightGreen}✓ ${style.brightWhite}Running on ${style.underline}${scheme}://localhost:${port}${style.reset}`);
+        cinfo.bind({ model: 2 })(`${style.reset}${style.bold}${style.brightGreen}✓ ${style.brightWhite}Running on ${style.underline}${scheme}://localhost:${port}${style.reset}`);
         gcatch();
         if (config?.key) {
             server.on("stream", (stream, headers) => {
@@ -49,7 +49,7 @@ function hs(...argv) {
     });
     server.on("error", (err) => {
         if (err.code === "EADDRINUSE" && port < 65535) {
-            cwarn.bind({ info: 2 })(`${style.bold}${style.yellow}⚠ ${style.dim}${style.brightMagenta}Port ${port} is in use, trying ${port + 1} instead...${style.reset}`);
+            cwarn.bind({ line: 2 })(`${style.bold}${style.yellow}⚠ ${style.dim}${style.brightMagenta}Port ${port} is in use, trying ${port + 1} instead...${style.reset}`);
             port++;
             server.listen(port);
         }
@@ -57,7 +57,7 @@ function hs(...argv) {
             console.error(`Server error: ${err.message}`);
         }
     });
-    cinfo.bind({ info: 2 })(`Start [${protocol}] ${scheme} server...`);
+    cinfo.bind({ model: 2 })(`Start [${protocol}] ${scheme} server...`);
     server = Object.assign(server, {
         http_local: true,
         https_local: false,

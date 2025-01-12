@@ -1,5 +1,6 @@
 export { rf, wf, mkdir, isdir, isfile, dir, exist, xpath, rm, cp, arf, awf, amkdir, aisdir, aisfile, adir, aexist, arm, aonedir, aloadyml, aloadenv, aloadjson, cookie_obj, cookie_str, cookie_merge, cookies_obj, cookies_str, cookies_merge, mreplace, mreplace_calc, xreq, ast_jsbuild, sleep, interval, timelog, getDate, gcatch, uuid, rint, rside, gchar, fhash, empty, };
-export * from './console.js';
+export * from "./console.js";
+import * as cl from "./console.js";
 import { createRequire } from "module";
 import { parse } from "acorn";
 import fs from "fs";
@@ -11,6 +12,7 @@ const sep_file = platform == "win32" ? "file:///" : "file://";
 const slice_len_file = platform == "win32" ? 8 : 7;
 let globalCatchError = false;
 function gcatch(open = true) {
+    console.dev("use gcatch");
     if (open) {
         if (!globalCatchError) {
             globalCatchError = true;
@@ -406,7 +408,9 @@ function ast_jsbuild(code) {
     let cursor = 0;
     let newContent = "";
     comments.forEach((item) => {
-        if (item.type == "Block" && item.value.match(/\*(\r\n|\n)/))
+        if (item.type == "Block")
+            console.log(8888, item);
+        if (item.type == "Block" && item.value.match(/^\*\s/))
             return;
         newContent += code.slice(cursor, item.start);
         cursor = item.end;

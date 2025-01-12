@@ -287,13 +287,13 @@ function body2data(gold) {
 function _404(gold) {
   // console.log(gold.headers);
   // gold.err(404);
-  // cerror.bind({info:2})(
-  //   '_404:',
-  //   gold.headers[":path"],
-  //   gold.headers[":method"],
-  //   gold.ip,
-  //   gold.headers["cf-ipcountry"] || "",
-  //   gold.body
-  // );
-  // gold.end("404");
+  console.error.bind({line:3})(
+    '_404:',
+    gold.headers[":path"],
+    gold.headers[":method"],
+    gold.ip,
+    gold.headers["cf-ipcountry"] || "",
+    gold.body
+  );
+  gold.end("404");
 }
