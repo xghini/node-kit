@@ -60,10 +60,9 @@ export async function status(gold) {
   });
 }
 export async function test(gold) {
-  console.log(gold.headers);
+  console.log('test',gold.headers,gold.body);
   // console.log(gold.query);
   // console.log(gold.protocol);
-  console.log(gold.body);
   gold.json({
     query: gold.query,
     data: gold.data,

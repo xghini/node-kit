@@ -10,118 +10,27 @@ const d_headers = {
     "user-agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/119.0.0.0 Safari/537.36",
 };
 const d_timeout = 8000;
-function reqbuild(...argv) {
-    try {
-        let { h2session, urlobj, url, method, headers, body, options } = this || {};
-        if (argv.length === 0) {
-            if (empty(this))
-                throw new Error("首次构建,至少传入url");
-            else
-                return this;
-        }
-        else {
-            body = "";
-        }
-        if (typeof argv[0] === "object") {
-            h2session = argv[0].h2session || h2session;
-            method = argv[0].method || method;
-            body = argv[0].body || body;
-            headers = { ...headers, ...argv[0].headers };
-            options = { ...options, ...argv[0].options };
-            argv = [argv[0].url];
-        }
-        let new_headers, new_options;
-        if (typeof argv[0] === "string") {
-            const arr = argv[0].split(" ");
-            if (arr[0].startsWith("http")) {
-                url = arr[0];
-                method = arr[1] || method || "GET";
-            }
-            else if (arr[0].startsWith("/")) {
-                url = urlobj.origin + arr[0];
-                method = arr[1] || method;
-            }
-            else if (arr[0].startsWith("?")) {
-                url = urlobj.origin + urlobj.pathname + arr[0];
-                method = arr[1] || method;
-            }
-            else {
-                if (empty(this))
-                    throw new Error("构造错误,请参考文档或示例");
-                data = argv[0];
-            }
-            argv.slice(1).forEach((item) => {
-                {
-                    if (!body && typeof item === "string" && item !== "")
-                        body = item;
-                    else if (empty(item))
-                        new_options = {};
-                    else if (typeof item === "object") {
-                        if (Object.keys(item).every((key) => options_keys.includes(key))) {
-                            if (!new_options)
-                                new_options = item;
-                            else if (!new_headers)
-                                new_headers = item;
-                        }
-                        else {
-                            if (!new_headers)
-                                new_headers = item;
-                        }
-                    }
-                }
-            });
-        }
-        method = method.toUpperCase();
-        urlobj = new URL(url) || urlobj;
-        headers = { ...headers, ...new_headers } || {};
-        options = { ...options, ...new_options } || {};
-        if (options) {
-            if ("cert" in options) {
-                options.rejectUnauthorized = options.cert;
-                delete options.cert;
-            }
-            if ("json" in options) {
-                headers["content-type"] = headers["content-type"] || "application/json";
-                body = JSON.stringify(options.json);
-                delete options.json;
-            }
-        }
-        return {
-            h2session,
-            urlobj,
-            url,
-            method,
-            body,
-            headers,
-            options,
-        };
-    }
-    catch (err) {
-        console.error(err);
-    }
-}
 async function req(...argv) {
-    const obj = reqbuild(...argv);
+    const reqbd = reqbuild(...argv);
     try {
-        if (obj.urlobj.protocol === "http:") {
-            return h1req(obj);
+        if (reqbd.urlobj.protocol === "http:") {
+            return h1req(reqbd);
         }
-        const h2session = await h2connect(obj);
-        if (h2session) {
-            obj.h2session = h2session;
-            return h2req(obj);
+        const sess = await h2connect(reqbd);
+        if (sess) {
+            return h2req(reqbd);
         }
-        return h1req(obj);
+        return h1req(reqbd);
     }
     catch (error) {
         if (error.code === "EPROTO" || error.code === "ECONNRESET") {
-            if (obj.method.toUpperCase() === "CONNECT")
+            if (reqbd.method.toUpperCase() === "CONNECT")
                 return console.error("CONNECT method unsupperted");
-            console.error(error.code, "maybe", obj.urlobj.protocol === "https:" ? "http" : "https");
+            console.error(error.code, "maybe", reqbd.urlobj.protocol === "https:" ? "http" : "https");
         }
         else {
             console.error(error);
-            return resbuild.bind(obj)(false);
+            return resbuild.bind(reqbd)(false);
         }
     }
 }
@@ -139,7 +48,6 @@ async function h2connect(obj) {
         }
     }
     return new Promise((resolve, reject) => {
-        console.dev("创建h2session", host);
         const session = http2.connect(urlobj.origin, {
             ...{
                 settings: { enablePush: false },
@@ -153,7 +61,6 @@ async function h2connect(obj) {
         function fn(err) {
             session.destroy();
             if (err.code.startsWith("ERR_SSL") || err.code === "ECONNRESET") {
-                console.dev("server不支持h2,智能降级http/1.1");
                 return resolve(false);
             }
             return reject(err);
@@ -162,8 +69,8 @@ async function h2connect(obj) {
     });
 }
 async function h2req(...argv) {
-    const reqobj = reqbuild(...argv);
-    let { h2session, urlobj, method, headers, body, options } = reqobj;
+    const reqbd = reqbuild(...argv);
+    let { urlobj, method, headers, body, options } = reqbd;
     console.dev("h2", urlobj.protocol, method, body);
     headers = {
         ...d_headers,
@@ -173,20 +80,16 @@ async function h2req(...argv) {
             ":method": method || "GET",
         },
     };
-    let req;
-    if (h2session)
-        req = await h2session.request(headers);
-    else {
-        try {
-            h2session = await h2connect(reqobj);
-            if (h2session === false)
-                throw new Error("H2 connect failed");
-            req = await h2session.request(headers);
-        }
-        catch (error) {
-            console.error(error);
-            return resbuild.bind(reqobj)(false, "h2");
-        }
+    let req, sess;
+    try {
+        sess = await h2connect(reqbd);
+        if (sess === false)
+            throw new Error("H2 connect failed");
+        req = await sess.request(headers);
+    }
+    catch (error) {
+        console.error(error);
+        return resbuild.bind(reqbd)(false, "h2");
     }
     return new Promise((resolve, reject) => {
         if (!empty(body))
@@ -206,19 +109,19 @@ async function h2req(...argv) {
                 }, {});
                 const code = headers[":status"] || 200;
                 delete headers[":status"];
-                resolve(resbuild.bind(reqobj)(true, "h2", code, headers, body));
+                resolve(resbuild.bind(reqbd)(true, "h2", code, headers, body));
             });
         });
         const timeout = options.timeout || d_timeout;
         const timeoutId = setTimeout(() => {
             req.close();
             console.error(`H2 req timeout >${timeout}ms`);
-            resolve(resbuild.bind(reqobj)(false, "h2", 408));
+            resolve(resbuild.bind(reqbd)(false, "h2", 408));
         }, timeout);
         req.on("error", (err) => {
             clearTimeout(timeoutId);
             console.error(err);
-            resolve(resbuild.bind(reqobj)(false, "h2"));
+            resolve(resbuild.bind(reqbd)(false, "h2"));
         });
     });
 }
@@ -231,8 +134,8 @@ const httpAgent = new http.Agent({
     keepAliveMsecs: 60000,
 });
 async function h1req(...argv) {
-    const reqobj = reqbuild(...argv);
-    let { urlobj, method, body, headers, options } = reqobj;
+    const reqbd = reqbuild(...argv);
+    let { urlobj, method, body, headers, options } = reqbd;
     console.dev("h1", urlobj.protocol, method, body);
     const protocol = urlobj.protocol === "https:" ? https : http;
     const agent = urlobj.protocol === "https:" ? httpsAgent : httpAgent;
@@ -261,24 +164,23 @@ async function h1req(...argv) {
                     chunks.push(chunk);
                 }
                 const body = Buffer.concat(chunks);
-                resolve(resbuild.bind(reqobj)(true, "http/1.1", res.statusCode, res.headers, body));
+                resolve(resbuild.bind(reqbd)(true, "http/1.1", res.statusCode, res.headers, body));
             }
             catch (error) {
                 console.error(error);
-                resolve(resbuild.bind(reqobj)(false, "http/1.1"));
+                resolve(resbuild.bind(reqbd)(false, "http/1.1"));
             }
         });
         req.on("error", (error) => {
-            console.error(error);
-            resolve(resbuild.bind(reqobj)(false, "http/1.1"));
+            console.error(error.message);
+            resolve(resbuild.bind(reqbd)(false, "http/1.1"));
         });
         req.on("timeout", () => {
             req.destroy(new Error(`HTTP/1.1 req timeout >${options.timeout}ms`));
-            resolve(resbuild.bind(reqobj)(false, "http/1.1", 408));
+            resolve(resbuild.bind(reqbd)(false, "http/1.1", 408));
         });
         req.on("socket", (socket) => {
             if (socket.connecting) {
-                console.dev("新h1连接");
             }
             else {
                 console.dev("复用h1连接");
@@ -306,83 +208,11 @@ function body2data(body, ct) {
             data[key] = value;
         }
     }
-    else if (ct?.startsWith("multipart/form-data")) {
-        data = {};
-        const boundaryMatch = ct.match(/boundary=(.+)$/);
-        if (!boundaryMatch) {
-            throw new Error("Boundary not found in Content-Type");
-        }
-        const boundary = boundaryMatch[1];
-        const parts = body.split(`--${boundary}`);
-        for (let part of parts) {
-            part = part.trim();
-            if (!part || part === "--")
-                continue;
-            const [rawHeaders, ...rest] = part.split("\r\n\r\n");
-            const content = rest.join("\r\n\r\n").replace(/\r\n$/, "");
-            const headers = rawHeaders.split("\r\n");
-            let name = null;
-            let filename = null;
-            let contentType = null;
-            headers.forEach((header) => {
-                const nameMatch = header.match(/name="([^"]+)"/);
-                if (nameMatch) {
-                    name = nameMatch[1];
-                }
-                const filenameMatch = header.match(/filename="([^"]+)"/);
-                if (filenameMatch) {
-                    filename = filenameMatch[1];
-                }
-                const ctMatch = header.match(/Content-Type:\s*(.+)/i);
-                if (ctMatch) {
-                    contentType = ctMatch[1];
-                }
-            });
-            if (!name)
-                continue;
-            if (filename) {
-                const fileObj = {
-                    filename: filename,
-                    content: content,
-                    contentType: contentType || "application/octet-stream",
-                };
-                if (data[name]) {
-                    if (Array.isArray(data[name])) {
-                        data[name].push(fileObj);
-                    }
-                    else {
-                        data[name] = [data[name], fileObj];
-                    }
-                }
-                else {
-                    data[name] = fileObj;
-                }
-            }
-            else {
-                if (data[name] !== undefined) {
-                    if (Array.isArray(data[name])) {
-                        data[name].push(content);
-                    }
-                    else {
-                        data[name] = [data[name], content];
-                    }
-                }
-                else {
-                    data[name] = content;
-                }
-            }
-        }
-        for (const key in data) {
-            if (Array.isArray(data[key]) && data[key].length === 1) {
-                data[key] = data[key][0];
-            }
-        }
-    }
     return data;
 }
 function setcookie(arr, str) {
     if (arr)
-        return str || "" + arr.map((item) => item.split(";")[0]).join(";");
+        return str || "" + arr.map((item) => item.split(";")[0]).join("; ");
     else
         return str || "";
 }
@@ -404,17 +234,115 @@ async function autoDecompressBody(body, ce) {
     }
     return body.toString();
 }
+class Reqbd {
+    constructor(props = {}) {
+        Object.assign(this, props);
+    }
+}
+class Resbd {
+    constructor(props = {}) {
+        Object.assign(this, props);
+    }
+}
+function reqbuild(...argv) {
+    try {
+        let props = this || {};
+        let { h2session, urlobj, url, method, headers = {}, body = "", options = {}, } = props;
+        if (argv.length === 0) {
+            if (empty(this))
+                throw new Error("首次构建,至少传入url");
+            else
+                return this;
+        }
+        if (typeof argv[0] === "object") {
+            const { h2session: newSession, method: newMethod, body: newBody, headers: newHeaders, options: newOptions, url: newUrl, } = argv[0];
+            h2session = newSession || h2session;
+            method = newMethod || method;
+            body = newBody || body;
+            headers = { ...headers, ...newHeaders };
+            options = { ...options, ...newOptions };
+            argv = [newUrl];
+        }
+        let new_headers, new_options;
+        if (typeof argv[0] === "string") {
+            const arr = argv[0].split(" ");
+            if (arr[0].startsWith("http")) {
+                url = arr[0];
+                method = arr[1] || method || "GET";
+            }
+            else if (arr[0].startsWith("/")) {
+                url = urlobj.origin + arr[0];
+                method = arr[1] || method;
+            }
+            else if (arr[0].startsWith("?")) {
+                url = urlobj.origin + urlobj.pathname + arr[0];
+                method = arr[1] || method;
+            }
+            else {
+                if (empty(this))
+                    throw new Error("构造错误,请参考文档或示例");
+            }
+            argv.slice(1).forEach((item) => {
+                if (!body && typeof item === "string" && item !== "")
+                    body = item;
+                else if (empty(item))
+                    new_options = {};
+                else if (typeof item === "object") {
+                    if (Object.keys(item).every((key) => options_keys.includes(key))) {
+                        if (!new_options)
+                            new_options = item;
+                        else if (!new_headers)
+                            new_headers = item;
+                    }
+                    else {
+                        if (!new_headers)
+                            new_headers = item;
+                    }
+                }
+            });
+        }
+        method = method?.toUpperCase();
+        urlobj = new URL(url) || urlobj;
+        headers = { ...headers, ...new_headers } || {};
+        options = { ...options, ...new_options } || {};
+        if (options) {
+            if ("cert" in options) {
+                options.rejectUnauthorized = options.cert;
+                delete options.cert;
+            }
+            if ("json" in options) {
+                headers["content-type"] = headers["content-type"] || "application/json";
+                body = JSON.stringify(options.json);
+                delete options.json;
+            }
+        }
+        return new Reqbd({
+            h2session,
+            urlobj,
+            url,
+            method,
+            headers,
+            body,
+            options,
+        });
+    }
+    catch (err) {
+        console.error(err);
+    }
+}
 async function resbuild(ok, protocol, code, headers, body) {
-    const reqobj = this;
-    let cookie, data;
-    cookie = setcookie(headers?.["set-cookie"], reqobj.headers.cookie);
+    const reqbd = this;
+    let cookie = setcookie(headers?.["set-cookie"], reqbd.headers.cookie);
+    if (cookie)
+        reqbd.headers.cookie = cookie;
+    let data;
     if (ok) {
         body = await autoDecompressBody(body, headers["content-encoding"]);
         data = headers["content-type"]
             ? body2data(body, headers["content-type"])
             : {};
     }
-    const res = {
+    const res = new Resbd({
         ok,
         code,
         headers,
@@ -422,20 +350,17 @@ async function resbuild(ok, protocol, code, headers, body) {
         body,
         data,
         protocol,
-        req: async (...argv) => {
-            reqobj.headers.cookie = cookie;
-            return req(reqbuild.bind(reqobj)(...argv));
-        },
-        reqobj,
-        reset: null,
-        reset_org: null,
-        reset_hds: null,
-        reset_ops: null,
-    };
+        reqbd,
+    });
+    res.req = async (...argv) => req(reqbuild.bind(reqbd)(...argv));
+    res.h1req = async (...argv) => h1req(reqbuild.bind(reqbd)(...argv));
+    res.h2req = async (...argv) => h2req(reqbuild.bind(reqbd)(...argv));
     return Object.defineProperties(res, {
         h2session: { enumerable: false, writable: false, configurable: false },
         req: { enumerable: false, writable: false, configurable: false },
-        reqobj: { enumerable: false, writable: false, configurable: false },
+        h1req: { enumerable: false, writable: false, configurable: false },
+        h2req: { enumerable: false, writable: false, configurable: false },
+        reqbd: { enumerable: false, writable: false, configurable: false },
         reset: { enumerable: false, writable: false, configurable: false },
         reset_org: { enumerable: false, writable: false, configurable: false },
         reset_hds: { enumerable: false, writable: false, configurable: false },

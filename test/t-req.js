@@ -2,65 +2,52 @@ import kit from "@ghini/kit/dev";
 kit.xconsole({
   dev: { info: 3 },
 });
+// 创建http https h2服务器,并设置/test路由
+const sarr = [kit.hs(3300), kit.hss(3301), kit.h2s(3302)];
+function fn(g) {
+  const { query, data, cookie } = g;
+  g.setcookie([
+    `t=${performance.now()};max-age=3600`,
+    "a=1;max-age=3600",
+  ])
+  g.json({ query, data, cookie });
+}
+sarr.forEach((s) => s.addr("/test", fn));
 
-let res;
-const postData = { test: "data", timestamp: new Date().toISOString() };
-// 测试代码
-res = await kit.req(
-  "http://localhost:3000/v1/test?username=张三&password=123&a=1&a=2&b=李四#part1=#section2 post ",
-  JSON.stringify({ a: 1, b: "测试" }),
-  {
-    "content-type": "application/json",
-    cookie: "a=1;b=2;c=3;",
-    cert: "test.pem",
-    key: "test.key",
-  },
-  {
-    // timeout: 1000,
-    cert: false,
-    settings: {
-      enablePush: false,
-    },
-  }
+// req测试
+// http
+console.log("超时(错误处理)示例===========================================");
+let [res, res1, res2] = await Promise.all([
+  kit.req("http://localhost:3300").then((res) => console.log(res) || res),
+  kit
+    .req("https://localhost:3301", { cert: false, timeout: 4000 })
+    .then((res) => console.log(res) || res),
+  kit
+    .req("https://localhost:3302", { cert: false, timeout: 1000 })
+    .then((res) => console.log(res) || res),
+]);
+
+console.log(res.reqbd);
+console.log(res1.reqbd);
+console.log(res2.reqbd);
+await kit.sleep(3000);
+console.log(
+  "method,query,body,options,headers示例==========================================="
 );
-console.log(res);
-await kit.sleep(1000);
-res = await res.req("/v1/test");
-console.log(res);
-await kit.sleep(1000);
-res = await res.req();
-console.log(res);
-
-
-
-
-
-
-
-// 测持续连接
-// setInterval(async () => {
-//   res = await kit.req("https://localhost:3000/test");
-//   console.log(res);
-// }, 2000);
-
-// 测body
-// res = await kit.req(
-//   "https://localhost:3000/test?username=张三&password=123&a=1&a=2&b=李四#part1=#section2",
-//   "poST",
-//   postData
-// );
-
-// 测超时 即时应用层超时,也能马上判断协议
-// res = await kit.req("https://localhost:3000/test/timeout");
-// 测错误协议 能马上响应Error: socket hang up. code: 'ECONNRESET'
-// res = await kit.req("http://localhost:3000/test/timeout");
-// 测无连接 能马上响应Error: connect ECONNREFUSED. code: 'ECONNREFUSED'
-// res = await kit.req("http://localhost:2000/test/timeout");
-// res = await kit.req("https://localhost:2000/test/timeout");
-// 测降级
-// res = await kit.req("https://nginx.org/");
-// delete res.data;
-// console.log(res.headers);
-// console.log(h2session);
-
-// console.log(res.client);
+const json = { foo: "hello" };
+[res, res1, res2] = await Promise.all([
+  res
+    .req("/test?a=1&a=2&b=宝贝 post", { json })
+    .then((res) => console.log(res) || res),
+  res1
+    .req("/test?a=1&a=2&b=宝贝 post", { cert: false, timeout: 4000, json })
+    .then((res) => console.log(res) || res),
+  res2
+    .req("/test?a=1&a=2&b=宝贝 post", { cert: false, timeout: 1000, json })
+    .then((res) => console.log(res) || res),
+]);
+await kit.sleep(3000);
+console.log("快速完全重复请求示例===========================================");
+res.req().then((res) => console.log(res) || res);
+res1.req().then((res) => console.log(res) || res);
+res2.req().then((res) => console.log(res) || res);
