@@ -41,8 +41,105 @@ async function scankeys(pattern) {
   } while (cursor !== '0'); // 如果游标回到 0，说明遍历完成
   return allKeys;
 }
-// 安全性高的操作,pattern还是不要默认*比较好
-async function sync(targetRedisList, pattern) {
+
+// Redis Lua 脚本定义
+const FILTER_SCRIPTS = {
+  // string 类型的过滤脚本
+  string: `
+    local key = KEYS[1]
+    local pattern = ARGV[1]
+    local value = redis.call('GET', key)
+    if value == false then return nil end
+    -- 如果 pattern 为空，返回所有；否则进行匹配
+    if pattern == '' or string.match(value, pattern) then
+      return value
+    end
+    return nil
+  `,
+
+  // hash 类型的过滤脚本
+  hash: `
+    local key = KEYS[1]
+    local fields = cjson.decode(ARGV[1])
+    -- 如果字段列表为空，返回所有字段
+    if #fields == 0 then
+      return redis.call('HGETALL', key)
+    end
+    -- 否则只返回指定字段
+    local result = {}
+    for _, field in ipairs(fields) do
+      local value = redis.call('HGET', key, field)
+      if value ~= false then
+        table.insert(result, field)
+        table.insert(result, value)
+      end
+    end
+    return result
+  `,
+
+  // set 类型的过滤脚本
+  set: `
+    local key = KEYS[1]
+    local members = cjson.decode(ARGV[1])
+    -- 如果成员列表为空，返回所有成员
+    if #members == 0 then
+      return redis.call('SMEMBERS', key)
+    end
+    -- 否则只返回指定成员中存在的部分
+    local result = {}
+    for _, member in ipairs(members) do
+      if redis.call('SISMEMBER', key, member) == 1 then
+        table.insert(result, member)
+      end
+    end
+    return result
+  `,
+
+  // zset 类型的过滤脚本
+  zset: `
+    local key = KEYS[1]
+    local members = cjson.decode(ARGV[1])
+    -- 如果成员列表为空，返回所有成员和分数
+    if #members == 0 then
+      return redis.call('ZRANGE', key, 0, -1, 'WITHSCORES')
+    end
+    -- 否则只返回指定成员及其分数
+    local result = {}
+    for _, member in ipairs(members) do
+      local score = redis.call('ZSCORE', key, member)
+      if score ~= false then
+        table.insert(result, member)
+        table.insert(result, score)
+      end
+    end
+    return result
+  `,
+
+  // list 类型的过滤脚本
+  list: `
+    local key = KEYS[1]
+    local values = cjson.decode(ARGV[1])
+    -- 如果值列表为空，返回所有元素
+    if #values == 0 then
+      return redis.call('LRANGE', key, 0, -1)
+    end
+    -- 否则只返回匹配的元素（保持原顺序）
+    local all = redis.call('LRANGE', key, 0, -1)
+    local result = {}
+    local valueSet = {}
+    for _, v in ipairs(values) do
+      valueSet[v] = true
+    end
+    for _, v in ipairs(all) do
+      if valueSet[v] then
+        table.insert(result, v)
+      end
+    end
+    return result
+  `
+};
+
+async function sync(targetRedisList, pattern, options = {}) {
   if (!Array.isArray(targetRedisList)) {
     if (targetRedisList instanceof Redis) {
       targetRedisList = [targetRedisList];
@@ -54,66 +151,67 @@ async function sync(targetRedisList, pattern) {
     xerr("Need Redis clients");
     return;
   }
+
+  // 预加载所有 Lua 脚本
+  const scriptShas = {};
+  for (const [type, script] of Object.entries(FILTER_SCRIPTS)) {
+    scriptShas[type] = await this.script('LOAD', script);
+  }
+
   let totalKeys = 0;
   let cursor = "0";
   do {
-    const [newCursor, keys] = await this.scan(
-      cursor,
-      "MATCH",
-      pattern,
-      "COUNT",
-      1000
-    );
+    const [newCursor, keys] = await this.scan(cursor, "MATCH", pattern, "COUNT", 1000);
     cursor = newCursor;
+    
     if (keys.length) {
-      // 为每个目标Redis创建pipeline
       const pipelines = targetRedisList.map((target) => {
         const p = target.pipeline();
         p.org = target;
         return p;
       });
-      // 对每个 key 进行处理
+
       for (const key of keys) {
-        // 获取 key 的类型
         const type = await this.type(key);
-        // 获取数据和TTL的Promise
-        const dataPromise = (async () => {
-          switch (type) {
-            case "string":
-              const value = await this.get(key);
-              return { type, data: value };
-            case "hash":
-              const hash = await this.hgetall(key);
-              return { type, data: hash };
-            case "set":
-              const members = await this.smembers(key);
-              return { type, data: members };
-            case "zset":
-              const zrange = await this.zrange(key, 0, -1, "WITHSCORES");
-              return { type, data: zrange };
-            case "list":
-              const list = await this.lrange(key, 0, -1);
-              return { type, data: list };
-            default:
-              return { type: null, data: null };
-          }
-        })();
         const ttlPromise = this.ttl(key);
-        const [{ type: keyType, data }, ttl] = await Promise.all([
-          dataPromise,
-          ttlPromise,
-        ]);
-        if (keyType && data) {
+
+        let data = null;
+        if (type === 'string') {
+          // 对于 string 类型，使用 pattern 匹配
+          const stringPattern = options.string || '';
+          data = await this.evalsha(scriptShas.string, 1, key, stringPattern);
+        } else if (type in FILTER_SCRIPTS) {
+          // 对于其他类型，使用对应的过滤脚本
+          const fields = options[type] || [];
+          data = await this.evalsha(
+            scriptShas[type], 
+            1, 
+            key, 
+            JSON.stringify(fields)
+          );
+        }
+
+        const ttl = await ttlPromise;
+
+        if (data) {
           pipelines.forEach((pipeline) => {
-            switch (keyType) {
+            switch (type) {
               case "string":
                 pipeline.set(key, data);
                 break;
               case "hash":
-                pipeline.hmset(key, data);
+                if (data.length) {
+                  const hash = {};
+                  for (let i = 0; i < data.length; i += 2) {
+                    hash[data[i]] = data[i + 1];
+                  }
+                  pipeline.hmset(key, hash);
+                }
                 break;
               case "set":
-                if (data.length) pipeline.sadd(key, data);
+                if (data.length) {
+                  pipeline.sadd(key, data);
+                }
                 break;
               case "zset":
                 if (data.length) {
@@ -126,7 +224,9 @@ async function sync(targetRedisList, pattern) {
                 }
                 break;
               case "list":
-                if (data.length) pipeline.rpush(key, data);
+                if (data.length) {
+                  pipeline.rpush(key, data);
+                }
                 break;
             }
             if (ttl > 0) {
@@ -135,12 +235,10 @@ async function sync(targetRedisList, pattern) {
           });
         }
       }
+
       totalKeys += keys.length;
-      console.dev(
-        `Sync ${pattern} to ${targetRedisList.length} target , total ${totalKeys} keys`
-      );
-      // 执行,可以不用等结果
-      // pipelines.forEach(pipeline => pipeline.exec());
+      console.dev(`Sync ${pattern} to ${targetRedisList.length} target , total ${totalKeys} keys`);
+
       await Promise.all(
         pipelines.map(async (pipeline) => {
           await pipeline.exec();

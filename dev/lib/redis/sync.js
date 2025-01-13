@@ -1,15 +1,8 @@
-
 export { sync };
 import { Redis } from "ioredis";
-import {xlog,xerr} from "../basic.js";
 /*
 维护一个redis连接池,小规模可以使用一对多分发高效实现数据同步
 */
-
-
-
-
-
 
 /*
 redis数据同步功能
@@ -22,7 +15,7 @@ redis数据同步功能
 4.自动推送
 */
 // 使用 pipeline 批量处理以提高性能
-async function sync(targetRedisList, pattern = "*") {
+async function sync(targetRedisList, pattern, options = {}) {
   if (!Array.isArray(targetRedisList)) {
     if (targetRedisList instanceof Redis) {
       targetRedisList = [targetRedisList];
@@ -34,6 +27,7 @@ async function sync(targetRedisList, pattern = "*") {
     xerr("Need Redis clients");
     return;
   }
+
   let totalKeys = 0;
   let cursor = "0";
   do {
@@ -45,29 +39,50 @@ async function sync(targetRedisList, pattern = "*") {
       1000
     );
     cursor = newCursor;
+
     if (keys.length) {
-      // 为每个目标Redis创建pipeline
       const pipelines = targetRedisList.map((target) => {
         const p = target.pipeline();
         p.org = target;
         return p;
       });
-      // 对每个 key 进行处理
+
       for (const key of keys) {
-        // 获取 key 的类型
         const type = await this.type(key);
-        // 获取数据和TTL的Promise
         const dataPromise = (async () => {
           switch (type) {
             case "string":
               const value = await this.get(key);
               return { type, data: value };
-            case "hash":
-              const hash = await this.hgetall(key);
+            case "hash": {
+              let hash;
+              // 检查是否需要过滤字段
+              const fields = options.hash;
+              if (Array.isArray(fields)) {
+                // 只获取指定字段
+                const values = await this.hmget(key, fields);
+                hash = {};
+                fields.forEach((field, index) => {
+                  if (values[index] !== null) {
+                    hash[field] = values[index];
+                  }
+                });
+              } else {
+                // 获取所有字段
+                hash = await this.hgetall(key);
+              }
               return { type, data: hash };
-            case "set":
-              const members = await this.smembers(key);
+            }
+            case "set": {
+              // 获取所有成员
+              const allMembers = await this.smembers(key);
+              // 检查是否需要过滤成员
+              const fields = options.set;
+              const members = Array.isArray(fields)
+                ? allMembers.filter((member) => fields.includes(member))
+                : allMembers;
               return { type, data: members };
+            }
             case "zset":
               const zrange = await this.zrange(key, 0, -1, "WITHSCORES");
               return { type, data: zrange };
@@ -90,10 +105,14 @@ async function sync(targetRedisList, pattern = "*") {
                 pipeline.set(key, data);
                 break;
               case "hash":
-                pipeline.hmset(key, data);
+                if (Object.keys(data).length) {
+                  pipeline.hmset(key, data);
+                }
                 break;
               case "set":
-                if (data.length) pipeline.sadd(key, data);
+                if (data.length) {
+                  pipeline.sadd(key, data);
+                }
                 break;
               case "zset":
                 if (data.length) {
@@ -106,7 +125,9 @@ async function sync(targetRedisList, pattern = "*") {
                 }
                 break;
               case "list":
-                if (data.length) pipeline.rpush(key, data);
+                if (data.length) {
+                  pipeline.rpush(key, data);
+                }
                 break;
             }
             if (ttl > 0) {
@@ -116,16 +137,14 @@ async function sync(targetRedisList, pattern = "*") {
         }
       }
       totalKeys += keys.length;
-      console.log(
+      console.dev(
         `Sync ${pattern} to ${targetRedisList.length} target , total ${totalKeys} keys`
       );
-      // 执行,可以不用等结果
-      // pipelines.forEach(pipeline => pipeline.exec());
       await Promise.all(
         pipelines.map(async (pipeline) => {
           await pipeline.exec();
           if (pipeline.org.status === "ready") {
-            console.log("Sync ok", pipeline.org.options.host);
+            console.dev("Sync ok", pipeline.org.options.host);
           } else {
             xerr("error", pipeline.org.options.host, pipeline.org.status);
           }

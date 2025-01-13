@@ -6,5 +6,5 @@ export function xredis(...argv: any[]): Redis & {
 import Redis from "ioredis";
 declare function scankey(pattern: any): Promise<any>;
 declare function scankeys(pattern: any): Promise<any[]>;
-declare function sync(targetRedisList: any, pattern: any, options?: {}): Promise<void>;
+declare function sync(targetRedisList: any, pattern: any): Promise<void>;
 export {};

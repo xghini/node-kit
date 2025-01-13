@@ -21,8 +21,11 @@ const redis3 = new Redis(conf.redis[3]);
 const redis4 = new Redis(conf.redis[4]);
 // 开发期间保持同步
 // redis1.flushdb();
-// redis.sync(redis1,'*');
-redis.sync([redis1, redis2, redis3, redis4], "plan:*");
+// redis.sync(redis2,'*');
+// redis.sync([redis1, redis2, redis3, redis4], "plan:*");
+redis.sync([redis1, redis2, redis3, redis4], "plan:*",{
+  hash:['upload','download'],
+});
 
 /* Routes */
 server.addr("/v1/auth/signin", "post", signin);

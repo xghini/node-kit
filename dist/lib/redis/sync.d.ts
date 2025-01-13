@@ -1,1 +1,1 @@
-export function sync(targetRedisList: any, pattern?: string): Promise<void>;
+export function sync(targetRedisList: any, pattern: any, options?: {}): Promise<void>;

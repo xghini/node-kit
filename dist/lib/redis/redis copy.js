@@ -1,6 +1,37 @@
-export { sync };
-import { Redis } from "ioredis";
-async function sync(targetRedisList, pattern, options = {}) {
+export { xredis };
+import Redis from "ioredis";
+function xredis(...argv) {
+    const redis = new Redis(...argv);
+    return Object.assign(redis, {
+        scankey,
+        scankeys,
+        sync,
+    });
+}
+async function scankey(pattern) {
+    let cursor = '0';
+    const batchSize = 1000;
+    do {
+        const [newCursor, keys] = await this.scan(cursor, 'MATCH', pattern, 'COUNT', batchSize);
+        if (keys.length > 0) {
+            return keys[0];
+        }
+        cursor = newCursor;
+    } while (cursor !== '0');
+    return null;
+}
+async function scankeys(pattern) {
+    let cursor = '0';
+    const batchSize = 1000;
+    const allKeys = [];
+    do {
+        const [newCursor, keys] = await this.scan(cursor, 'MATCH', pattern, 'COUNT', batchSize);
+        allKeys.push(...keys);
+        cursor = newCursor;
+    } while (cursor !== '0');
+    return allKeys;
+}
+async function sync(targetRedisList, pattern) {
     if (!Array.isArray(targetRedisList)) {
         if (targetRedisList instanceof Redis) {
             targetRedisList = [targetRedisList];
@@ -32,31 +63,12 @@ async function sync(targetRedisList, pattern, options = {}) {
                         case "string":
                             const value = await this.get(key);
                             return { type, data: value };
-                        case "hash": {
-                            let hash;
-                            const fields = options.hash;
-                            if (Array.isArray(fields)) {
-                                const values = await this.hmget(key, fields);
-                                hash = {};
-                                fields.forEach((field, index) => {
-                                    if (values[index] !== null) {
-                                        hash[field] = values[index];
-                                    }
-                                });
-                            }
-                            else {
-                                hash = await this.hgetall(key);
-                            }
+                        case "hash":
+                            const hash = await this.hgetall(key);
                             return { type, data: hash };
-                        }
-                        case "set": {
-                            const allMembers = await this.smembers(key);
-                            const fields = options.set;
-                            const members = Array.isArray(fields)
-                                ? allMembers.filter((member) => fields.includes(member))
-                                : allMembers;
+                        case "set":
+                            const members = await this.smembers(key);
                             return { type, data: members };
-                        }
                         case "zset":
                             const zrange = await this.zrange(key, 0, -1, "WITHSCORES");
                             return { type, data: zrange };
@@ -79,14 +91,11 @@ async function sync(targetRedisList, pattern, options = {}) {
                                 pipeline.set(key, data);
                                 break;
                             case "hash":
-                                if (Object.keys(data).length) {
-                                    pipeline.hmset(key, data);
-                                }
+                                pipeline.hmset(key, data);
                                 break;
                             case "set":
-                                if (data.length) {
+                                if (data.length)
                                     pipeline.sadd(key, data);
-                                }
                                 break;
                             case "zset":
                                 if (data.length) {
@@ -99,9 +108,8 @@ async function sync(targetRedisList, pattern, options = {}) {
                                 }
                                 break;
                             case "list":
-                                if (data.length) {
+                                if (data.length)
                                     pipeline.rpush(key, data);
-                                }
                                 break;
                         }
                         if (ttl > 0) {
