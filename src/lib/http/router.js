@@ -7,17 +7,19 @@ function addr(...argv) {
     fn_end,
     fn_data,
     config = {};
-  const arr = argv[0].split(" ");
-  if (arr.length > 1) {
-    arr.forEach((item) => {
-      if (item.startsWith("/")) {
-        path = item;
-      } else if (item.includes("/")) {
-        ct = item;
-      } else {
-        method = item.toUpperCase();
-      }
-    });
+  if(typeof argv[0] === 'string'){
+    const arr = argv[0].split(" ");
+    if (arr.length > 1) {
+      arr.forEach((item) => {
+        if (item.startsWith("/")) {
+          path = item;
+        } else if (item.includes("/")) {
+          ct = item;
+        } else {
+          method = item.toUpperCase();
+        }
+      });
+    }    
   }
   argv.forEach((item) => {
     if (typeof item === "string") {
@@ -243,6 +245,7 @@ function body2data(gold) {
   return data;
 }
 function _404(gold) {
+  gold.respend({':status':404})
   console.error.bind({line:3})(
     '_404:',
     gold.headers[":path"],

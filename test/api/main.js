@@ -14,18 +14,17 @@ const server = kit.hs();
 /* Redis */
 // const redis = new Redis();
 const redis = kit.xredis(conf.redis[0]);
-// const redis = new Redis(conf.redis[0]);
-const redis1 = new Redis(conf.redis[1]);
-const redis2 = new Redis(conf.redis[2]);
-const redis3 = new Redis(conf.redis[3]);
-const redis4 = new Redis(conf.redis[4]);
+// const redis1 = new Redis(conf.redis[1]);
+// const redis2 = new Redis(conf.redis[2]);
+// const redis3 = new Redis(conf.redis[3]);
+// const redis4 = new Redis(conf.redis[4]);
 // 开发期间保持同步
 // redis1.flushdb();
 // redis.sync(redis2,'*');
 // redis.sync([redis1, redis2, redis3, redis4], "plan:*");
-redis.sync([redis1, redis2, redis3, redis4], "plan:*",{
-  hash:['upload','download'],
-});
+// redis.sync([redis1, redis2, redis3, redis4], "plan:*",{
+//   hash:['upload','download'],
+// });
 
 /* Routes */
 server.addr("/v1/auth/signin", "post", signin);

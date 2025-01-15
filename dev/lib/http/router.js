@@ -24,17 +24,19 @@ function addr(...argv) {
     fn_data,
     config = {};
   // addr('post /test application/json')
-  const arr = argv[0].split(" ");
-  if (arr.length > 1) {
-    arr.forEach((item) => {
-      if (item.startsWith("/")) {
-        path = item;
-      } else if (item.includes("/")) {
-        ct = item;
-      } else {
-        method = item.toUpperCase();
-      }
-    });
+  if(typeof argv[0] === 'string'){
+    const arr = argv[0].split(" ");
+    if (arr.length > 1) {
+      arr.forEach((item) => {
+        if (item.startsWith("/")) {
+          path = item;
+        } else if (item.includes("/")) {
+          ct = item;
+        } else {
+          method = item.toUpperCase();
+        }
+      });
+    }    
   }
   // addr("/test", "post", emailverify)
   // addr('post /test application/json',"delete","a/b") 不覆盖
@@ -287,6 +289,7 @@ function body2data(gold) {
 function _404(gold) {
   // console.log(gold.headers);
   // gold.err(404);
+  gold.respend({':status':404})
   console.error.bind({line:3})(
     '_404:',
     gold.headers[":path"],

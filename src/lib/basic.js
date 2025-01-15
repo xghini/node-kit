@@ -525,7 +525,6 @@ function ast_jsbuild(code) {
   let cursor = 0;
   let newContent = "";
   comments.forEach((item) => {
-    if(item.type == "Block")console.log(8888,item)
     if (item.type == "Block" && item.value.match(/^\*\s/)) return; 
     newContent += code.slice(cursor, item.start);
     cursor = item.end;
