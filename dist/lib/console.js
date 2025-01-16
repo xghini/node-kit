@@ -1,7 +1,7 @@
 export { cs, csm, cdev, cdebug, cinfo, cwarn, clog, cerror, prompt, style };
 const sep_file = process.platform == "win32" ? "file:///" : "file://";
 console.sm = csm;
-console.dev = cdev.bind({ info: 0 });
+console.dev = cdev.bind({ info: -1 });
 const originalDebug = console.debug;
 const originalInfo = console.info;
 const originalWarn = console.warn;

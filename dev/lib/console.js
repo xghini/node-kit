@@ -9,12 +9,12 @@ export { cs, csm, cdev, cdebug, cinfo, cwarn, clog, cerror, prompt, style };
  *
  * 普通输出console.log() (优先级100)
  * 强化输出cs() (优先级50)
- * 开发隐藏输出console.log.bind({info:0})() (优先级10)
+ * 开发隐藏输出console.log.bind({info: -1})() (优先级10)
  * 强化输出带opt指明() (优先级5)
  */
 const sep_file = process.platform == "win32" ? "file:///" : "file://"; //win32|linux|darwin
 console.sm = csm; //对长内容能简短输出 smart simple small
-console.dev = cdev.bind({ info: 0}); //
+console.dev = cdev.bind({ info: -1 }); //
 const originalDebug = console.debug;
 const originalInfo = console.info;
 const originalWarn = console.warn;
@@ -138,34 +138,7 @@ function arvg_final_sm(arvg) {
     return item;
   });
 }
-// b用来对其自定义log,比如dev sm
-function preStyle(opt, mainstyle) {
-  let pre;
-  if (opt == console) opt = undefined;
-  // 基本开启了cs就按default来,除非有效设置
-  const info = opt?.xinfo || csconf.xinfo || opt?.info || csconf.info; //number else default
-  let line = opt?.xline || csconf.xline || opt?.line || csconf.line;
-  if (typeof line !== "number") line = 4;
-  // originalLog("final csconf", info, line);
-  switch (info) {
-    case 0:
-      return;
-    case 1:
-      pre = `${reset} `;
-      break;
-    case 2:
-      pre = `${black}[${getTimestamp()}]: ` + mainstyle;
-      break;
-    case 3:
-      pre = `${blue}${getLineInfo(line)}: ` + mainstyle;
-      break;
-    default:
-      pre =
-        `${black}[${getTimestamp()}] ${dim}${blue}${getLineInfo(line)}: ` +
-        mainstyle;
-  }
-  return pre;
-}
+
 // 简短打印
 function csm(...args) {
   let pre = preStyle(this, `${reset}`);
@@ -204,7 +177,7 @@ function clog(...args) {
   originalLog(...arvg_final(args), `${reset}`);
 }
 function cerror(...args) {
-  const mainstyle=`${reset}${dim}${red}`;
+  const mainstyle = `${reset}${dim}${red}`;
   let pre = preStyle(this, mainstyle);
   if (!pre) return;
   process.stdout.write(pre);
@@ -237,8 +210,14 @@ function cerror(...args) {
  * @returns {{ log: Function, error: Function }} - 返回扩展的日志方法：
  * - `log(...args: any[]): void` 用于日志输出。
  * - `error(...args: any[]): void` 用于错误输出。
+ * 
+ * @example 实用用法
+ * cs() cs(3) 简单使用:一般性的都能显示
+ * cs(66) cs(88,5) 进阶使用:两者等效,大于10后看个位,可加入第二个参数调整line
+ * cs({xinfo:4,xline:5}) 可读性强的使用,与上效果一致
+ * bind绑定的xinfo xline为最高优先级,不可改
  */
-function cs(config) {
+function cs(config, n) {
   if (config === null || (typeof config === "number" && config < 0)) {
     // 复原
     console.debug = originalDebug;
@@ -247,18 +226,18 @@ function cs(config) {
     console.log = originalLog;
     console.error = originalError;
     return;
-  } else if (Array.isArray(config)) {
-    csconf.info = config[0];
-    csconf.line = config[1];
-    csconf.xinfo = config[2];
-    csconf.xline = config[3];
-  } else if (typeof config === "object") {
+  }else if (typeof config === "object") {
     config.info ? (csconf.info = config.info) : 0;
     config.line ? (csconf.line = config.line) : 0;
     config.xinfo ? (csconf.xinfo = config.xinfo) : 0;
     config.xline ? (csconf.xline = config.xline) : 0;
   } else if (typeof config === "number" && config >= 0) {
     csconf.info = config;
+    csconf.line = n;
+    if (config > 10) {
+      csconf.xinfo = config % 10;
+      csconf.xline = n;
+    }
   }
   console.debug = cdebug;
   console.info = cinfo;
@@ -375,4 +354,35 @@ function getLineInfo(i = 3) {
   if (res?.endsWith(")")) res = res.slice(0, -1);
   if (!res) originalLog(555, arr);
   return res;
+}
+
+// b用来对其自定义log,比如dev sm
+function preStyle(opt, mainstyle) {
+  let pre;
+  if (opt == console) opt = undefined;
+  // 基本开启了cs就按default来,除非有效设置
+  // originalLog("opt:", opt, "csconf:", csconf);
+  // 0不适用,增加运算逻辑,使用0相当于没用
+  const info = opt?.xinfo || csconf.xinfo || opt?.info || csconf.info; //number else default
+  let line = opt?.xline || csconf.xline || opt?.line || csconf.line;
+  if (typeof line !== "number") line = 4;
+  // originalLog("final csconf", info, line);
+  switch (info) {
+    case -1:
+      return;
+    case 1:
+      pre = `${reset} `;
+      break;
+    case 2:
+      pre = `${black}[${getTimestamp()}]: ` + mainstyle;
+      break;
+    case 3:
+      pre = `${blue}${getLineInfo(line)}: ` + mainstyle;
+      break;
+    default:
+      pre =
+        `${black}[${getTimestamp()}] ${dim}${blue}${getLineInfo(line)}: ` +
+        mainstyle;
+  }
+  return pre;
 }

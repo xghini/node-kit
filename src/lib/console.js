@@ -9,12 +9,12 @@ export { cs, csm, cdev, cdebug, cinfo, cwarn, clog, cerror, prompt, style };
  *
  * 普通输出console.log() (优先级100)
  * 强化输出cs() (优先级50)
- * 开发隐藏输出console.log.bind({info:0})() (优先级10)
+ * 开发隐藏输出console.log.bind({info: -1})() (优先级10)
  * 强化输出带opt指明() (优先级5)
  */
 const sep_file = process.platform == "win32" ? "file:///" : "file://"; 
 console.sm = csm; 
-console.dev = cdev.bind({ info: 0}); 
+console.dev = cdev.bind({ info: -1}); 
 const originalDebug = console.debug;
 const originalInfo = console.info;
 const originalWarn = console.warn;
