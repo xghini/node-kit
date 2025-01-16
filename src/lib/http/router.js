@@ -108,19 +108,20 @@ function router_find_resolve(server, stream, gold) {
     return;
   }
   arr0 = undefined;
-  arr1 = undefined;
+  arr1 = [];
   for (const row of arr) {
     if (gold.ct?.startsWith(row[2])) {
       arr0 = row;
+      break;
     } else if (row[2] === "*") {
-      arr1 = row;
+      arr1.push(row);
     }
   }
   let router_target;
   if (arr0) {
     router_target = arr0;
   } else if (arr1) {
-    router_target = arr1;
+    router_target = arr1[0];
   } else {
     server._404?.(gold);
     return;

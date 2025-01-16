@@ -8,7 +8,7 @@ kit.cs(66);
 const server = kit.hs();
 // server.static("/", "..");
 server.static("/a/b/c/download", "..");
-server.static("/");
+server.static("/",'../..');
 
 // const server = kit.hss();
 // const server = kit.h2s();

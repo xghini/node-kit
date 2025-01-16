@@ -114,33 +114,6 @@ function arvg_final_sm(arvg) {
         return item;
     });
 }
-function preStyle(opt, mainstyle) {
-    let pre;
-    if (opt == console)
-        opt = undefined;
-    const info = opt?.xinfo || csconf.xinfo || opt?.info || csconf.info;
-    let line = opt?.xline || csconf.xline || opt?.line || csconf.line;
-    if (typeof line !== "number")
-        line = 4;
-    switch (info) {
-        case 0:
-            return;
-        case 1:
-            pre = `${reset} `;
-            break;
-        case 2:
-            pre = `${black}[${getTimestamp()}]: ` + mainstyle;
-            break;
-        case 3:
-            pre = `${blue}${getLineInfo(line)}: ` + mainstyle;
-            break;
-        default:
-            pre =
-                `${black}[${getTimestamp()}] ${dim}${blue}${getLineInfo(line)}: ` +
-                    mainstyle;
-    }
-    return pre;
-}
 function csm(...args) {
     let pre = preStyle(this, `${reset}`);
     if (!pre)
@@ -184,7 +157,8 @@ function clog(...args) {
     originalLog(...arvg_final(args), `${reset}`);
 }
 function cerror(...args) {
-    let pre = preStyle(this, `${reset}${dim}${red}`);
+    const mainstyle = `${reset}${dim}${red}`;
+    let pre = preStyle(this, mainstyle);
     if (!pre)
         return;
     process.stdout.write(pre);
@@ -204,7 +178,7 @@ function cerror(...args) {
         return item;
     }), `${reset}`);
 }
-function cs(config) {
+function cs(config, n) {
     if (config === null || (typeof config === "number" && config < 0)) {
         console.debug = originalDebug;
         console.info = originalInfo;
@@ -212,12 +186,6 @@ function cs(config) {
         console.log = originalLog;
         console.error = originalError;
         return;
-    }
-    else if (Array.isArray(config)) {
-        csconf.info = config[0];
-        csconf.line = config[1];
-        csconf.xinfo = config[2];
-        csconf.xline = config[3];
     }
     else if (typeof config === "object") {
         config.info ? (csconf.info = config.info) : 0;
@@ -227,6 +195,11 @@ function cs(config) {
     }
     else if (typeof config === "number" && config >= 0) {
         csconf.info = config;
+        csconf.line = n;
+        if (config > 10) {
+            csconf.xinfo = config % 10;
+            csconf.xline = n;
+        }
     }
     console.debug = cdebug;
     console.info = cinfo;
@@ -337,4 +310,31 @@ function getLineInfo(i = 3) {
     if (!res)
         originalLog(555, arr);
     return res;
+}
+function preStyle(opt, mainstyle) {
+    let pre;
+    if (opt == console)
+        opt = undefined;
+    const info = opt?.xinfo || csconf.xinfo || opt?.info || csconf.info;
+    let line = opt?.xline || csconf.xline || opt?.line || csconf.line;
+    if (typeof line !== "number")
+        line = 4;
+    switch (info) {
+        case -1:
+            return;
+        case 1:
+            pre = `${reset} `;
+            break;
+        case 2:
+            pre = `${black}[${getTimestamp()}]: ` + mainstyle;
+            break;
+        case 3:
+            pre = `${blue}${getLineInfo(line)}: ` + mainstyle;
+            break;
+        default:
+            pre =
+                `${black}[${getTimestamp()}] ${dim}${blue}${getLineInfo(line)}: ` +
+                    mainstyle;
+    }
+    return pre;
 }

@@ -18,6 +18,7 @@ function hd_stream(server, stream, headers) {
     const url = new URL(
       `${headers[":scheme"]}://${headers[":authority"]}${headers[":path"]}`
     );
+    const pathname = decodeURI(url.pathname);
     return {
       headers: headers,
       method: headers[":method"].toUpperCase(),
@@ -25,8 +26,9 @@ function hd_stream(server, stream, headers) {
       auth: headers["authorization"],
       protocol: stream.protocol,
       cookie: cookies_obj(headers["cookie"]),
-      path: decodeURI(url.pathname),
-      search: url.search,
+      pathname,
+      path: pathname.replace(/\/+/g,'/').replace(/\/$/,'')||'/',//去重/和去掉末尾/
+      search: decodeURI(url.search),
       query: (() => {
         // 最多解析一维数组,更复杂结构就通过search自行解析
         const obj = {},
@@ -110,10 +112,10 @@ function hd_stream(server, stream, headers) {
           ":status": code,
           "content-type": "text/plain; charset=utf-8",
         });
-        console.error.bind({xinfo:2})(
+        console.error.bind({ info: 2 })(
           gold.ip,
           headers["cf-ipcountry"] || "",
-          headers[":path"],
+          gold.path + gold.search,
           headers[":method"],
           data
         );
@@ -133,10 +135,10 @@ function hd_stream(server, stream, headers) {
         });
         data = JSON.stringify(data);
         // console.error(gold.headers[":path"] + "\n", data);
-        console.error.bind({xinfo:2})(
+        console.error.bind({ info: 2 })(
           gold.ip,
           headers["cf-ipcountry"] || "",
-          headers[":path"],
+          gold.path + gold.search,
           headers[":method"],
           data
         );

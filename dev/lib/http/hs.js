@@ -193,14 +193,13 @@ function simulateHttp2Stream(req, res) {
 }
 
 function fn_static(url, path='./') {
-  // /download
-  const reg = new RegExp(url + ".*");
+  // /需要特殊处理
+  let reg;
+  if(url==='/')reg=new RegExp(`^/(.*)?$`)
+  else reg = new RegExp(`^${url}(\/.*)?$`);
   console.log(url, "reg:", reg);
   this.addr(reg, "get", async (g) => {
-    // 获取请求的文件路径
     let filePath = kit.xpath(g.path.slice(url.length).replace(/^\//, ""), path);
-    // 判断是目录还是文件
-    // if(url===g.path){
     if (await kit.aisdir(filePath)) {
       // 如果是目录，返回目录列表
       let files = await kit.adir(filePath);
@@ -243,7 +242,6 @@ function fn_static(url, path='./') {
   });
 }
 
-// 获取文件 Content-Type
 function getContentType(ext) {
   const contentTypes = {
     ".html": "text/html",

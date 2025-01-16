@@ -1,4 +1,4 @@
-export function cs(config: any): {
+export function cs(config: any, n: any): {
     log: Function;
     error: Function;
 };

@@ -138,11 +138,14 @@ function simulateHttp2Stream(req, res) {
     return { stream, headers };
 }
 function fn_static(url, path = './') {
-    const reg = new RegExp(url + ".*");
+    let reg;
+    if (url === '/')
+        reg = new RegExp(`^/(.*)?$`);
+    else
+        reg = new RegExp(`^${url}(\/.*)?$`);
     console.log(url, "reg:", reg);
     this.addr(reg, "get", async (g) => {
         let filePath = kit.xpath(g.path.slice(url.length).replace(/^\//, ""), path);
-        console.log("111", filePath);
         if (await kit.aisdir(filePath)) {
             let files = await kit.adir(filePath);
             let html = "<html><head><title>Directory Listing</title></head><body><h1>Directory Listing</h1><ul>";
