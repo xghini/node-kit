@@ -425,11 +425,12 @@ function reqbuild(...argv) {
 }
 
 async function resbuild(ok, protocol, code, headers, body) {
+  ok= (code >= 200 && code < 300)? true : false;
   const reqbd = this;
   let cookie = setcookie(headers?.["set-cookie"], reqbd.headers.cookie);
   if (cookie) reqbd.headers.cookie = cookie;
   let data;
-  if (ok) {
+  if (body) {
     body = await autoDecompressBody(body, headers["content-encoding"]);
     data = headers["content-type"]
       ? body2data(body, headers["content-type"])
