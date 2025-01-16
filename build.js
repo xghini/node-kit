@@ -1,6 +1,6 @@
 import {
   ast_jsbuild,
-  xconsole,
+  cs,
   mkdir,
   isdir,
   isfile,
@@ -11,7 +11,7 @@ import {
   exist,
   rm,
 } from "@ghini/kit/dev";
-xconsole();
+cs();
 // const version = process.env.npm_config_aaa || "0.0.1";
 // console.log(version,process.argv);
 // process.exit(0);

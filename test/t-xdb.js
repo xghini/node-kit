@@ -1,5 +1,5 @@
-import { xconsole, Xdb, xpath, timelog, dir, adir } from "@ghini/kit/dev";
-xconsole(2);
+import { cs, Xdb, xpath, timelog, dir, adir } from "@ghini/kit/dev";
+cs(2);
 const xdb = Xdb();
 
 // let n = 0;

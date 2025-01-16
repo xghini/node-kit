@@ -1,4 +1,4 @@
-export { cs, cbrf, cdev, cdebug, cinfo, cwarn, clog, cerror, prompt, style };
+export { cs, csm, cdev, cdebug, cinfo, cwarn, clog, cerror, prompt, style };
 /**
  * error 错误处理
  * log 日常输出
@@ -13,8 +13,8 @@ export { cs, cbrf, cdev, cdebug, cinfo, cwarn, clog, cerror, prompt, style };
  * 强化输出带opt指明() (优先级5)
  */
 const sep_file = process.platform == "win32" ? "file:///" : "file://"; //win32|linux|darwin
-console.brf = cbrf;
-console.dev = cdev.bind({ model: 0, line: 3 });
+console.sm = csm; //对长内容能简短输出 smart simple small
+console.dev = cdev.bind({ info: 0}); //
 const originalDebug = console.debug;
 const originalInfo = console.info;
 const originalWarn = console.warn;
@@ -107,39 +107,9 @@ const style = {
 };
 const csconf = {
   info: 6,
-  line: 3,
+  line: 4, // 0错误名, 1new Error, 2preStyle, 3clog, 4首次clog调用位置
   xinfo: undefined,
   xline: undefined,
-};
-const d_cl_conf = {
-  brf: {
-    model: 6,
-    line: 3,
-  },
-  dev: {
-    model: 0,
-    line: 3,
-  },
-  debug: {
-    model: 6,
-    line: 3,
-  },
-  info: {
-    model: 6,
-    line: 3,
-  },
-  warn: {
-    model: 6,
-    line: 3,
-  },
-  log: {
-    model: 6,
-    line: 3,
-  },
-  error: {
-    model: 6,
-    line: 3,
-  },
 };
 /*XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX*/
 // 数字会影响后面的样式,将其转换为string; 还可以将长对象适当收缩显示摘要
@@ -149,7 +119,7 @@ function arvg_final(arvg) {
     return item;
   });
 }
-function arvg_final_brf(arvg) {
+function arvg_final_sm(arvg) {
   return arvg.map((item) => {
     if (typeof item === "number") item += "";
     else if (typeof item === "object") {
@@ -168,12 +138,15 @@ function arvg_final_brf(arvg) {
     return item;
   });
 }
-function ctl(opt, mainstyle) {
+// b用来对其自定义log,比如dev sm
+function preStyle(opt, mainstyle) {
   let pre;
-  if (opt == console) opt = {};
-  const info = opt?.xinfo || csconf.xinfo || opt?.info || csconf.info;
-  const line = opt?.xline || csconf.xline || opt?.line || csconf.line;
-  originalLog("final csconf:", info, line);
+  if (opt == console) opt = undefined;
+  // 基本开启了cs就按default来,除非有效设置
+  const info = opt?.xinfo || csconf.xinfo || opt?.info || csconf.info; //number else default
+  let line = opt?.xline || csconf.xline || opt?.line || csconf.line;
+  if (typeof line !== "number") line = 4;
+  // originalLog("final csconf", info, line);
   switch (info) {
     case 0:
       return;
@@ -181,58 +154,57 @@ function ctl(opt, mainstyle) {
       pre = `${reset} `;
       break;
     case 2:
-      pre = `${black}[${getTimestamp()}]:${brightCyan} ` + mainstyle;
+      pre = `${black}[${getTimestamp()}]: ` + mainstyle;
       break;
     case 3:
-      pre = `${blue}${getLineInfo(line)}:${brightCyan} ` + mainstyle;
+      pre = `${blue}${getLineInfo(line)}: ` + mainstyle;
       break;
     default:
       pre =
-        `${black}[${getTimestamp()}] ${dim}${blue}${getLineInfo(
-          line
-        )}:${brightCyan} ` + mainstyle;
+        `${black}[${getTimestamp()}] ${dim}${blue}${getLineInfo(line)}: ` +
+        mainstyle;
   }
   return pre;
 }
 // 简短打印
-function cbrf(...args) {
-  let pre = ctl(this, `${reset}`);
+function csm(...args) {
+  let pre = preStyle(this, `${reset}`);
   if (!pre) return;
   process.stdout.write(pre);
-  originalLog(...arvg_final_brf(args), `${reset}`);
+  originalLog(...arvg_final_sm(args), `${reset}`);
 }
 function cdev(...args) {
-  let pre = ctl(this, `${reset}${dim}${yellow}`);
+  let pre = preStyle(this, `${cyan}[dev] ${reset}${dim}${yellow}`);
   if (!pre) return;
   process.stdout.write(pre);
   originalLog(...arvg_final(args), `${reset}`);
 }
 function cdebug(...args) {
-  let pre = ctl(this, `${reset}${brightYellow}`);
+  let pre = preStyle(this, `${reset}${brightYellow}`);
   if (!pre) return;
   process.stdout.write(pre);
   originalInfo(...arvg_final(args), `${reset}`);
 }
 function cinfo(...args) {
-  let pre = ctl(this, `${reset}${bold}${brightWhite}`);
+  let pre = preStyle(this, `${reset}${bold}${brightWhite}`);
   if (!pre) return;
   process.stdout.write(pre);
   originalInfo(...arvg_final(args), `${reset}`);
 }
 function cwarn(...args) {
-  let pre = ctl(this, `${reset}${bold}${brightMagenta}`);
+  let pre = preStyle(this, `${reset}${bold}${brightMagenta}`);
   if (!pre) return;
   process.stdout.write(pre);
   originalWarn(...arvg_final(args), `${reset}`);
 }
 function clog(...args) {
-  let pre = ctl(this, `${reset}`);
+  let pre = preStyle(this, `${reset}`);
   if (!pre) return;
   process.stdout.write(pre);
   originalLog(...arvg_final(args), `${reset}`);
 }
 function cerror(...args) {
-  let pre = ctl(this, `${reset}${dim}${red}`);
+  let pre = preStyle(this, `${reset}${dim}${red}`);
   if (!pre) return;
   process.stdout.write(pre);
   originalError(
@@ -268,8 +240,6 @@ function cerror(...args) {
 function cs(config) {
   if (config === null || (typeof config === "number" && config < 0)) {
     // 复原
-    console.brf = cbrf;
-    console.dev = cdev;
     console.debug = originalDebug;
     console.info = originalInfo;
     console.warn = originalWarn;
@@ -289,8 +259,6 @@ function cs(config) {
   } else if (typeof config === "number" && config >= 0) {
     csconf.info = config;
   }
-  console.brf = cbrf;
-  console.dev = cdev.bind({ model: 0, line: 3 });
   console.debug = cdebug;
   console.info = cinfo;
   console.warn = cwarn;

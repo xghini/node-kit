@@ -1,11 +1,11 @@
 import {
-  xconsole,
+  cs,
   newRedis,
   sleep,
   interval,
   timelog,
 } from "@ghini/kit/dev";
-xconsole();
+cs();
 
 import { createClient } from 'redis';
 // const redisClient = createClient({

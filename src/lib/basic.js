@@ -44,7 +44,6 @@ export {
   empty,
 };
 export * from "./console.js";
-import * as cl from "./console.js";
 import { createRequire } from "module";
 import { parse } from "acorn";
 import fs from "fs";
@@ -295,7 +294,7 @@ async function aisdir(path) {
     const stats = await fs.promises.lstat(path);
     return stats.isDirectory();
   } catch (err) {
-    console.error(err.message);
+    console.err.bind({info:0})(err.message);
     return;
   }
 }

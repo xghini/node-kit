@@ -1,5 +1,5 @@
 import kit from "@ghini/kit/dev";
-kit.xconsole({
+kit.cs({
   dev: { line: 3 },
 });
 // 创建http https h2服务器,并设置/test路由

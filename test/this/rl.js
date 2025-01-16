@@ -1,6 +1,6 @@
 // server.js
 import kit from "@ghini/kit/dev";
-// kit.xconsole();
+// kit.cs();
 const app = kit.hs(3001);
 kit.h2s();
 app.addr("/api/captcha", (res) => {

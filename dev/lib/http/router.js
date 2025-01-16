@@ -1,4 +1,3 @@
-import { cerror } from "../basic.js";
 export { router_find_resolve, addr, _404 };
 // 这是http https允许的methods,http2不限制
 // const methods = [
@@ -52,7 +51,7 @@ function addr(...argv) {
     } else if (typeof item === "object") config = item;
   });
   if (!path) {
-    cerror("path is required,以'/'开头的精确路径string 或 regexp");
+    console.error("path is required,以'/'开头的精确路径string 或 regexp");
     return;
   }
   if (!method) method = "*";
@@ -174,7 +173,7 @@ function router_find_resolve(server, stream, gold) {
         chunks.push(chunk);
       }
     } catch (err) {
-      cerror(err);
+      console.error(err);
       gold.err();
     }
   });
@@ -185,7 +184,7 @@ function router_find_resolve(server, stream, gold) {
       gold.data = body2data(gold) || {};
       await router_target[3](gold);
     } catch (err) {
-      cerror(err, err.stack);
+      console.error(err, err.stack);
       gold.jerr();
     }
   });
