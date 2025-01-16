@@ -33,7 +33,7 @@ function hs(...argv) {
     scheme = "http";
   }
   server.listen(port, () => {
-    cinfo.bind({ model: 2 })(
+    cinfo.bind({xinfo:2})(
       `${style.reset}${style.bold}${style.brightGreen}✓ ${style.brightWhite}Running on ${style.underline}${scheme}://localhost:${port}${style.reset}`
     );
     gcatch();

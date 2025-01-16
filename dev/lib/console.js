@@ -1,15 +1,4 @@
-export {
-  cs,
-  cbrf,
-  cdev,
-  cdebug,
-  cinfo,
-  cwarn,
-  clog,
-  cerror,
-  prompt,
-  style,
-};
+export { cs, cbrf, cdev, cdebug, cinfo, cwarn, clog, cerror, prompt, style };
 /**
  * error 错误处理
  * log 日常输出
@@ -17,7 +6,7 @@ export {
  * info 信息
  * debug 调试
  * dev(自定义) 开发环境输出,需要特别设置,默认不输出
- * 
+ *
  * 普通输出console.log() (优先级100)
  * 强化输出cs() (优先级50)
  * 开发隐藏输出console.log.bind({info:0})() (优先级10)
@@ -116,6 +105,12 @@ const style = {
   bgBrightCyan,
   bgBrightWhite,
 };
+const csconf = {
+  info: 6,
+  line: 3,
+  xinfo: undefined,
+  xline: undefined,
+};
 const d_cl_conf = {
   brf: {
     model: 6,
@@ -173,187 +168,72 @@ function arvg_final_brf(arvg) {
     return item;
   });
 }
-// 简短打印
-function cbrf(...args) {
-  let pre,
-    mainstyle = `${reset}`;
-  switch (this?.model || d_cl_conf.brf.model) {
+function ctl(opt, mainstyle) {
+  let pre;
+  if (opt == console) opt = {};
+  const info = opt?.xinfo || csconf.xinfo || opt?.info || csconf.info;
+  const line = opt?.xline || csconf.xline || opt?.line || csconf.line;
+  originalLog("final csconf:", info, line);
+  switch (info) {
     case 0:
       return;
     case 1:
-      pre = `${brightCyan} `;
+      pre = `${reset} `;
       break;
     case 2:
       pre = `${black}[${getTimestamp()}]:${brightCyan} ` + mainstyle;
       break;
     case 3:
-      pre =
-        `${blue}${getLineInfo(
-          this?.line || d_cl_conf.brf.line
-        )}:${brightCyan} ` + mainstyle;
+      pre = `${blue}${getLineInfo(line)}:${brightCyan} ` + mainstyle;
       break;
     default:
       pre =
         `${black}[${getTimestamp()}] ${dim}${blue}${getLineInfo(
-          this?.line || d_cl_conf.brf.line
+          line
         )}:${brightCyan} ` + mainstyle;
   }
+  return pre;
+}
+// 简短打印
+function cbrf(...args) {
+  let pre = ctl(this, `${reset}`);
+  if (!pre) return;
   process.stdout.write(pre);
   originalLog(...arvg_final_brf(args), `${reset}`);
 }
 function cdev(...args) {
-  let pre,
-    mainstyle = `${reset}${dim}${yellow}`;
-  switch (this?.model || d_cl_conf.dev.model) {
-    case 0:
-      return;
-    case 1:
-      pre = `${brightCyan}[dev] `;
-      break;
-    case 2:
-      pre = `${black}[${getTimestamp()}]:${brightCyan}[dev] ` + mainstyle;
-      break;
-    case 3:
-      pre =
-        `${blue}${getLineInfo(
-          this?.line || d_cl_conf.dev.line
-        )}:${brightCyan}[dev] ` + mainstyle;
-      break;
-    default:
-      pre =
-        `${black}[${getTimestamp()}] ${dim}${blue}${getLineInfo(
-          this?.line || d_cl_conf.dev.line
-        )}:${brightCyan}[dev] ` + mainstyle;
-  }
+  let pre = ctl(this, `${reset}${dim}${yellow}`);
+  if (!pre) return;
   process.stdout.write(pre);
   originalLog(...arvg_final(args), `${reset}`);
 }
 function cdebug(...args) {
-  let pre,
-    mainstyle = `${reset}${brightYellow}`;
-  switch (this?.model || d_cl_conf.debug.model) {
-    case 0:
-      return;
-    case 1:
-      pre = "";
-      break;
-    case 2:
-      pre = `${black}[${getTimestamp()}]: ` + mainstyle;
-      break;
-    case 3:
-      pre =
-        `${blue}${getLineInfo(this?.line || d_cl_conf.debug.line)}: ` +
-        mainstyle;
-      break;
-    default:
-      pre =
-        `${black}[${getTimestamp()}] ${dim}${blue}${getLineInfo(
-          this?.line || d_cl_conf.debug.line
-        )}: ` + mainstyle;
-  }
+  let pre = ctl(this, `${reset}${brightYellow}`);
+  if (!pre) return;
   process.stdout.write(pre);
   originalInfo(...arvg_final(args), `${reset}`);
 }
 function cinfo(...args) {
-  let pre,
-    mainstyle = `${reset}${bold}${brightWhite}`;
-  switch (this?.model || d_cl_conf.info.model) {
-    case 0:
-      return;
-    case 1:
-      pre = "";
-      break;
-    case 2:
-      pre = `${black}[${getTimestamp()}]: ` + mainstyle;
-      break;
-    case 3:
-      pre =
-        `${blue}${getLineInfo(this?.line || d_cl_conf.info.line)}: ` +
-        mainstyle;
-      break;
-    default:
-      pre =
-        `${black}[${getTimestamp()}] ${dim}${blue}${getLineInfo(
-          this?.line || d_cl_conf.info.line
-        )}: ` + mainstyle;
-  }
+  let pre = ctl(this, `${reset}${bold}${brightWhite}`);
+  if (!pre) return;
   process.stdout.write(pre);
   originalInfo(...arvg_final(args), `${reset}`);
 }
 function cwarn(...args) {
-  let pre,
-    mainstyle = `${reset}${bold}${brightMagenta}`;
-  switch (this?.model || d_cl_conf.warn.model) {
-    case 0:
-      return;
-    case 1:
-      pre = "";
-      break;
-    case 2:
-      pre = `${black}[${getTimestamp()}]: ` + mainstyle;
-      break;
-    case 3:
-      pre =
-        `${blue}${getLineInfo(this?.line || d_cl_conf.warn.line)}: ` +
-        mainstyle;
-      break;
-    default:
-      pre =
-        `${black}[${getTimestamp()}] ${dim}${blue}${getLineInfo(
-          this?.line || d_cl_conf.warn.line
-        )}: ` + mainstyle;
-  }
+  let pre = ctl(this, `${reset}${bold}${brightMagenta}`);
+  if (!pre) return;
   process.stdout.write(pre);
   originalWarn(...arvg_final(args), `${reset}`);
 }
 function clog(...args) {
-  let pre,
-    mainstyle = `${reset}`;
-  switch (this?.model || d_cl_conf.log.model) {
-    case 0:
-      return;
-    case 1:
-      pre = "";
-      break;
-    case 2:
-      pre = `${black}[${getTimestamp()}]: ` + mainstyle;
-      break;
-    case 3:
-      pre =
-        `${blue}${getLineInfo(this?.line || d_cl_conf.log.line)}: ` + mainstyle;
-      break;
-    default:
-      pre =
-        `${black}[${getTimestamp()}] ${dim}${blue}${getLineInfo(
-          this?.line || d_cl_conf.log.line
-        )}: ` + mainstyle;
-  }
+  let pre = ctl(this, `${reset}`);
+  if (!pre) return;
   process.stdout.write(pre);
   originalLog(...arvg_final(args), `${reset}`);
 }
 function cerror(...args) {
-  let pre,
-    mainstyle = `${reset}${dim}${red}`;
-  switch (this?.model || d_cl_conf.error.model) {
-    case 0:
-      return;
-    case 1:
-      pre = "";
-      break;
-    case 2:
-      pre = `${black}[${getTimestamp()}]: ` + mainstyle;
-      break;
-    case 3:
-      pre =
-        `${blue}${getLineInfo(this?.line || d_cl_conf.error.line)}: ` +
-        mainstyle;
-      break;
-    default:
-      pre =
-        `${black}[${getTimestamp()}] ${dim}${blue}${getLineInfo(
-          this?.line || d_cl_conf.error.line
-        )}: ` + mainstyle;
-  }
+  let pre = ctl(this, `${reset}${dim}${red}`);
+  if (!pre) return;
   process.stdout.write(pre);
   originalError(
     ...args.map((item) => {
@@ -385,8 +265,9 @@ function cerror(...args) {
  * - `log(...args: any[]): void` 用于日志输出。
  * - `error(...args: any[]): void` 用于错误输出。
  */
-function cs(config = {}) {
+function cs(config) {
   if (config === null || (typeof config === "number" && config < 0)) {
+    // 复原
     console.brf = cbrf;
     console.dev = cdev;
     console.debug = originalDebug;
@@ -395,22 +276,18 @@ function cs(config = {}) {
     console.log = originalLog;
     console.error = originalError;
     return;
-  }
-  if (typeof config === "object") {
-    d_cl_conf.brf = { ...d_cl_conf.brf, ...config.brf };
-    d_cl_conf.dev = { ...d_cl_conf.dev, ...config.dev };
-    d_cl_conf.debug = { ...d_cl_conf.debug, ...config.debug };
-    d_cl_conf.info = { ...d_cl_conf.info, ...config.info };
-    d_cl_conf.warn = { ...d_cl_conf.warn, ...config.warn };
-    d_cl_conf.log = { ...d_cl_conf.log, ...config.log };
-    d_cl_conf.error = { ...d_cl_conf.error, ...config.error };
+  } else if (Array.isArray(config)) {
+    csconf.info = config[0];
+    csconf.line = config[1];
+    csconf.xinfo = config[2];
+    csconf.xline = config[3];
+  } else if (typeof config === "object") {
+    config.info ? (csconf.info = config.info) : 0;
+    config.line ? (csconf.line = config.line) : 0;
+    config.xinfo ? (csconf.xinfo = config.xinfo) : 0;
+    config.xline ? (csconf.xline = config.xline) : 0;
   } else if (typeof config === "number" && config >= 0) {
-    d_cl_conf.brf.model = config;
-    d_cl_conf.debug.model = config;
-    d_cl_conf.info.model = config;
-    d_cl_conf.warn.model = config;
-    d_cl_conf.log.model = config;
-    d_cl_conf.error.model = config;
+    csconf.info = config;
   }
   console.brf = cbrf;
   console.dev = cdev.bind({ model: 0, line: 3 });

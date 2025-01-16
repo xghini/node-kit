@@ -4,7 +4,7 @@ import Redis from "ioredis";
 // import * as user from "./user.js";
 import conf from "./conf.js";
 import lua from "./lua.js";
-kit.cs();
+kit.cs([3,4]);
 const server = kit.hs();
 // server.static("/", "..");
 server.static("/a/b/c/download");

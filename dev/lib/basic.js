@@ -48,8 +48,6 @@ export {
   empty,
 };
 export * from "./console.js";
-
-import * as cl from "./console.js";
 import { createRequire } from "module";
 import { parse } from "acorn";
 import fs from "fs";
