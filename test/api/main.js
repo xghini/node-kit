@@ -6,9 +6,11 @@ import conf from "./conf.js";
 import lua from "./lua.js";
 kit.cs();
 const server = kit.hs();
-kit.hs();
 // server.static("/", "..");
-server.static("/a/b/c/download");
+server.static("/a/b/c/download",'..');
+server.static("/");
+
+
 // const server = kit.hss();
 // const server = kit.h2s();
 

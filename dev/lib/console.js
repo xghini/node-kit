@@ -204,7 +204,8 @@ function clog(...args) {
   originalLog(...arvg_final(args), `${reset}`);
 }
 function cerror(...args) {
-  let pre = preStyle(this, `${reset}${dim}${red}`);
+  const mainstyle=`${reset}${dim}${red}`;
+  let pre = preStyle(this, mainstyle);
   if (!pre) return;
   process.stdout.write(pre);
   originalError(

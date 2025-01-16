@@ -8,6 +8,7 @@ export { router_find_resolve, addr, _404 };
 //   'UNLINK', 'UNLOCK', 'UNSUBSCRIBE'
 // ];
 function addr(...argv) {
+  // 相同匹配级别,前覆盖后,push进数组(若后覆盖前则不容易察觉)
   // addr('/a',hd_a)
   // addr('/a','get','',hd_a)
   // 第一个 /开头的字符串 或 正则表达式 re instanceof RegExp
@@ -130,20 +131,21 @@ function router_find_resolve(server, stream, gold) {
   }
   // 找ct 再找* 无ct就匹配*
   arr0 = undefined;
-  arr1 = undefined;
+  arr1 = [];
   for (const row of arr) {
     if (gold.ct?.startsWith(row[2])) {
       // 这里改为startsWith，因为gold.ct可能是"text/html;charset=UTF-8"，或"multipart/from-data;xxx"等
       arr0 = row;
+      break;
     } else if (row[2] === "*") {
-      arr1 = row;
+      arr1.push(row);
     }
   }
   let router_target;
   if (arr0) {
     router_target = arr0;
   } else if (arr1) {
-    router_target = arr1;
+    router_target = arr1[0];
   } else {
     server._404?.(gold);
     return;

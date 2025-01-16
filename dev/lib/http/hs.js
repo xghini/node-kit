@@ -199,7 +199,6 @@ function fn_static(url, path='./') {
   this.addr(reg, "get", async (g) => {
     // 获取请求的文件路径
     let filePath = kit.xpath(g.path.slice(url.length).replace(/^\//, ""), path);
-    console.log("111", filePath);
     // 判断是目录还是文件
     // if(url===g.path){
     if (await kit.aisdir(filePath)) {
