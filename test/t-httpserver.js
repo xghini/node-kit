@@ -1,5 +1,5 @@
 import kit from "@ghini/kit";
-kit.xconsole();
+kit.cs();
 const server = kit.h2s();
 kit.h2s({ allowHTTP1: false });
 kit.hss();

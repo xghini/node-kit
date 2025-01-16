@@ -1,5 +1,5 @@
 export {
-  xconsole,
+  cs,
   cderr,
   cbrf,
   cdev,
@@ -18,6 +18,11 @@ export {
  * info 信息
  * debug 调试
  * dev(自定义) 开发环境输出,需要特别设置,默认不输出
+ * 
+ * 普通输出console.log() (优先级100)
+ * 强化输出cs() (优先级50)
+ * 开发隐藏输出console.log.bind({info:0})() (优先级10)
+ * 强化输出带opt指明() (优先级5)
  */
 const sep_file = process.platform == "win32" ? "file:///" : "file://"; //win32|linux|darwin
 console.derr = cderr.bind({ model: 0, line: 3 });
@@ -113,7 +118,6 @@ const style = {
   bgBrightCyan,
   bgBrightWhite,
 };
-/*XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX*/
 const d_cl_conf = {
   derr: {
     model: 0,
@@ -148,27 +152,7 @@ const d_cl_conf = {
     line: 3,
   },
 };
-function getTimestamp() {
-  const now = new Date();
-  return `${(now.getMonth() + 1).toString().padStart(2, "0")}-${now
-    .getDate()
-    .toString()
-    .padStart(2, "0")} ${now.getHours().toString().padStart(2, "0")}:${now
-    .getMinutes()
-    .toString()
-    .padStart(2, "0")}:${now.getSeconds().toString().padStart(2, "0")}.${now
-    .getMilliseconds()
-    .toString()
-    .padStart(3, "0")}`;
-}
-function getLineInfo(i = 3) {
-  const arr = new Error().stack.split("\n");
-  // const res = arr[1]?.replace(/:[^:]*$/, "");
-  let res = arr[i]?.split("(").at(-1).split(sep_file).at(-1);
-  if (res?.endsWith(")")) res = res.slice(0, -1);
-  if (!res) originalLog(555, arr);
-  return res;
-}
+/*XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX*/
 // 数字会影响后面的样式,将其转换为string; 还可以将长对象适当收缩显示摘要
 function arvg_final(arvg) {
   return arvg.map((item) => {
@@ -454,7 +438,7 @@ function cderr(...args) {
  * - `log(...args: any[]): void` 用于日志输出。
  * - `error(...args: any[]): void` 用于错误输出。
  */
-function xconsole(config = {}) {
+function cs(config = {}) {
   if (config === null || (typeof config === "number" && config < 0)) {
     console.brf = cderr;
     console.brf = cbrf;
@@ -579,4 +563,25 @@ async function prompt(
       return 1;
     }
   });
+}
+function getTimestamp() {
+  const now = new Date();
+  return `${(now.getMonth() + 1).toString().padStart(2, "0")}-${now
+    .getDate()
+    .toString()
+    .padStart(2, "0")} ${now.getHours().toString().padStart(2, "0")}:${now
+    .getMinutes()
+    .toString()
+    .padStart(2, "0")}:${now.getSeconds().toString().padStart(2, "0")}.${now
+    .getMilliseconds()
+    .toString()
+    .padStart(3, "0")}`;
+}
+function getLineInfo(i = 3) {
+  const arr = new Error().stack.split("\n");
+  // const res = arr[1]?.replace(/:[^:]*$/, "");
+  let res = arr[i]?.split("(").at(-1).split(sep_file).at(-1);
+  if (res?.endsWith(")")) res = res.slice(0, -1);
+  if (!res) originalLog(555, arr);
+  return res;
 }
