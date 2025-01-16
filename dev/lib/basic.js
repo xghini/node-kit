@@ -67,7 +67,7 @@ let globalCatchError = false;
  * @param {boolean} open 是否开启
  */
 function gcatch(open = true) {
-  console.dev("use gcatch");
+  console.info.bind({info:0})("use gcatch");
   if (open) {
     // 避免重复监听
     if (!globalCatchError) {
@@ -353,7 +353,7 @@ async function aisdir(path) {
     const stats = await fs.promises.lstat(path);
     return stats.isDirectory();
   } catch (err) {
-    console.derr(err.message);
+    console.err.bind({info:0})(err.message);
     return;
   }
 }
