@@ -8,7 +8,7 @@ import http from "http";
 import EventEmitter from "events";
 import { hd_stream } from "./gold.js";
 import { addr, _404 } from "./router.js";
-
+import { extname } from "path";
 /**
  * hs定位:业务核心服务器,及h2测试服务器,生产环境中主要反代使用
  * 安防交给nginx cf等网关
@@ -192,14 +192,55 @@ function simulateHttp2Stream(req, res) {
   return { stream, headers };
 }
 
-function fn_static(url, path) {
+function fn_static(url, path='./') {
   // /download
-  this.addr(new RegExp(url + "/*"), "get", (g) => {
+  const reg = new RegExp(url + ".*");
+  console.log(url, "reg:", reg);
+  this.addr(reg, "get", async (g) => {
     // 获取请求的文件路径
-    let filePath = kit.xpath(g.path.slice(1), path);
-    // 如果路径是目录,返回目录列表,带超链接;是文件则下载(使用kit中封装的异步fs)
-    g.respond({ ":status": 200 });
-    g.end(filePath);
+    let filePath = kit.xpath(g.path.slice(url.length).replace(/^\//, ""), path);
+    console.log("111", filePath);
+    // 判断是目录还是文件
+    // if(url===g.path){
+    if (await kit.aisdir(filePath)) {
+      // 如果是目录，返回目录列表
+      let files = await kit.adir(filePath);
+      let html =
+        "<html><head><title>Directory Listing</title></head><body><h1>Directory Listing</h1><ul>";
+      let parentPath = "";
+      if (url != g.path) {
+        // 添加返回上级目录的链接
+        parentPath = g.path.split("/").slice(0, -1).join("/") || "/";
+        html += `<li><a href="${parentPath}">..</a></li>`;
+      }
+      for (let file of files) {
+        let fullPath = kit.xpath(file, filePath);
+        let isDir = await kit.aisdir(fullPath);
+        let displayName = file + (isDir ? "/" : "");
+        let link = g.path === "/" ? "/" + file : g.path + "/" + file;
+        html += `<li><a href="${link}">${displayName}</a></li>`;
+      }
+      html += "</ul></body></html>";
+      g.respond({
+        ":status": 200,
+        "content-type": "text/html; charset=utf-8",
+      });
+      g.end(html);
+    } else if (await kit.aisfile(filePath)) {
+      // 如果是文件，则提供下载
+      let ext = extname(filePath).toLowerCase();
+      let contentType = getContentType(ext);
+      g.respond({
+        ":status": 200,
+        "content-type": contentType + "; charset=utf-8",
+      });
+      let content = await kit.arf(filePath);
+      g.end(content);
+      // g.download(filePath,'ojbk.jpg');
+      // g.end(filePath);
+    } else {
+      g.server._404(g);
+    }
   });
 }
 

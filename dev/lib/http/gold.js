@@ -25,7 +25,7 @@ function hd_stream(server, stream, headers) {
       auth: headers["authorization"],
       protocol: stream.protocol,
       cookie: cookies_obj(headers["cookie"]),
-      path: url.pathname,
+      path: decodeURI(url.pathname),
       search: url.search,
       query: (() => {
         // 最多解析一维数组,更复杂结构就通过search自行解析
@@ -45,6 +45,7 @@ function hd_stream(server, stream, headers) {
         // 默认配置
         MAX_BODY: 4 * 1024 * 1024,
       },
+      server: server,
       end: stream.end.bind(stream),
       write: stream.write.bind(stream),
       pushStream: stream.pushStream?.bind(stream), //http2才有
@@ -94,7 +95,31 @@ function hd_stream(server, stream, headers) {
         });
         gold.end(`${data}`);
       },
-      err: (data, code) => {
+      download: (data, name) => {
+        const opt = {
+          ":status": 200,
+          "content-type": "application/octet-stream",
+        };
+        if (name) opt["content-disposition"] = `attachment; filename=${name}`;
+        gold.respond(opt);
+        gold.end(data);
+      },
+      err: (data = 404, code = 404) => {
+        data = data.toString();
+        gold.respond({
+          ":status": code,
+          "content-type": "text/plain; charset=utf-8",
+        });
+        cerror.bind({line:5})(
+          gold.ip,
+          headers["cf-ipcountry"] || "",
+          headers[":path"],
+          headers[":method"],
+          data
+        );
+        gold.end(data);
+      },
+      jerr: (data, code) => {
         // 对多种类型处理,统一json格式返回错误
         if (typeof data === "string") data = { msg: data };
         else if (typeof data === "number" && !code && data >= 100 && data < 600)

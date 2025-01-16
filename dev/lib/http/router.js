@@ -159,7 +159,7 @@ function router_find_resolve(server, stream, gold) {
       length += chunk.length;
       if (notresponded && length > maxbody) {
         notresponded = false;
-        gold.err(
+        gold.jerr(
           { msg: "Payload Too Large", maxBody: `${maxbody / 1048576}MB` },
           413
         );
@@ -186,7 +186,7 @@ function router_find_resolve(server, stream, gold) {
       await router_target[3](gold);
     } catch (err) {
       cerror(err, err.stack);
-      gold.err();
+      gold.jerr();
     }
   });
 }
@@ -288,15 +288,6 @@ function body2data(gold) {
 
 function _404(gold) {
   // console.log(gold.headers);
-  // gold.err(404);
-  gold.respond({ ":status": 400 });
-  console.error.bind({ line: 3 })(
-    "_404:",
-    gold.headers[":path"],
-    gold.headers[":method"],
-    gold.ip,
-    gold.headers["cf-ipcountry"] || "",
-    gold.body
-  );
-  gold.end("404");
+  gold.err();
+  // gold.jerr();
 }

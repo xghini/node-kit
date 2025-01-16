@@ -353,7 +353,7 @@ async function aisdir(path) {
     const stats = await fs.promises.lstat(path);
     return stats.isDirectory();
   } catch (err) {
-    console.error(err.message);
+    console.derr(err.message);
     return;
   }
 }

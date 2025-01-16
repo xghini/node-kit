@@ -1,5 +1,6 @@
 export {
   xconsole,
+  cderr,
   cbrf,
   cdev,
   cdebug,
@@ -19,6 +20,7 @@ export {
  * dev(自定义) 开发环境输出,需要特别设置,默认不输出
  */
 const sep_file = process.platform == "win32" ? "file:///" : "file://"; //win32|linux|darwin
+console.derr = cderr.bind({ model: 0, line: 3 });
 console.brf = cbrf;
 console.dev = cdev.bind({ model: 0, line: 3 });
 const originalDebug = console.debug;
@@ -113,6 +115,10 @@ const style = {
 };
 /*XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX*/
 const d_cl_conf = {
+  derr: {
+    model: 0,
+    line: 3,
+  },
   brf: {
     model: 6,
     line: 3,
@@ -336,8 +342,7 @@ function clog(...args) {
       break;
     case 3:
       pre =
-        `${blue}${getLineInfo(this?.line || d_cl_conf.log.line)}: ` +
-        mainstyle;
+        `${blue}${getLineInfo(this?.line || d_cl_conf.log.line)}: ` + mainstyle;
       break;
     default:
       pre =
@@ -395,6 +400,53 @@ function cerror(...args) {
     `${reset}`
   );
 }
+function cderr(...args) {
+  let pre,
+    mainstyle = `${reset}${dim}${red}`;
+  switch (this?.model || d_cl_conf.derr.model) {
+    case 0:
+      return;
+    case 1:
+      pre = "";
+      break;
+    case 2:
+      pre = `${black}[${getTimestamp()}]: ` + mainstyle;
+      break;
+    case 3:
+      pre =
+        `${blue}${getLineInfo(this?.line || d_cl_conf.derr.line)}: ` +
+        mainstyle;
+      break;
+    default:
+      pre =
+        `${black}[${getTimestamp()}] ${dim}${blue}${getLineInfo(
+          this?.line || d_cl_conf.derr.line
+        )}: ` + mainstyle;
+  }
+  process.stdout.write(pre);
+  originalError(
+    ...args.map((item) => {
+      if (item instanceof Error) {
+        const stack = item.stack.split("\n");
+        return (
+          stack[0] +
+          " " +
+          underline +
+          // 带//的有文件路径
+          (stack.slice(1).find((item) => item.match("//")) || stack[1]).split(
+            "at "
+          )[1] +
+          reset +
+          mainstyle
+        );
+      } else if (typeof item === "number") {
+        return item + "";
+      }
+      return item;
+    }),
+    `${reset}`
+  );
+}
 /**
  * 重写或扩展控制台输出方法，支持带时间戳和调用行号的 `console.log` 和 `console.error`。
  * @param {number} [rewrite=2] - 是否重写全局 `console.log` 和 `console.error` 方法,重写等级,默认2。
@@ -404,6 +456,7 @@ function cerror(...args) {
  */
 function xconsole(config = {}) {
   if (config === null || (typeof config === "number" && config < 0)) {
+    console.brf = cderr;
     console.brf = cbrf;
     console.dev = cdev;
     console.debug = originalDebug;
@@ -429,8 +482,9 @@ function xconsole(config = {}) {
     d_cl_conf.log.model = config;
     d_cl_conf.error.model = config;
   }
+  console.cderr = cderr.bind({ model: 0, line: 3 });
   console.brf = cbrf;
-  console.dev = cdev;
+  console.dev = cdev.bind({ model: 0, line: 3 });
   console.debug = cdebug;
   console.info = cinfo;
   console.warn = cwarn;

@@ -4,9 +4,10 @@ import Redis from "ioredis";
 // import * as user from "./user.js";
 import conf from "./conf.js";
 import lua from "./lua.js";
-kit.xconsole({ dev: { model: 3 } });
+kit.xconsole({ dev: { model: 3 },derr:{model:3} });
 const server = kit.hs();
-server.static("/", "..");
+// server.static("/", "..");
+server.static("/a/b/c/download");
 // const server = kit.hss();
 // const server = kit.h2s();
 
@@ -148,10 +149,10 @@ export async function signin(gold) {
       ]);
       gold.json("登录成功");
     } else {
-      gold.err("服务器错误，请稍后再试", 503);
+      gold.jerr("服务器错误，请稍后再试", 503);
     }
   } else {
-    gold.err("账号或密码错误");
+    gold.jerr("账号或密码错误");
   }
 }
 export async function signup(gold) {
@@ -186,7 +187,7 @@ export async function signup(gold) {
     ]);
     gold.json("注册成功");
   } else {
-    gold.err(result[1]);
+    gold.jerr(result[1]);
   }
 }
 export async function reset(gold) {
@@ -213,7 +214,7 @@ export async function reset(gold) {
     ]);
     gold.json("ok");
   } else {
-    gold.err(result[1]);
+    gold.jerr(result[1]);
   }
 }
 export async function captcha(gold) {
@@ -234,7 +235,7 @@ export async function emailverify(gold) {
   const captchaId = gold.cookie.captchaId;
   console.log(type, email, code, captchaId);
   if (!captchaId) {
-    gold.err("验证码已过期");
+    gold.jerr("验证码已过期");
     return;
   }
   // 验证hash,尽量减少无效请求开销,如果参数合规,携带了captchaId就要给它查一次
@@ -253,11 +254,11 @@ export async function emailverify(gold) {
       code
     );
     if (!res[0]) {
-      gold.err(res[1]);
+      gold.jerr(res[1]);
       return;
     }
   } else {
-    gold.err("参数错误");
+    gold.jerr("参数错误");
     return;
   }
   const subject = type === "signup" ? "注册账号" : "重置密码";
@@ -292,7 +293,7 @@ export async function emailverify(gold) {
     }),
   });
   if (!response.ok) {
-    gold.err("Failed to send email");
+    gold.jerr("Failed to send email");
   } else {
     redis.set("verify:" + email, newcode, "EX", 900);
     gold.json("ok");
@@ -310,7 +311,7 @@ export async function signout(gold) {
     gold.delcookie(["auth_token", "user"]);
     gold.json("ok");
   } else {
-    gold.err("需要登录");
+    gold.jerr("需要登录");
   }
 }
 export async function signoutall(gold) {
@@ -325,7 +326,7 @@ export async function signoutall(gold) {
     gold.delcookie(["auth_token", "user"]);
     gold.json("ok");
   } else {
-    gold.err("需要登录");
+    gold.jerr("需要登录");
   }
 }
 export async function profile(gold) {
@@ -350,7 +351,7 @@ export async function profile(gold) {
       result.plans = arr;
     }
     gold.json(result);
-  } else gold.err("需要登录");
+  } else gold.jerr("需要登录");
 }
 export async function orderplan(gold) {
   // orderplan plan:维护列表,
