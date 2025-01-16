@@ -1,6 +1,7 @@
-export { h2s, hs, hss};
+export { h2s, hs, hss };
 
 import { cinfo, cwarn, gcatch, rf, xpath, style } from "../basic.js";
+import kit from "../../main.js";
 import http2 from "http2";
 import https from "https";
 import http from "http";
@@ -87,13 +88,14 @@ function hs(...argv) {
       console.error(`Server error: ${err.message}`);
     }
   });
-  cinfo.bind({ model:2 })(`Start [${protocol}] ${scheme} server...`);
+  cinfo.bind({ model: 2 })(`Start [${protocol}] ${scheme} server...`);
   // 虽然不赋值server也进行了修改,但ide跟踪不到,所以这里赋值一下
   server = Object.assign(server, {
     http_local: true,
     https_local: false,
     routes: [],
     addr,
+    static: fn_static,
     _404,
     router_begin: (server, gold) => {},
     cnn: 0,
@@ -188,4 +190,30 @@ function simulateHttp2Stream(req, res) {
   req.on("end", () => stream.emit("end"));
   req.on("error", (err) => stream.emit("error", err));
   return { stream, headers };
+}
+
+function fn_static(url, path) {
+  // /download
+  this.addr(new RegExp(url + "/*"), "get", (g) => {
+    // 获取请求的文件路径
+    let filePath = kit.xpath(g.path.slice(1), path);
+    // 如果路径是目录,返回目录列表,带超链接;是文件则下载(使用kit中封装的异步fs)
+    g.respond({ ":status": 200 });
+    g.end(filePath);
+  });
+}
+
+// 获取文件 Content-Type
+function getContentType(ext) {
+  const contentTypes = {
+    ".html": "text/html",
+    ".css": "text/css",
+    ".js": "text/javascript",
+    ".json": "application/json",
+    ".png": "image/png",
+    ".jpg": "image/jpeg",
+    ".gif": "image/gif",
+    ".pdf": "application/pdf",
+  };
+  return contentTypes[ext] || "application/octet-stream";
 }

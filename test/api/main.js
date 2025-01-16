@@ -4,10 +4,9 @@ import Redis from "ioredis";
 // import * as user from "./user.js";
 import conf from "./conf.js";
 import lua from "./lua.js";
-kit.xconsole(
-  {dev:{model:3}}
-);
+kit.xconsole({ dev: { model: 3 } });
 const server = kit.hs();
+server.static("/", "..");
 // const server = kit.hss();
 // const server = kit.h2s();
 
