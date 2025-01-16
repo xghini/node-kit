@@ -1,6 +1,6 @@
 export { h2s, hs, hss };
 
-import { cinfo, cwarn, gcatch, rf, xpath, style } from "../basic.js";
+import { gcatch, rf, xpath, style } from "../basic.js";
 import kit from "../../main.js";
 import http2 from "http2";
 import https from "https";
@@ -33,7 +33,7 @@ function hs(...argv) {
     scheme = "http";
   }
   server.listen(port, () => {
-    cinfo.bind({xinfo:2})(
+    console.info.bind({xinfo:2})(
       `${style.reset}${style.bold}${style.brightGreen}✓ ${style.brightWhite}Running on ${style.underline}${scheme}://localhost:${port}${style.reset}`
     );
     gcatch();
@@ -77,7 +77,7 @@ function hs(...argv) {
   });
   server.on("error", (err) => {
     if (err.code === "EADDRINUSE" && port < 65535) {
-      cwarn.bind({ line: 2 })(
+      console.warn.bind({ xinfo: 2 })(
         `${style.bold}${style.yellow}⚠ ${style.dim}${
           style.brightMagenta
         }Port ${port} is in use, trying ${port + 1} instead...${style.reset}`
@@ -88,7 +88,7 @@ function hs(...argv) {
       console.error(`Server error: ${err.message}`);
     }
   });
-  cinfo.bind({ model: 2 })(`Start [${protocol}] ${scheme} server...`);
+  console.info.bind({ xinfo: 2 })(`Start [${protocol}] ${scheme} server...`);
   // 虽然不赋值server也进行了修改,但ide跟踪不到,所以这里赋值一下
   server = Object.assign(server, {
     http_local: true,

@@ -1,8 +1,8 @@
-export function xconsole(config?: {}): {
+export function cs(config: any): {
     log: Function;
     error: Function;
 };
-export function cbrf(...args: any[]): void;
+export function csm(...args: any[]): void;
 export function cdev(...args: any[]): void;
 export function cdebug(...args: any[]): void;
 export function cinfo(...args: any[]): void;

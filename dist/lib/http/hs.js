@@ -1,11 +1,13 @@
 export { h2s, hs, hss };
-import { cinfo, cwarn, gcatch, rf, xpath, style } from "../basic.js";
+import { gcatch, rf, xpath, style } from "../basic.js";
+import kit from "../../main.js";
 import http2 from "http2";
 import https from "https";
 import http from "http";
 import EventEmitter from "events";
 import { hd_stream } from "./gold.js";
 import { addr, _404 } from "./router.js";
+import { extname } from "path";
 function hs(...argv) {
     let { port, config } = argv_port_config(argv), server, scheme, protocol = "http/1.1", currentConnections = 0;
     if (config?.key) {
@@ -25,7 +27,7 @@ function hs(...argv) {
         scheme = "http";
     }
     server.listen(port, () => {
-        cinfo.bind({ model: 2 })(`${style.reset}${style.bold}${style.brightGreen}✓ ${style.brightWhite}Running on ${style.underline}${scheme}://localhost:${port}${style.reset}`);
+        console.info.bind({ xinfo: 2 })(`${style.reset}${style.bold}${style.brightGreen}✓ ${style.brightWhite}Running on ${style.underline}${scheme}://localhost:${port}${style.reset}`);
         gcatch();
         if (config?.key) {
             server.on("stream", (stream, headers) => {
@@ -49,7 +51,7 @@ function hs(...argv) {
     });
     server.on("error", (err) => {
         if (err.code === "EADDRINUSE" && port < 65535) {
-            cwarn.bind({ line: 2 })(`${style.bold}${style.yellow}⚠ ${style.dim}${style.brightMagenta}Port ${port} is in use, trying ${port + 1} instead...${style.reset}`);
+            console.warn.bind({ xinfo: 2 })(`${style.bold}${style.yellow}⚠ ${style.dim}${style.brightMagenta}Port ${port} is in use, trying ${port + 1} instead...${style.reset}`);
             port++;
             server.listen(port);
         }
@@ -57,12 +59,13 @@ function hs(...argv) {
             console.error(`Server error: ${err.message}`);
         }
     });
-    cinfo.bind({ model: 2 })(`Start [${protocol}] ${scheme} server...`);
+    console.info.bind({ xinfo: 2 })(`Start [${protocol}] ${scheme} server...`);
     server = Object.assign(server, {
         http_local: true,
         https_local: false,
         routes: [],
         addr,
+        static: fn_static,
         _404,
         router_begin: (server, gold) => { },
         cnn: 0,
@@ -133,4 +136,60 @@ function simulateHttp2Stream(req, res) {
     req.on("end", () => stream.emit("end"));
     req.on("error", (err) => stream.emit("error", err));
     return { stream, headers };
+}
+function fn_static(url, path = './') {
+    const reg = new RegExp(url + ".*");
+    console.log(url, "reg:", reg);
+    this.addr(reg, "get", async (g) => {
+        let filePath = kit.xpath(g.path.slice(url.length).replace(/^\//, ""), path);
+        console.log("111", filePath);
+        if (await kit.aisdir(filePath)) {
+            let files = await kit.adir(filePath);
+            let html = "<html><head><title>Directory Listing</title></head><body><h1>Directory Listing</h1><ul>";
+            let parentPath = "";
+            if (url != g.path) {
+                parentPath = g.path.split("/").slice(0, -1).join("/") || "/";
+                html += `<li><a href="${parentPath}">..</a></li>`;
+            }
+            for (let file of files) {
+                let fullPath = kit.xpath(file, filePath);
+                let isDir = await kit.aisdir(fullPath);
+                let displayName = file + (isDir ? "/" : "");
+                let link = g.path === "/" ? "/" + file : g.path + "/" + file;
+                html += `<li><a href="${link}">${displayName}</a></li>`;
+            }
+            html += "</ul></body></html>";
+            g.respond({
+                ":status": 200,
+                "content-type": "text/html; charset=utf-8",
+            });
+            g.end(html);
+        }
+        else if (await kit.aisfile(filePath)) {
+            let ext = extname(filePath).toLowerCase();
+            let contentType = getContentType(ext);
+            g.respond({
+                ":status": 200,
+                "content-type": contentType + "; charset=utf-8",
+            });
+            let content = await kit.arf(filePath);
+            g.end(content);
+        }
+        else {
+            g.server._404(g);
+        }
+    });
+}
+function getContentType(ext) {
+    const contentTypes = {
+        ".html": "text/html",
+        ".css": "text/css",
+        ".js": "text/javascript",
+        ".json": "application/json",
+        ".png": "image/png",
+        ".jpg": "image/jpeg",
+        ".gif": "image/gif",
+        ".pdf": "application/pdf",
+    };
+    return contentTypes[ext] || "application/octet-stream";
 }

@@ -67,8 +67,8 @@ declare const kit: {
     gchar: typeof basic.gchar;
     fhash: typeof basic.fhash;
     empty: typeof basic.empty;
-    xconsole: typeof basic.xconsole;
-    cbrf: typeof basic.cbrf;
+    cs: typeof basic.cs;
+    csm: typeof basic.csm;
     cdev: typeof basic.cdev;
     cdebug: typeof basic.cdebug;
     cinfo: typeof basic.cinfo;

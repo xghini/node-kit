@@ -10,7 +10,7 @@ redis数据同步功能
 */
 export { sync };
 import kit from "@ghini/kit/dev";
-kit.xconsole();
+kit.cs();
 import Redis from "ioredis";
 import conf from "./conf.js";
 

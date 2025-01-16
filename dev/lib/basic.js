@@ -65,7 +65,7 @@ let globalCatchError = false;
  * @param {boolean} open 是否开启
  */
 function gcatch(open = true) {
-  console.info.bind({info:0})("use gcatch");
+  console.dev("use gcatch");
   if (open) {
     // 避免重复监听
     if (!globalCatchError) {

@@ -1,6 +1,5 @@
 export { rf, wf, mkdir, isdir, isfile, dir, exist, xpath, rm, cp, arf, awf, amkdir, aisdir, aisfile, adir, aexist, arm, aonedir, aloadyml, aloadenv, aloadjson, cookie_obj, cookie_str, cookie_merge, cookies_obj, cookies_str, cookies_merge, mreplace, mreplace_calc, xreq, ast_jsbuild, sleep, interval, timelog, getDate, gcatch, uuid, rint, rside, gchar, fhash, empty, };
 export * from "./console.js";
-import * as cl from "./console.js";
 import { createRequire } from "module";
 import { parse } from "acorn";
 import fs from "fs";
@@ -225,7 +224,7 @@ async function aisdir(path) {
         return stats.isDirectory();
     }
     catch (err) {
-        console.error(err.message);
+        console.err.bind({ info: 0 })(err.message);
         return;
     }
 }

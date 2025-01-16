@@ -12,19 +12,19 @@ npm i @ghini/kit
 import kit from "@ghini/kit/dev";
 ```
 ## 2.快速开始
-快速开始,非常实用,用完就离不开的xconsole:  
-测试文件路径: `./test/t_xconsole.js`
+快速开始,非常实用,用完就离不开的cs:  
+测试文件路径: `./test/t_cs.js`
 ```js
 import kit from "@ghini/kit/dev";
-kit.xconsole();
-// kit.xconsole(0);
-// kit.xconsole(1);
-// kit.xconsole(2);
-// kit.xconsole(3);
-// kit.xconsole({
+kit.cs();
+// kit.cs(0);
+// kit.cs(1);
+// kit.cs(2);
+// kit.cs(3);
+// kit.cs({
 //   dev:{info:3},
 // });
-// kit.xconsole({
+// kit.cs({
 //   dev:{info:6},
 //   err:{info:3},
 //   log:{trace:2},
@@ -45,7 +45,7 @@ node --watch ./test/t-console.js
 测试文件路径:`./test/api/main.js`
 ```js
 import kit from "@ghini/kit";
-kit.xconsole();
+kit.cs();
 const server = kit.h2s();
 kit.h2s({ allowHTTP1: false });
 kit.hss();
@@ -67,7 +67,7 @@ console.log(server.routes);
 测试文件路径:`./test/t-req.js`  
 ```js
 import kit from "@ghini/kit/dev";
-kit.xconsole({
+kit.cs({
   dev: { line: 3 },
 });
 // 创建http https h2服务器,并设置/test路由
@@ -138,7 +138,7 @@ res2.req().then((res) => console.log(res) || res);
 ## 1.初识:先使用预设的路由default_routes,涵盖了常见使用示例,便于了解
 ```js
 import kit from "@ghini/kit/dev";
-kit.xconsole();
+kit.cs();
 // http1.1服务器
 kit.hs(3001);
 // http2tls服务器,兼容1.1

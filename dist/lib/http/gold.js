@@ -1,5 +1,5 @@
 export { hd_stream };
-import { cookies_obj, cookie_merge, cerror } from "../basic.js";
+import { cookies_obj, cookie_merge } from "../basic.js";
 import { router_find_resolve } from "./router.js";
 function hd_stream(server, stream, headers) {
     headers = Object.keys(headers).reduce((obj, key) => {
@@ -23,7 +23,7 @@ function hd_stream(server, stream, headers) {
             auth: headers["authorization"],
             protocol: stream.protocol,
             cookie: cookies_obj(headers["cookie"]),
-            path: url.pathname,
+            path: decodeURI(url.pathname),
             search: url.search,
             query: (() => {
                 const obj = {}, params = url.searchParams;
@@ -39,6 +39,7 @@ function hd_stream(server, stream, headers) {
             config: {
                 MAX_BODY: 4 * 1024 * 1024,
             },
+            server: server,
             end: stream.end.bind(stream),
             write: stream.write.bind(stream),
             pushStream: stream.pushStream?.bind(stream),
@@ -79,7 +80,26 @@ function hd_stream(server, stream, headers) {
                 });
                 gold.end(`${data}`);
             },
-            err: (data, code) => {
+            download: (data, name) => {
+                const opt = {
+                    ":status": 200,
+                    "content-type": "application/octet-stream",
+                };
+                if (name)
+                    opt["content-disposition"] = `attachment; filename=${name}`;
+                gold.respond(opt);
+                gold.end(data);
+            },
+            err: (data = 404, code = 404) => {
+                data = data.toString();
+                gold.respond({
+                    ":status": code,
+                    "content-type": "text/plain; charset=utf-8",
+                });
+                console.error.bind({ xinfo: 2 })(gold.ip, headers["cf-ipcountry"] || "", headers[":path"], headers[":method"], data);
+                gold.end(data);
+            },
+            jerr: (data, code) => {
                 if (typeof data === "string")
                     data = { msg: data };
                 else if (typeof data === "number" && !code && data >= 100 && data < 600)
@@ -93,7 +113,7 @@ function hd_stream(server, stream, headers) {
                     "content-type": "application/json; charset=utf-8",
                 });
                 data = JSON.stringify(data);
-                cerror(gold.ip, headers["cf-ipcountry"] || "", headers[":path"], headers[":method"], data);
+                console.error.bind({ xinfo: 2 })(gold.ip, headers["cf-ipcountry"] || "", headers[":path"], headers[":method"], data);
                 gold.end(data);
             },
         };

@@ -1,7 +1,7 @@
-export { xconsole, cbrf, cdev, cdebug, cinfo, cwarn, clog, cerror, prompt, style, };
+export { cs, csm, cdev, cdebug, cinfo, cwarn, clog, cerror, prompt, style };
 const sep_file = process.platform == "win32" ? "file:///" : "file://";
-console.brf = cbrf;
-console.dev = cdev.bind({ model: 0, line: 3 });
+console.sm = csm;
+console.dev = cdev.bind({ info: 0 });
 const originalDebug = console.debug;
 const originalInfo = console.info;
 const originalWarn = console.warn;
@@ -85,58 +85,12 @@ const style = {
     bgBrightCyan,
     bgBrightWhite,
 };
-const d_cl_conf = {
-    brf: {
-        model: 6,
-        line: 3,
-    },
-    dev: {
-        model: 0,
-        line: 3,
-    },
-    debug: {
-        model: 6,
-        line: 3,
-    },
-    info: {
-        model: 6,
-        line: 3,
-    },
-    warn: {
-        model: 6,
-        line: 3,
-    },
-    log: {
-        model: 6,
-        line: 3,
-    },
-    error: {
-        model: 6,
-        line: 3,
-    },
+const csconf = {
+    info: 6,
+    line: 4,
+    xinfo: undefined,
+    xline: undefined,
 };
-function getTimestamp() {
-    const now = new Date();
-    return `${(now.getMonth() + 1).toString().padStart(2, "0")}-${now
-        .getDate()
-        .toString()
-        .padStart(2, "0")} ${now.getHours().toString().padStart(2, "0")}:${now
-        .getMinutes()
-        .toString()
-        .padStart(2, "0")}:${now.getSeconds().toString().padStart(2, "0")}.${now
-        .getMilliseconds()
-        .toString()
-        .padStart(3, "0")}`;
-}
-function getLineInfo(i = 3) {
-    const arr = new Error().stack.split("\n");
-    let res = arr[i]?.split("(").at(-1).split(sep_file).at(-1);
-    if (res?.endsWith(")"))
-        res = res.slice(0, -1);
-    if (!res)
-        originalLog(555, arr);
-    return res;
-}
 function arvg_final(arvg) {
     return arvg.map((item) => {
         if (typeof item === "number")
@@ -144,7 +98,7 @@ function arvg_final(arvg) {
         return item;
     });
 }
-function arvg_final_brf(arvg) {
+function arvg_final_sm(arvg) {
     return arvg.map((item) => {
         if (typeof item === "number")
             item += "";
@@ -160,162 +114,79 @@ function arvg_final_brf(arvg) {
         return item;
     });
 }
-function cbrf(...args) {
-    let pre, mainstyle = `${reset}`;
-    switch (this?.model || d_cl_conf.brf.model) {
+function preStyle(opt, mainstyle) {
+    let pre;
+    if (opt == console)
+        opt = undefined;
+    const info = opt?.xinfo || csconf.xinfo || opt?.info || csconf.info;
+    let line = opt?.xline || csconf.xline || opt?.line || csconf.line;
+    if (typeof line !== "number")
+        line = 4;
+    switch (info) {
         case 0:
             return;
         case 1:
-            pre = `${brightCyan} `;
+            pre = `${reset} `;
             break;
         case 2:
-            pre = `${black}[${getTimestamp()}]:${brightCyan} ` + mainstyle;
+            pre = `${black}[${getTimestamp()}]: ` + mainstyle;
             break;
         case 3:
-            pre =
-                `${blue}${getLineInfo(this?.line || d_cl_conf.brf.line)}:${brightCyan} ` + mainstyle;
+            pre = `${blue}${getLineInfo(line)}: ` + mainstyle;
             break;
         default:
             pre =
-                `${black}[${getTimestamp()}] ${dim}${blue}${getLineInfo(this?.line || d_cl_conf.brf.line)}:${brightCyan} ` + mainstyle;
+                `${black}[${getTimestamp()}] ${dim}${blue}${getLineInfo(line)}: ` +
+                    mainstyle;
     }
+    return pre;
+}
+function csm(...args) {
+    let pre = preStyle(this, `${reset}`);
+    if (!pre)
+        return;
     process.stdout.write(pre);
-    originalLog(...arvg_final_brf(args), `${reset}`);
+    originalLog(...arvg_final_sm(args), `${reset}`);
 }
 function cdev(...args) {
-    let pre, mainstyle = `${reset}${dim}${yellow}`;
-    switch (this?.model || d_cl_conf.dev.model) {
-        case 0:
-            return;
-        case 1:
-            pre = `${brightCyan}[dev] `;
-            break;
-        case 2:
-            pre = `${black}[${getTimestamp()}]:${brightCyan}[dev] ` + mainstyle;
-            break;
-        case 3:
-            pre =
-                `${blue}${getLineInfo(this?.line || d_cl_conf.dev.line)}:${brightCyan}[dev] ` + mainstyle;
-            break;
-        default:
-            pre =
-                `${black}[${getTimestamp()}] ${dim}${blue}${getLineInfo(this?.line || d_cl_conf.dev.line)}:${brightCyan}[dev] ` + mainstyle;
-    }
+    let pre = preStyle(this, `${cyan}[dev] ${reset}${dim}${yellow}`);
+    if (!pre)
+        return;
     process.stdout.write(pre);
     originalLog(...arvg_final(args), `${reset}`);
 }
 function cdebug(...args) {
-    let pre, mainstyle = `${reset}${brightYellow}`;
-    switch (this?.model || d_cl_conf.debug.model) {
-        case 0:
-            return;
-        case 1:
-            pre = "";
-            break;
-        case 2:
-            pre = `${black}[${getTimestamp()}]: ` + mainstyle;
-            break;
-        case 3:
-            pre =
-                `${blue}${getLineInfo(this?.line || d_cl_conf.debug.line)}: ` +
-                    mainstyle;
-            break;
-        default:
-            pre =
-                `${black}[${getTimestamp()}] ${dim}${blue}${getLineInfo(this?.line || d_cl_conf.debug.line)}: ` + mainstyle;
-    }
+    let pre = preStyle(this, `${reset}${brightYellow}`);
+    if (!pre)
+        return;
     process.stdout.write(pre);
     originalInfo(...arvg_final(args), `${reset}`);
 }
 function cinfo(...args) {
-    let pre, mainstyle = `${reset}${bold}${brightWhite}`;
-    switch (this?.model || d_cl_conf.info.model) {
-        case 0:
-            return;
-        case 1:
-            pre = "";
-            break;
-        case 2:
-            pre = `${black}[${getTimestamp()}]: ` + mainstyle;
-            break;
-        case 3:
-            pre =
-                `${blue}${getLineInfo(this?.line || d_cl_conf.info.line)}: ` +
-                    mainstyle;
-            break;
-        default:
-            pre =
-                `${black}[${getTimestamp()}] ${dim}${blue}${getLineInfo(this?.line || d_cl_conf.info.line)}: ` + mainstyle;
-    }
+    let pre = preStyle(this, `${reset}${bold}${brightWhite}`);
+    if (!pre)
+        return;
     process.stdout.write(pre);
     originalInfo(...arvg_final(args), `${reset}`);
 }
 function cwarn(...args) {
-    let pre, mainstyle = `${reset}${bold}${brightMagenta}`;
-    switch (this?.model || d_cl_conf.warn.model) {
-        case 0:
-            return;
-        case 1:
-            pre = "";
-            break;
-        case 2:
-            pre = `${black}[${getTimestamp()}]: ` + mainstyle;
-            break;
-        case 3:
-            pre =
-                `${blue}${getLineInfo(this?.line || d_cl_conf.warn.line)}: ` +
-                    mainstyle;
-            break;
-        default:
-            pre =
-                `${black}[${getTimestamp()}] ${dim}${blue}${getLineInfo(this?.line || d_cl_conf.warn.line)}: ` + mainstyle;
-    }
+    let pre = preStyle(this, `${reset}${bold}${brightMagenta}`);
+    if (!pre)
+        return;
     process.stdout.write(pre);
     originalWarn(...arvg_final(args), `${reset}`);
 }
 function clog(...args) {
-    let pre, mainstyle = `${reset}`;
-    switch (this?.model || d_cl_conf.log.model) {
-        case 0:
-            return;
-        case 1:
-            pre = "";
-            break;
-        case 2:
-            pre = `${black}[${getTimestamp()}]: ` + mainstyle;
-            break;
-        case 3:
-            pre =
-                `${blue}${getLineInfo(this?.line || d_cl_conf.log.line)}: ` +
-                    mainstyle;
-            break;
-        default:
-            pre =
-                `${black}[${getTimestamp()}] ${dim}${blue}${getLineInfo(this?.line || d_cl_conf.log.line)}: ` + mainstyle;
-    }
+    let pre = preStyle(this, `${reset}`);
+    if (!pre)
+        return;
     process.stdout.write(pre);
     originalLog(...arvg_final(args), `${reset}`);
 }
 function cerror(...args) {
-    let pre, mainstyle = `${reset}${dim}${red}`;
-    switch (this?.model || d_cl_conf.error.model) {
-        case 0:
-            return;
-        case 1:
-            pre = "";
-            break;
-        case 2:
-            pre = `${black}[${getTimestamp()}]: ` + mainstyle;
-            break;
-        case 3:
-            pre =
-                `${blue}${getLineInfo(this?.line || d_cl_conf.error.line)}: ` +
-                    mainstyle;
-            break;
-        default:
-            pre =
-                `${black}[${getTimestamp()}] ${dim}${blue}${getLineInfo(this?.line || d_cl_conf.error.line)}: ` + mainstyle;
-    }
+    let pre = preStyle(this, `${reset}${dim}${red}`);
+    if (!pre)
+        return;
     process.stdout.write(pre);
     originalError(...args.map((item) => {
         if (item instanceof Error) {
@@ -333,10 +204,8 @@ function cerror(...args) {
         return item;
     }), `${reset}`);
 }
-function xconsole(config = {}) {
+function cs(config) {
     if (config === null || (typeof config === "number" && config < 0)) {
-        console.brf = cbrf;
-        console.dev = cdev;
         console.debug = originalDebug;
         console.info = originalInfo;
         console.warn = originalWarn;
@@ -344,25 +213,21 @@ function xconsole(config = {}) {
         console.error = originalError;
         return;
     }
-    if (typeof config === "object") {
-        d_cl_conf.brf = { ...d_cl_conf.brf, ...config.brf };
-        d_cl_conf.dev = { ...d_cl_conf.dev, ...config.dev };
-        d_cl_conf.debug = { ...d_cl_conf.debug, ...config.debug };
-        d_cl_conf.info = { ...d_cl_conf.info, ...config.info };
-        d_cl_conf.warn = { ...d_cl_conf.warn, ...config.warn };
-        d_cl_conf.log = { ...d_cl_conf.log, ...config.log };
-        d_cl_conf.error = { ...d_cl_conf.error, ...config.error };
+    else if (Array.isArray(config)) {
+        csconf.info = config[0];
+        csconf.line = config[1];
+        csconf.xinfo = config[2];
+        csconf.xline = config[3];
+    }
+    else if (typeof config === "object") {
+        config.info ? (csconf.info = config.info) : 0;
+        config.line ? (csconf.line = config.line) : 0;
+        config.xinfo ? (csconf.xinfo = config.xinfo) : 0;
+        config.xline ? (csconf.xline = config.xline) : 0;
     }
     else if (typeof config === "number" && config >= 0) {
-        d_cl_conf.brf.model = config;
-        d_cl_conf.debug.model = config;
-        d_cl_conf.info.model = config;
-        d_cl_conf.warn.model = config;
-        d_cl_conf.log.model = config;
-        d_cl_conf.error.model = config;
+        csconf.info = config;
     }
-    console.brf = cbrf;
-    console.dev = cdev;
     console.debug = cdebug;
     console.info = cinfo;
     console.warn = cwarn;
@@ -450,4 +315,26 @@ async function prompt(promptText = "ENTER continue , CTRL+C exit: ", validator =
             return 1;
         }
     });
+}
+function getTimestamp() {
+    const now = new Date();
+    return `${(now.getMonth() + 1).toString().padStart(2, "0")}-${now
+        .getDate()
+        .toString()
+        .padStart(2, "0")} ${now.getHours().toString().padStart(2, "0")}:${now
+        .getMinutes()
+        .toString()
+        .padStart(2, "0")}:${now.getSeconds().toString().padStart(2, "0")}.${now
+        .getMilliseconds()
+        .toString()
+        .padStart(3, "0")}`;
+}
+function getLineInfo(i = 3) {
+    const arr = new Error().stack.split("\n");
+    let res = arr[i]?.split("(").at(-1).split(sep_file).at(-1);
+    if (res?.endsWith(")"))
+        res = res.slice(0, -1);
+    if (!res)
+        originalLog(555, arr);
+    return res;
 }

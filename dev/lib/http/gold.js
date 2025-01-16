@@ -1,5 +1,5 @@
 export { hd_stream };
-import { cookies_obj, cookie_merge, cerror } from "../basic.js";
+import { cookies_obj, cookie_merge } from "../basic.js";
 import { router_find_resolve } from "./router.js";
 function hd_stream(server, stream, headers) {
   //去掉h2的headers继承于null prototype的多余显示,及无用的Symbol("sensitiveHeaders")
@@ -110,7 +110,7 @@ function hd_stream(server, stream, headers) {
           ":status": code,
           "content-type": "text/plain; charset=utf-8",
         });
-        cerror.bind({line:5})(
+        console.error.bind({xinfo:2})(
           gold.ip,
           headers["cf-ipcountry"] || "",
           headers[":path"],
@@ -133,7 +133,7 @@ function hd_stream(server, stream, headers) {
         });
         data = JSON.stringify(data);
         // console.error(gold.headers[":path"] + "\n", data);
-        cerror(
+        console.error.bind({xinfo:2})(
           gold.ip,
           headers["cf-ipcountry"] || "",
           headers[":path"],

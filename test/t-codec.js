@@ -24,9 +24,9 @@ import {
   zstd_decompress,
   xpath,
   xreq,
-  xconsole,
+  cs,
 } from "@ghini/kit/dev";
-xconsole();
+cs();
 test();
 
 async function test() {

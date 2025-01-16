@@ -1,4 +1,3 @@
-import { cerror } from "../basic.js";
 export { router_find_resolve, addr, _404 };
 function addr(...argv) {
     let path, method, ct, fn_end, fn_data, config = {};
@@ -39,7 +38,7 @@ function addr(...argv) {
             config = item;
     });
     if (!path) {
-        cerror("path is required,以'/'开头的精确路径string 或 regexp");
+        console.error("path is required,以'/'开头的精确路径string 或 regexp");
         return;
     }
     if (!method)
@@ -141,7 +140,7 @@ function router_find_resolve(server, stream, gold) {
             length += chunk.length;
             if (notresponded && length > maxbody) {
                 notresponded = false;
-                gold.err({ msg: "Payload Too Large", maxBody: `${maxbody / 1048576}MB` }, 413);
+                gold.jerr({ msg: "Payload Too Large", maxBody: `${maxbody / 1048576}MB` }, 413);
             }
             if (typeof router_target[4] === "function") {
                 await router_target[4](gold, chunk, chunks);
@@ -151,7 +150,7 @@ function router_find_resolve(server, stream, gold) {
             }
         }
         catch (err) {
-            cerror(err);
+            console.error(err);
             gold.err();
         }
     });
@@ -162,8 +161,8 @@ function router_find_resolve(server, stream, gold) {
             await router_target[3](gold);
         }
         catch (err) {
-            cerror(err, err.stack);
-            gold.err();
+            console.error(err, err.stack);
+            gold.jerr();
         }
     });
 }
@@ -259,7 +258,5 @@ function body2data(gold) {
     return data;
 }
 function _404(gold) {
-    gold.respond({ ":status": 400 });
-    console.error.bind({ line: 3 })("_404:", gold.headers[":path"], gold.headers[":method"], gold.ip, gold.headers["cf-ipcountry"] || "", gold.body);
-    gold.end("404");
+    gold.err();
 }
