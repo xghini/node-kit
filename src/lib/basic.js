@@ -18,6 +18,7 @@ export {
   aexist,
   arm,
   aonedir,
+  astat,
   aloadyml,
   aloadenv,
   aloadjson,
@@ -59,9 +60,9 @@ let globalCatchError = false;
  * @param {boolean} open 是否开启
  */
 function gcatch(open = true) {
-  console.dev("use gcatch");
   if (open) {
     if (!globalCatchError) {
+      console.dev("use gcatch");
       globalCatchError = true;
       process.on("unhandledRejection", fn0);
       process.on("uncaughtException", fn1);
@@ -251,6 +252,9 @@ async function aloadjson(filePath) {
   } catch (error) {
     console.error(error.message);
   }
+}
+async function astat(path) {
+  return await fs.promises.stat(path);
 }
 async function aonedir(dir) {
   try {

@@ -98,7 +98,7 @@ function hd_stream(server, stream, headers) {
                     ":status": code,
                     "content-type": "text/plain; charset=utf-8",
                 });
-                console.error.bind({ info: 2 })(gold.ip, headers["cf-ipcountry"] || "", gold.path + gold.search, headers[":method"], data);
+                console.error.bind({ info: 2, line: 5 })(gold.ip, headers["cf-ipcountry"] || "", gold.path + gold.search, headers[":method"], data);
                 gold.end(data);
             },
             jerr: (data, code) => {
@@ -115,7 +115,7 @@ function hd_stream(server, stream, headers) {
                     "content-type": "application/json; charset=utf-8",
                 });
                 data = JSON.stringify(data);
-                console.error.bind({ info: 2 })(gold.ip, headers["cf-ipcountry"] || "", gold.path + gold.search, headers[":method"], data);
+                console.error.bind({ info: 2, line: 5 })(gold.ip, headers["cf-ipcountry"] || "", gold.path + gold.search, headers[":method"], data);
                 gold.end(data);
             },
         };

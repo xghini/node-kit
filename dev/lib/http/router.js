@@ -1,4 +1,5 @@
 export { router_find_resolve, addr, _404 };
+import { rf } from "../basic.js";
 // 这是http https允许的methods,http2不限制
 // const methods = [
 //   'ACL', 'BIND', 'CHECKOUT', 'CONNECT', 'COPY', 'DELETE', 'GET', 'HEAD', 'LINK',
@@ -106,10 +107,18 @@ function router_find_resolve(server, stream, gold) {
   if (arr0.length > 0) {
     arr = arr0;
   } else if (arr1.length > 0) {
+    // 如果是ico没处理的话,默认返回个🚀
+    if (gold.path === "/favicon.ico") {
+      gold.respond({
+        ":status": 200,
+        "content-type": "image/x-icon",
+      });
+      const data = rf("../../store/favicon.png",null);
+      return gold.end(data);
+    }
     arr = arr1;
   } else {
-    server._404?.(gold);
-    return;
+    return server._404?.(gold);
   }
   // 找method 再找*
   arr0 = [];

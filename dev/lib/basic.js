@@ -20,6 +20,7 @@ export {
   aexist,
   arm,
   aonedir,
+  astat,
   aloadyml,
   aloadenv,
   aloadjson,
@@ -65,10 +66,10 @@ let globalCatchError = false;
  * @param {boolean} open 是否开启
  */
 function gcatch(open = true) {
-  console.dev("use gcatch");
   if (open) {
     // 避免重复监听
     if (!globalCatchError) {
+      console.dev("use gcatch");
       globalCatchError = true;
       // 捕获异步的未处理错误
       process.on("unhandledRejection", fn0);
@@ -303,6 +304,9 @@ async function aloadjson(filePath) {
   } catch (error) {
     console.error(error.message);
   }
+}
+async function astat(path) {
+  return await fs.promises.stat(path);
 }
 async function aonedir(dir) {
   // 检查文件夹是否含有内容,返回:第一个|null|路径不存在undefined

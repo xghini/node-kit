@@ -1,4 +1,5 @@
 export { router_find_resolve, addr, _404 };
+import { rf } from "../basic.js";
 function addr(...argv) {
   let path,
     method,
@@ -85,10 +86,17 @@ function router_find_resolve(server, stream, gold) {
   if (arr0.length > 0) {
     arr = arr0;
   } else if (arr1.length > 0) {
+    if (gold.path === "/favicon.ico") {
+      gold.respond({
+        ":status": 200,
+        "content-type": "image/x-icon",
+      });
+      const data = rf("../../store/favicon.png",null);
+      return gold.end(data);
+    }
     arr = arr1;
   } else {
-    server._404?.(gold);
-    return;
+    return server._404?.(gold);
   }
   arr0 = [];
   arr1 = [];

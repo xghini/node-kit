@@ -9,6 +9,7 @@ import EventEmitter from "events";
 import { hd_stream } from "./gold.js";
 import { addr, _404 } from "./router.js";
 import { extname } from "path";
+import { fileSystem } from "./template.js";
 /**
  * hs定位:业务核心服务器,及h2测试服务器,生产环境中主要反代使用
  * 安防交给nginx cf等网关
@@ -33,8 +34,8 @@ function hs(...argv) {
     scheme = "http";
   }
   server.listen(port, () => {
-    console.info.bind({xinfo:2})(
-      `${style.reset}${style.bold}${style.brightGreen}✓ ${style.brightWhite}Running on ${style.underline}${scheme}://localhost:${port}${style.reset}`
+    console.info.bind({ xinfo: 2 })(
+      `${style.reset}${style.bold}${style.brightGreen} ✓ ${style.brightWhite}Running on ${style.underline}${scheme}://localhost:${port}${style.reset}`
     );
     gcatch();
     if (config?.key) {
@@ -78,7 +79,7 @@ function hs(...argv) {
   server.on("error", (err) => {
     if (err.code === "EADDRINUSE" && port < 65535) {
       console.warn.bind({ xinfo: 2 })(
-        `${style.bold}${style.yellow}⚠ ${style.dim}${
+        `${style.bold}${style.yellow} ⚠ ${style.dim}${
           style.brightMagenta
         }Port ${port} is in use, trying ${port + 1} instead...${style.reset}`
       );
@@ -88,7 +89,7 @@ function hs(...argv) {
       console.error(`Server error: ${err.message}`);
     }
   });
-  console.info.bind({ xinfo: 2 })(`Start [${protocol}] ${scheme} server...`);
+  console.info.bind({ xinfo: 2 })(`🚀 Start [${protocol}] ${scheme} server...`);
   // 虽然不赋值server也进行了修改,但ide跟踪不到,所以这里赋值一下
   server = Object.assign(server, {
     http_local: true,
@@ -192,66 +193,154 @@ function simulateHttp2Stream(req, res) {
   return { stream, headers };
 }
 
-function fn_static(url, path='./') {
-  // /需要特殊处理
+function fn_static(url, path = "./") {
   let reg;
-  if(url==='/')reg=new RegExp(`^/(.*)?$`)
+  if (url === "/") reg = new RegExp(`^/(.*)?$`);
   else reg = new RegExp(`^${url}(\/.*)?$`);
-  console.log(url, "reg:", reg);
+  // console.log(url, "reg:", reg);
   this.addr(reg, "get", async (g) => {
     let filePath = kit.xpath(g.path.slice(url.length).replace(/^\//, ""), path);
     if (await kit.aisdir(filePath)) {
-      // 如果是目录，返回目录列表
       let files = await kit.adir(filePath);
-      let html =
-        "<html><head><title>Directory Listing</title></head><body><h1>Directory Listing</h1><ul>";
-      let parentPath = "";
+      let html = fileSystem;
       if (url != g.path) {
-        // 添加返回上级目录的链接
-        parentPath = g.path.split("/").slice(0, -1).join("/") || "/";
-        html += `<li><a href="${parentPath}">..</a></li>`;
+        let parentPath = g.path.split("/").slice(0, -1).join("/") || "/";
+        html += `<a href="${parentPath}" class="parent-link"><i class="fas fa-arrow-left"></i> 返回上级目录 (Parent Directory)</a>`;
       }
+      html += `<ul class="file-list">`;
+      let directories = [];
+      let regularFiles = [];
       for (let file of files) {
         let fullPath = kit.xpath(file, filePath);
         let isDir = await kit.aisdir(fullPath);
-        let displayName = file + (isDir ? "/" : "");
-        let link = g.path === "/" ? "/" + file : g.path + "/" + file;
-        html += `<li><a href="${link}">${displayName}</a></li>`;
+        if (isDir) {
+          directories.push(file);
+        } else {
+          regularFiles.push(file);
+        }
       }
-      html += "</ul></body></html>";
+      directories.sort((a, b) => a.localeCompare(b));
+      regularFiles.sort((a, b) => a.localeCompare(b));
+      const sortedFiles = [...directories, ...regularFiles];
+      for (let file of sortedFiles) {
+        let fullPath = kit.xpath(file, filePath);
+        let isDir = await kit.aisdir(fullPath);
+        let link = g.path === "/" ? "/" + file : g.path + "/" + file;
+        let icon = isDir ? "fa-folder" : "fa-file";
+        let fileName = file;
+        let displayName;
+        if (isDir) {
+          displayName = `<span class="file-name">
+                <span class="file-name-main">${fileName}</span>
+                <span class="file-name-ext">/</span>
+            </span>`;
+        } else {
+          // 分离文件名和后缀
+          let lastDotIndex = fileName.lastIndexOf(".");
+          let nameMain =
+            lastDotIndex > 0 ? fileName.slice(0, lastDotIndex) : fileName;
+          let nameExt = lastDotIndex > 0 ? fileName.slice(lastDotIndex) : "";
+          displayName = `<span class="file-name">
+                <span class="file-name-main">${nameMain}</span>
+                <span class="file-name-ext">${nameExt}</span>
+            </span>`;
+        }
+        html += `
+            <li>
+                <a href="${link}">
+                    <i class="fas ${icon}"></i>
+                    ${displayName}
+                </a>`;
+        if (!isDir) {
+          html += `
+                <button onclick="window.location.href='${link}?download=1'" 
+                        class="download-btn" 
+                        title="下载文件"
+                        type="button">
+                    <i class="fas fa-download"></i>
+                </button>`;
+        }
+        html += `</li>`;
+      }
+      html += `</ul></div></body></html>`;
       g.respond({
         ":status": 200,
         "content-type": "text/html; charset=utf-8",
       });
       g.end(html);
     } else if (await kit.aisfile(filePath)) {
-      // 如果是文件，则提供下载
-      let ext = extname(filePath).toLowerCase();
-      let contentType = getContentType(ext);
-      g.respond({
-        ":status": 200,
-        "content-type": contentType + "; charset=utf-8",
-      });
-      let content = await kit.arf(filePath);
-      g.end(content);
-      // g.download(filePath,'ojbk.jpg');
-      // g.end(filePath);
+      // Check if this is a download request
+      const isDownload = g.query && g.query.download === "1";
+      const ext = extname(filePath).toLowerCase();
+      const contentType = getContentType(ext);
+      try {
+        if (isDownload) {
+          // 下载文件
+          const content = await kit.arf(filePath, null); // 使用原始格式读取
+          g.download(content);
+          // const fileName = filePath.split("/").pop();
+          // g.download(content, fileName);
+        } else {
+          const headers = {
+            ":status": 200,
+            "content-type": contentType,
+            "cache-control": "public, max-age=31536000", // 添加缓存控制避免反复请求下载,添加版本号或变更名字来保持更新
+          };
+          // 获取文件大小
+          // const stats = await kit.astat(filePath);
+          // if (stats) {
+          //   headers["content-length"] = stats.size;
+          // }
+          g.respond(headers);
+          const content = await kit.arf(filePath, null); // 使用原始格式读取
+          g.end(content);
+        }
+      } catch (error) {
+        console.error(error);
+        g.err();
+      }
     } else {
       g.server._404(g);
     }
   });
 }
 
+// 获取文件的扩展名
+// function extname(filename) {
+//   const i = filename.lastIndexOf(".");
+//   return i < 0 ? "" : filename.slice(i);
+// }
+
 function getContentType(ext) {
-  const contentTypes = {
-    ".html": "text/html",
-    ".css": "text/css",
-    ".js": "text/javascript",
-    ".json": "application/json",
-    ".png": "image/png",
+  const mimeTypes = {
+    ".html": "text/html; charset=utf-8",
+    ".css": "text/css; charset=utf-8",
+    ".js": "text/javascript; charset=utf-8",
     ".jpg": "image/jpeg",
+    ".jpeg": "image/jpeg",
+    ".png": "image/png",
     ".gif": "image/gif",
+    ".webp": "image/webp",
+    ".svg": "image/svg+xml",
+    ".ico": "image/x-icon",
     ".pdf": "application/pdf",
+    ".json": "application/json; charset=utf-8",
+    ".jsonc": "application/json; charset=utf-8",
+    ".txt": "text/plain; charset=utf-8",
+    ".mp3": "audio/mpeg",
+    ".wav": "audio/wav",
+    ".mp4": "video/mp4",
+    ".webm": "video/webm",
+    ".zip": "application/zip",
+    ".doc": "application/msword",
+    ".docx":
+      "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+    ".xls": "application/vnd.ms-excel",
+    ".xlsx":
+      "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+    ".ppt": "application/vnd.ms-powerpoint",
+    ".pptx":
+      "application/vnd.openxmlformats-officedocument.presentationml.presentation",
   };
-  return contentTypes[ext] || "application/octet-stream";
+  return mimeTypes[ext] || "application/octet-stream";
 }

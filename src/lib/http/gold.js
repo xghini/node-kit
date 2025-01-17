@@ -105,7 +105,7 @@ function hd_stream(server, stream, headers) {
           ":status": code,
           "content-type": "text/plain; charset=utf-8",
         });
-        console.error.bind({ info: 2 })(
+        console.error.bind({ info: 2,line:5 })(
           gold.ip,
           headers["cf-ipcountry"] || "",
           gold.path + gold.search,
@@ -126,7 +126,7 @@ function hd_stream(server, stream, headers) {
           "content-type": "application/json; charset=utf-8",
         });
         data = JSON.stringify(data);
-        console.error.bind({ info: 2 })(
+        console.error.bind({ info: 2,line:5 })(
           gold.ip,
           headers["cf-ipcountry"] || "",
           gold.path + gold.search,

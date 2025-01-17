@@ -1,4 +1,4 @@
-export { rf, wf, mkdir, isdir, isfile, dir, exist, xpath, rm, cp, arf, awf, amkdir, aisdir, aisfile, adir, aexist, arm, aonedir, aloadyml, aloadenv, aloadjson, cookie_obj, cookie_str, cookie_merge, cookies_obj, cookies_str, cookies_merge, mreplace, mreplace_calc, xreq, ast_jsbuild, sleep, interval, timelog, getDate, gcatch, uuid, rint, rside, gchar, fhash, empty, };
+export { rf, wf, mkdir, isdir, isfile, dir, exist, xpath, rm, cp, arf, awf, amkdir, aisdir, aisfile, adir, aexist, arm, aonedir, astat, aloadyml, aloadenv, aloadjson, cookie_obj, cookie_str, cookie_merge, cookies_obj, cookies_str, cookies_merge, mreplace, mreplace_calc, xreq, ast_jsbuild, sleep, interval, timelog, getDate, gcatch, uuid, rint, rside, gchar, fhash, empty, };
 export * from "./console.js";
 import { createRequire } from "module";
 import { parse } from "acorn";
@@ -11,9 +11,9 @@ const sep_file = platform == "win32" ? "file:///" : "file://";
 const slice_len_file = platform == "win32" ? 8 : 7;
 let globalCatchError = false;
 function gcatch(open = true) {
-    console.dev("use gcatch");
     if (open) {
         if (!globalCatchError) {
+            console.dev("use gcatch");
             globalCatchError = true;
             process.on("unhandledRejection", fn0);
             process.on("uncaughtException", fn1);
@@ -176,6 +176,9 @@ async function aloadjson(filePath) {
     catch (error) {
         console.error(error.message);
     }
+}
+async function astat(path) {
+    return await fs.promises.stat(path);
 }
 async function aonedir(dir) {
     try {

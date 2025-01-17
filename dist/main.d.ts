@@ -43,6 +43,7 @@ declare const kit: {
     aexist: typeof basic.aexist;
     arm: typeof basic.arm;
     aonedir: typeof basic.aonedir;
+    astat: typeof basic.astat;
     aloadyml: typeof basic.aloadyml;
     aloadenv: typeof basic.aloadenv;
     aloadjson: typeof basic.aloadjson;
