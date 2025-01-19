@@ -6,11 +6,29 @@ import conf from "./conf.js";
 import lua from "./lua.js";
 kit.cs(66);
 const server = kit.hs();
+// Alpha
+server.addr("/v1/test", test);
+server.addr("/v1/test/br", br);
+server.addr("/test/timeout", (gold) => console.log(gold));
 server.http_local = false;
 server.static("/", "../..");
+// Beta
+server.addr("/v1/subscribe", "get", subscribe);
+server.addr("/hy2auth", hy2auth);
+// RC(Release Candidate)
+server.addr("/v1/auth/signin", "post", signin);
+server.addr("/v1/auth/captcha", captcha);
+server.addr("/v1/auth/emailverify", "post", emailverify);
+server.addr("/v1/auth/signup", "post", signup);
+server.addr("/v1/auth/reset", "post", reset);
+server.addr("/v1/user/signout", signout);
+server.addr("/v1/user/signoutall", signoutall);
+server.addr("/v1/user/profile", profile);
+server.addr("/v1/user/orderplan", orderplan);
+server.addr("/v1/admin/status", status);
+// Release
 
-// const server = kit.hss();
-// const server = kit.h2s();
+
 
 /* Redis */
 // const redis = new Redis();
@@ -27,23 +45,7 @@ const redis = kit.xredis(conf.redis[0]);
 //   hash:['upload','download'],
 // });
 
-/* Routes */
-server.addr("/v1/auth/signin", "post", signin);
-server.addr("/v1/auth/captcha", captcha);
-server.addr("/v1/auth/emailverify", "post", emailverify);
-server.addr("/v1/auth/signup", "post", signup);
-server.addr("/v1/auth/reset", "post", reset);
-server.addr("/v1/user/signout", signout);
-server.addr("/v1/user/signoutall", signoutall);
-server.addr("/v1/user/profile", profile);
-server.addr("/v1/user/orderplan", orderplan);
-server.addr("/v1/admin/status", status);
-server.addr("/v1/subscribe", "get", subscribe);
-server.addr("/hy2auth", hy2auth);
-server.addr("/v1/test", test);
-server.addr("/v1/test/br", br);
-// console.log(server.routes);
-server.addr("/test/timeout", (gold) => console.log(gold));
+
 export async function br(gold) {
   // 返回一段br加密
   console.log("br", gold.headers);
@@ -115,7 +117,7 @@ export async function subscribe(gold) {
     ":status": 200,
     "content-type": "application/octet-stream; charset=UTF-8", // 或 application/octet-stream
     // "content-encoding": "gzip",
-    "subscription-userinfo": `upload=${res.upload}; download=${res.download}; total=${res.total}; expire=${res.expire}`,
+    "subscription-userinfo": `upload=${res.upload}; download=${res.download}; total=976366325465088; expire=${res.expire}`,
     "content-disposition": "attachment; filename*=UTF-8''" + filename,
     // "profile-web-page-url": "https://stream.topchat.vip",
   });
