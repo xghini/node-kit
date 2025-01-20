@@ -4,6 +4,7 @@ import https from "https";
 import http from "http";
 import { empty } from "../basic.js";
 import { br_decompress, inflate, zstd_decompress, gunzip } from "../codec.js";
+import { URLSearchParams } from "url";
 const h2session = new Map();
 const options_keys = ["settings", "cert", "timeout", "json"];
 const d_headers = {
@@ -18,7 +19,7 @@ async function req(...argv) {
         }
         const sess = await h2connect(reqbd);
         if (sess) {
-            return h2req(reqbd);
+            return h2req.bind(sess)(reqbd);
         }
         return h1req(reqbd);
     }
@@ -51,11 +52,12 @@ async function h2connect(obj) {
         const session = http2.connect(urlobj.origin, {
             ...{
                 settings: { enablePush: false },
-                servername: '_',
+                rejectUnauthorized: false,
             },
             ...options,
         });
         session.once("connect", () => {
+            console.dev("新建h2session", host);
             h2session.set(host, session);
             return resolve(session);
         });
@@ -83,19 +85,24 @@ async function h2req(...argv) {
     };
     let req, sess;
     try {
-        sess = await h2connect(reqbd);
+        sess = this ? this : await h2connect(reqbd);
         if (sess === false)
             throw new Error("H2 connect failed");
         req = await sess.request(headers);
+        console.log(method);
+        if (method === "GET" || method === "DELETE" || method === "HEAD") {
+            if (!empty(body))
+                console.warn("NodeJS原生请求限制, ", method, "Body不会生效");
+        }
+        else {
+            req.end(body);
+        }
     }
     catch (error) {
         console.error(error);
         return resbuild.bind(reqbd)(false, "h2");
     }
     return new Promise((resolve, reject) => {
-        if (!empty(body))
-            req.write(body);
-        req.end();
         req.on("response", (headers, flags) => {
             const chunks = [];
             req.on("data", (chunk) => {
@@ -163,6 +170,7 @@ async function h1req(...argv) {
             headers: new_headers,
             agent,
             timeout: d_timeout,
+            rejectUnauthorized: false,
         },
         ...options,
     };
@@ -294,7 +302,26 @@ function reqbuild(...argv) {
                     throw new Error("构造错误,请参考文档或示例");
             }
             argv.slice(1).forEach((item) => {
-                if (!body && typeof item === "string" && item !== "")
+                if ((!body &&
+                    ((typeof item === "string" && item !== "") ||
+                        (() => {
+                            if (typeof item !== "number")
+                                return false;
+                            item = item.toString();
+                            return true;
+                        })() ||
+                        item instanceof Buffer ||
+                        ArrayBuffer.isView(item))) ||
+                    (() => {
+                        if (item instanceof URLSearchParams) {
+                            item = item.toString();
+                            headers["content-type"] =
+                                headers["content-type"] || "application/x-www-form-urlencoded";
+                            return true;
+                        }
+                        else
+                            return false;
+                    })())
                     body = item;
                 else if (empty(item))
                     new_options = {};
@@ -313,7 +340,12 @@ function reqbuild(...argv) {
             });
         }
         method = method?.toUpperCase();
-        urlobj = new URL(url) || urlobj;
+        try {
+            urlobj = new URL(url);
+        }
+        catch {
+            console.dev("url构造错误", url, "使用原urlobj");
+        }
         headers = { ...headers, ...new_headers } || {};
         options = { ...options, ...new_options } || {};
         if (options) {
@@ -325,6 +357,15 @@ function reqbuild(...argv) {
                 headers["content-type"] = headers["content-type"] || "application/json";
                 body = JSON.stringify(options.json);
                 delete options.json;
+            }
+            if ("param" in options) {
+                headers["content-type"] =
+                    headers["content-type"] || "application/x-www-form-urlencoded";
+                body =
+                    typeof options.param === "string"
+                        ? options.param
+                        : new URLSearchParams(options.param).toString();
+                delete options.param;
             }
         }
         return new Reqbd({

@@ -4,6 +4,7 @@ import https from "https";
 import http from "http";
 import { empty } from "../basic.js";
 import { br_decompress, inflate, zstd_decompress, gunzip } from "../codec.js";
+import { URLSearchParams } from "url";
 
 // 缓存 HTTP/2 连接
 const h2session = new Map();
@@ -42,7 +43,7 @@ async function req(...argv) {
     }
     const sess = await h2connect(reqbd);
     if (sess) {
-      return h2req(reqbd);
+      return h2req.bind(sess)(reqbd);
     }
     return h1req(reqbd);
   } catch (error) {
@@ -82,13 +83,13 @@ async function h2connect(obj) {
     const session = http2.connect(urlobj.origin, {
       ...{
         settings: { enablePush: false },
-        servername: '_', //去掉纯ip请求的warning
-        // rejectUnauthorized: true,
+        rejectUnauthorized: false,
       },
       ...options,
     });
     // once 只监听一次事件后自动取消监听
     session.once("connect", () => {
+      console.dev("新建h2session", host);
       h2session.set(host, session);
       return resolve(session);
     });
@@ -129,17 +130,22 @@ async function h2req(...argv) {
   // console.dev(options);
   let req, sess;
   try {
-    sess = await h2connect(reqbd);
+    sess = this ? this : await h2connect(reqbd);
     // 走这里的,基本是直接调用h2req,没打算智能降级
     if (sess === false) throw new Error("H2 connect failed");
     req = await sess.request(headers);
+    console.log(method);
+    if (method === "GET" || method === "DELETE" || method === "HEAD") {
+      if (!empty(body))
+        console.warn("NodeJS原生请求限制, ", method, "Body不会生效");
+    } else {
+      req.end(body);
+    }
   } catch (error) {
     console.error(error);
     return resbuild.bind(reqbd)(false, "h2");
   }
   return new Promise((resolve, reject) => {
-    if (!empty(body)) req.write(body);
-    req.end();
     req.on("response", (headers, flags) => {
       const chunks = [];
       req.on("data", (chunk) => {
@@ -216,7 +222,7 @@ async function h1req(...argv) {
       headers: new_headers,
       agent,
       timeout: d_timeout,
-      // rejectUnauthorized: true,
+      rejectUnauthorized: false,
     },
     ...options,
   };
@@ -369,9 +375,9 @@ function reqbuild(...argv) {
       body = newBody || body;
       headers = { ...headers, ...newHeaders };
       options = { ...options, ...newOptions };
+      // 把新url复用思路处理一遍
       argv = [newUrl];
     }
-
     let new_headers, new_options;
     if (typeof argv[0] === "string") {
       const arr = argv[0].split(" ");
@@ -387,9 +393,27 @@ function reqbuild(...argv) {
       } else {
         if (empty(this)) throw new Error("构造错误,请参考文档或示例");
       }
-
       argv.slice(1).forEach((item) => {
-        if (!body && typeof item === "string" && item !== "") body = item;
+        if (
+          (!body &&
+            ((typeof item === "string" && item !== "") ||
+              (() => {
+                if (typeof item !== "number") return false;
+                item = item.toString();
+                return true;
+              })() ||
+              item instanceof Buffer ||
+              ArrayBuffer.isView(item))) || // 也能直接接收
+          (() => {
+            if (item instanceof URLSearchParams) {
+              item=item.toString();
+              headers["content-type"] =
+                headers["content-type"] || "application/x-www-form-urlencoded";
+              return true;
+            } else return false;
+          })()
+        )
+          body = item;
         else if (empty(item)) new_options = {};
         else if (typeof item === "object") {
           if (Object.keys(item).every((key) => options_keys.includes(key))) {
@@ -401,9 +425,12 @@ function reqbuild(...argv) {
         }
       });
     }
-
     method = method?.toUpperCase();
-    urlobj = new URL(url) || urlobj;
+    try {
+      urlobj = new URL(url);
+    } catch {
+      console.dev("url构造错误", url, "使用原urlobj");
+    }
     headers = { ...headers, ...new_headers } || {};
     options = { ...options, ...new_options } || {};
 
@@ -416,6 +443,15 @@ function reqbuild(...argv) {
         headers["content-type"] = headers["content-type"] || "application/json";
         body = JSON.stringify(options.json);
         delete options.json;
+      }
+      if ("param" in options) {
+        headers["content-type"] =
+          headers["content-type"] || "application/x-www-form-urlencoded";
+        body =
+          typeof options.param === "string"
+            ? options.param
+            : new URLSearchParams(options.param).toString();
+        delete options.param;
       }
     }
 

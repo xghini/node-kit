@@ -136,7 +136,7 @@ function csm(...args) {
   originalLog(...arvg_final_sm(args), `${reset}`);
 }
 function cdev(...args) {
-  let pre = preStyle(this, `${cyan}[dev] ${reset}${dim}${yellow}`);
+  let pre = preStyle(this, `${cyan}[dev] ${reset}${yellow}`);
   if (!pre) return;
   process.stdout.write(pre);
   originalLog(...arvg_final(args), `${reset}`);
@@ -166,7 +166,7 @@ function clog(...args) {
   originalLog(...arvg_final(args), `${reset}`);
 }
 function cerror(...args) {
-  const mainstyle = `${reset}${dim}${red}`;
+  const mainstyle = `${reset}${red}`;
   let pre = preStyle(this, mainstyle);
   if (!pre) return;
   process.stdout.write(pre);
