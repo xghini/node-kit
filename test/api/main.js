@@ -4,7 +4,7 @@ import Redis from "ioredis";
 // import * as user from "./user.js";
 import conf from "./conf.js";
 import lua from "./lua.js";
-kit.cs(66);
+kit.cs(66,6);
 const server = await kit.hs();
 // server._404 = 0;
 // Alpha

@@ -102,6 +102,9 @@ function router_find_resolve(server, stream, gold) {
         arr = arr0;
     }
     else if (arr1.length > 0) {
+        arr = arr1;
+    }
+    else {
         if (gold.path === "/favicon.ico") {
             gold.respond({
                 ":status": 200,
@@ -110,9 +113,6 @@ function router_find_resolve(server, stream, gold) {
             const data = rf("../../store/favicon.png", null);
             return gold.end(data);
         }
-        arr = arr1;
-    }
-    else {
         return server._404?.(gold);
     }
     arr0 = [];

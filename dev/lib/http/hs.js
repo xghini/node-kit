@@ -56,7 +56,7 @@ async function hs(...argv) {
         `${style.reset}${style.bold}${style.brightGreen} ✓ ${
           style.brightWhite
         }Running on ${style.underline}${scheme}://${
-          open===0?'127.0.0.1':server.ip
+          open === 0 ? "127.0.0.1" : server.ip
         }:${port}${style.reset}`
       );
       gcatch();
@@ -124,9 +124,10 @@ async function hs(...argv) {
         enumerable: true,
       },
       _404: {
-        get: () => this.__404 || _404,
+        get: () => server.routes.__404 || _404,
         set: (v) => {
-          this.__404 = typeof v === "function" ? v : () => {};
+          console.dev("!!", server.routes);
+          server.routes.__404 = typeof v === "function" ? v : () => {};
         },
         enumerable: true,
       },

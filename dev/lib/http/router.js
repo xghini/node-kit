@@ -124,6 +124,8 @@ function router_find_resolve(server, stream, gold) {
   if (arr0.length > 0) {
     arr = arr0;
   } else if (arr1.length > 0) {
+    arr = arr1;
+  } else {
     // 如果是ico没处理的话,默认返回个🚀
     if (gold.path === "/favicon.ico") {
       gold.respond({
@@ -133,8 +135,6 @@ function router_find_resolve(server, stream, gold) {
       const data = rf("../../store/favicon.png", null);
       return gold.end(data);
     }
-    arr = arr1;
-  } else {
     return server._404?.(gold);
   }
   // 找method 再找*
