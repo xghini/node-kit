@@ -1,4 +1,5 @@
 export {
+  myip,
   // fs path相关
   rf,
   wf,
@@ -55,12 +56,39 @@ import fs from "fs";
 import crypto from "crypto";
 import path from "path";
 import yaml from "yaml";
+import os from "os";
 const platform = process.platform; //win32|linux|darwin
 const sep_file = platform == "win32" ? "file:///" : "file://";
 const slice_len_file = platform == "win32" ? 8 : 7;
 
 let globalCatchError = false;
 /*XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX*/
+function myip() {
+  const networkInterfaces = os.networkInterfaces();
+  let arr = [];
+  // 遍历所有网络接口
+  for (const interfaceName in networkInterfaces) {
+    const interfaces = networkInterfaces[interfaceName];
+    for (const infa of interfaces) {
+      // 过滤IPv4地址且不是内部地址 本地回环时 infa.internal=true
+      // 优先返回公网ip
+      if (infa.family === "IPv4" && !infa.internal) {
+        // console.log(`IP地址: ${infa.address}`);
+        if (
+          infa.address.startsWith("10.") || //A类私有 大型企业内网
+          infa.address.startsWith("192.168.") //C类私有 小型内网
+        )
+          arr.push(infa.address);
+        else if (infa.address.startsWith("172.")) {
+          //排除掉B类私有 虚拟机网络
+          const n = infa.address.split(".")[1];
+          if (n < 16 && n > 31) return infa.address;
+        } else return infa.address;
+      }
+    }
+  }
+  return arr.length > 0 ? arr[0] : "127.0.0.1";
+}
 /**
  * gcatch 捕获全局异常
  * @param {boolean} open 是否开启

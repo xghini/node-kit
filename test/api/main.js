@@ -5,12 +5,25 @@ import Redis from "ioredis";
 import conf from "./conf.js";
 import lua from "./lua.js";
 kit.cs(66);
-const server = kit.hs();
+const server = await kit.hs();
 // Alpha
+// 第一组是master,第二组是worker会均衡分配,第三组存在则按占比手动分配[3,2,1]
+server.cluster_config = {
+  master: [
+    "192.168.0.105",
+    "146.190.127.168",
+    "138.68.85.226",
+    "209.38.84.122",
+  ],
+  worker: ["5.180.78.100"],
+  // ratio:[1, 1, 1],
+};
+server.cluster();
+// server.master();
 server.addr("/v1/test", test);
 server.addr("/v1/test/br", br);
 server.addr("/test/timeout", (gold) => console.log(gold));
-server.http_local = false;
+server.local = false;
 server.static("/", "../..");
 // Beta
 server.addr("/v1/subscribe", "get", subscribe);
@@ -28,8 +41,6 @@ server.addr("/v1/user/orderplan", orderplan);
 server.addr("/v1/admin/status", status);
 // Release
 
-
-
 /* Redis */
 // const redis = new Redis();
 const redis = kit.xredis(conf.redis[0]);
@@ -44,7 +55,6 @@ const redis = kit.xredis(conf.redis[0]);
 // redis.sync([redis1, redis2, redis3, redis4], "plan:*",{
 //   hash:['upload','download'],
 // });
-
 
 export async function br(gold) {
   // 返回一段br加密

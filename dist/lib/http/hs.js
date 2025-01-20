@@ -1,5 +1,5 @@
 export { h2s, hs, hss };
-import { gcatch, rf, xpath, style } from "../basic.js";
+import { gcatch, rf, xpath, style, myip } from "../basic.js";
 import kit from "../../main.js";
 import http2 from "http2";
 import https from "https";
@@ -9,79 +9,83 @@ import { hd_stream } from "./gold.js";
 import { addr, _404 } from "./router.js";
 import { extname } from "path";
 import { fileSystem } from "./template.js";
-function hs(...argv) {
-    let { port, config } = argv_port_config(argv), server, scheme, protocol = "http/1.1", currentConnections = 0;
-    if (config?.key) {
-        if (config.hasOwnProperty("allowHTTP1")) {
-            server = http2.createSecureServer(config);
-            if (config.allowHTTP1)
-                protocol = "h2,http/1.1";
-            else
-                protocol = "h2";
-        }
-        else
-            server = https.createServer(config);
-        scheme = "https";
-    }
-    else {
-        server = http.createServer({ insecureHTTPParser: false });
-        scheme = "http";
-    }
-    server.listen(port, () => {
-        console.info.bind({ xinfo: 2 })(`${style.reset}${style.bold}${style.brightGreen} ✓ ${style.brightWhite}Running on ${style.underline}${scheme}://localhost:${port}${style.reset}`);
-        gcatch();
+async function hs(...argv) {
+    return new Promise((resolve, reject) => {
+        let { port, config } = argv_port_config(argv), server, scheme, local, protocol = "http/1.1", currentConnections = 0;
         if (config?.key) {
-            server.on("stream", (stream, headers) => {
-                stream.protocol = "h2";
-                hd_stream(server, stream, headers);
-            });
-        }
-    });
-    server.on("connection", (socket) => {
-        currentConnections++;
-        socket.on("close", () => {
-            currentConnections--;
-        });
-    });
-    server.on("request", (req, res) => {
-        if (req.headers[":path"])
-            return;
-        req.scheme = scheme;
-        let { stream, headers } = simulateHttp2Stream(req, res);
-        hd_stream(server, stream, headers);
-    });
-    server.on("error", (err) => {
-        if (err.code === "EADDRINUSE" && port < 65535) {
-            console.warn.bind({ xinfo: 2 })(`${style.bold}${style.yellow} ⚠ ${style.dim}${style.brightMagenta}Port ${port} is in use, trying ${port + 1} instead...${style.reset}`);
-            port++;
-            server.listen(port);
+            if (config.hasOwnProperty("allowHTTP1")) {
+                server = http2.createSecureServer(config);
+                if (config.allowHTTP1)
+                    protocol = "h2,http/1.1";
+                else
+                    protocol = "h2";
+            }
+            else
+                server = https.createServer(config);
+            scheme = "https";
+            local = false;
         }
         else {
-            console.error(`Server error: ${err.message}`);
+            server = http.createServer({ insecureHTTPParser: false });
+            scheme = "http";
+            local = true;
         }
+        server.listen(port, () => {
+            console.info.bind({ xinfo: 2 })(`${style.reset}${style.bold}${style.brightGreen} ✓ ${style.brightWhite}Running on ${style.underline}${scheme}://${local ? '127.0.0.1' : server.ip}:${port}${style.reset}`);
+            gcatch();
+            server.port = port;
+            if (config?.key) {
+                server.on("stream", (stream, headers) => {
+                    stream.protocol = "h2";
+                    hd_stream(server, stream, headers);
+                });
+            }
+            return resolve(server);
+        });
+        server.on("request", (req, res) => {
+            if (req.headers[":path"])
+                return;
+            req.scheme = scheme;
+            let { stream, headers } = simulateHttp2Stream(req, res);
+            hd_stream(server, stream, headers);
+        });
+        server.on("error", (err) => {
+            if (err.code === "EADDRINUSE" && port < 65535) {
+                console.warn.bind({ xinfo: 2 })(`${style.bold}${style.yellow} ⚠ ${style.dim}${style.brightMagenta}Port ${port} is in use, trying ${port + 1} instead...${style.reset}`);
+                port++;
+                server.listen(port);
+            }
+            else {
+                console.error(`Server error: ${err.message}`);
+                return reject(err);
+            }
+        });
+        console.info.bind({ xinfo: 2 })(`🚀 Start [${protocol}] ${scheme} server...`);
+        server = Object.assign(server, {
+            ip: myip(),
+            local,
+            routes: [],
+            addr,
+            static: fn_static,
+            _404,
+            router_begin: (server, gold) => { },
+            cnn: 0,
+            cluster_config: {},
+            cluster,
+            master,
+            ismaster: false,
+        });
+        Object.defineProperties(server, {
+            routes: { writable: false, configurable: false },
+            addr: { writable: false, configurable: false },
+            cnn: {
+                get: () => currentConnections,
+                enumerable: true,
+            },
+        });
     });
-    console.info.bind({ xinfo: 2 })(`🚀 Start [${protocol}] ${scheme} server...`);
-    server = Object.assign(server, {
-        http_local: true,
-        https_local: false,
-        routes: [],
-        addr,
-        static: fn_static,
-        _404,
-        router_begin: (server, gold) => { },
-        cnn: 0,
-    });
-    Object.defineProperties(server, {
-        routes: { writable: false, configurable: false },
-        addr: { writable: false, configurable: false },
-        cnn: {
-            get: () => currentConnections,
-            enumerable: true,
-        },
-    });
-    return server;
 }
-function h2s(...argv) {
+async function h2s(...argv) {
     let { port, config } = argv_port_config(argv);
     config = {
         ...{
@@ -93,7 +97,7 @@ function h2s(...argv) {
     };
     return hs(port, config);
 }
-function hss(...argv) {
+async function hss(...argv) {
     let { port, config } = argv_port_config(argv);
     config = {
         ...{
@@ -257,4 +261,41 @@ function getContentType(ext) {
         ".pptx": "application/vnd.openxmlformats-officedocument.presentationml.presentation",
     };
     return mimeTypes[ext] || "application/octet-stream";
+}
+async function master(fn) {
+    if (this.ismaster) {
+        fn();
+    }
+}
+async function cluster() {
+    const config = this.cluster_config;
+    if (kit.empty(config))
+        return;
+    const myip = kit.myip();
+    let leader;
+    console.log(this.port, config);
+    const app = await h2s(13000);
+    app.addr("/build", (g) => {
+        if (config.master.includes(myip)) {
+            if (config.master[0] === myip) {
+                leader = true;
+            }
+        }
+    });
+    if (config) {
+        if (config.master.includes(myip)) {
+            if (config.master[0] === myip) {
+                console.dev("leader,去通知");
+                leader = true;
+                let all = [...config.master.slice(1), ...config.worker];
+            }
+            app.addr("/ping", "get", (g) => {
+                if (g.body === ".") {
+                    g.raw(".");
+                }
+            });
+        }
+        else {
+        }
+    }
 }

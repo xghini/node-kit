@@ -118,7 +118,7 @@ function arvg_final_sm(arvg) {
         item,
         (key, value) => {
           if (typeof value === "string" && value.length > 400)
-            return value.slice(0, 200) + ` ...TOTAL:${value.length}`; 
+            return value.slice(0, 200) + ` ... [TOTAL:${value.length}]`; 
           return value;
         },
         2
@@ -359,7 +359,7 @@ function preStyle(opt, mainstyle) {
       break;
     default:
       pre =
-        `${black}[${getTimestamp()}] ${dim}${blue}${getLineInfo(line)}: ` +
+        `${black}[${getTimestamp()}] ${blue}${getLineInfo(line)}: ` +
         mainstyle;
   }
   return pre;

@@ -82,6 +82,7 @@ async function h2connect(obj) {
     const session = http2.connect(urlobj.origin, {
       ...{
         settings: { enablePush: false },
+        servername: '_', //去掉纯ip请求的warning
         // rejectUnauthorized: true,
       },
       ...options,
@@ -168,6 +169,15 @@ async function h2req(...argv) {
     }, timeout);
     req.on("error", (err) => {
       clearTimeout(timeoutId);
+      // baidu 首次h2成功,但第二次会失败
+      if (err.code === "ERR_HTTP2_ERROR") {
+        try {
+          return resolve(h1req(reqbd));
+        } catch (error) {
+          console.error(error);
+          return resolve(resbuild.bind(reqbd)(false));
+        }
+      }
       console.error(err);
       resolve(resbuild.bind(reqbd)(false, "h2"));
     });
@@ -250,7 +260,7 @@ async function h1req(...argv) {
     });
     req.on("socket", (socket) => {
       if (socket.connecting) {
-        // console.dev("创建h1连接");
+        console.dev("创建h1连接");
       } else {
         console.dev("复用h1连接");
       }
@@ -269,8 +279,7 @@ function body2data(body, ct) {
     } catch {
       data = {};
     }
-  }
-  else if (ct === "application/x-www-form-urlencoded") {
+  } else if (ct === "application/x-www-form-urlencoded") {
     data = {};
     const params = new URLSearchParams(body);
     for (const [key, value] of params) {
@@ -425,7 +434,7 @@ function reqbuild(...argv) {
 }
 
 async function resbuild(ok, protocol, code, headers, body) {
-  ok= (code >= 200 && code < 300)? true : false;
+  ok = code >= 200 && code < 300 ? true : false;
   const reqbd = this;
   let cookie = setcookie(headers?.["set-cookie"], reqbd.headers.cookie);
   if (cookie) reqbd.headers.cookie = cookie;

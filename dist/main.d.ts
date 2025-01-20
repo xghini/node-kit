@@ -24,6 +24,7 @@ declare const kit: {
     br_decompress: typeof codec.br_decompress;
     zstd_compress: typeof codec.zstd_compress;
     zstd_decompress: typeof codec.zstd_decompress;
+    myip: typeof basic.myip;
     rf: typeof basic.rf;
     wf: typeof basic.wf;
     mkdir: typeof basic.mkdir;

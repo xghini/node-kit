@@ -1,4 +1,5 @@
 export * from "./console.js";
+export function myip(): string;
 export function rf(filename: string, option?: string): string | null;
 export function wf(filename: string, data: string | Buffer, append?: boolean, option?: string): boolean;
 export function mkdir(dir: any): undefined;

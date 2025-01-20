@@ -1,4 +1,4 @@
-export { rf, wf, mkdir, isdir, isfile, dir, exist, xpath, rm, cp, arf, awf, amkdir, aisdir, aisfile, adir, aexist, arm, aonedir, astat, aloadyml, aloadenv, aloadjson, cookie_obj, cookie_str, cookie_merge, cookies_obj, cookies_str, cookies_merge, mreplace, mreplace_calc, xreq, ast_jsbuild, sleep, interval, timelog, getDate, gcatch, uuid, rint, rside, gchar, fhash, empty, };
+export { myip, rf, wf, mkdir, isdir, isfile, dir, exist, xpath, rm, cp, arf, awf, amkdir, aisdir, aisfile, adir, aexist, arm, aonedir, astat, aloadyml, aloadenv, aloadjson, cookie_obj, cookie_str, cookie_merge, cookies_obj, cookies_str, cookies_merge, mreplace, mreplace_calc, xreq, ast_jsbuild, sleep, interval, timelog, getDate, gcatch, uuid, rint, rside, gchar, fhash, empty, };
 export * from "./console.js";
 import { createRequire } from "module";
 import { parse } from "acorn";
@@ -6,10 +6,33 @@ import fs from "fs";
 import crypto from "crypto";
 import path from "path";
 import yaml from "yaml";
+import os from "os";
 const platform = process.platform;
 const sep_file = platform == "win32" ? "file:///" : "file://";
 const slice_len_file = platform == "win32" ? 8 : 7;
 let globalCatchError = false;
+function myip() {
+    const networkInterfaces = os.networkInterfaces();
+    let arr = [];
+    for (const interfaceName in networkInterfaces) {
+        const interfaces = networkInterfaces[interfaceName];
+        for (const infa of interfaces) {
+            if (infa.family === "IPv4" && !infa.internal) {
+                if (infa.address.startsWith("10.") ||
+                    infa.address.startsWith("192.168."))
+                    arr.push(infa.address);
+                else if (infa.address.startsWith("172.")) {
+                    const n = infa.address.split(".")[1];
+                    if (n < 16 && n > 31)
+                        return infa.address;
+                }
+                else
+                    return infa.address;
+            }
+        }
+    }
+    return arr.length > 0 ? arr[0] : "127.0.0.1";
+}
 function gcatch(open = true) {
     if (open) {
         if (!globalCatchError) {

@@ -76,10 +76,7 @@ function addr(...argv) {
 }
 function router_find_resolve(server, stream, gold) {
   server.router_begin?.(server, gold);
-  if (
-    (server.http_local && gold.headers[":scheme"] === "http") ||
-    (server.https_local && gold.headers[":scheme"] === "https")
-  ) {
+  if (server.local) {
     if (
       gold.direct_ip !== "127.0.0.1" &&
       gold.direct_ip !== "::1" &&

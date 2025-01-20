@@ -51,6 +51,7 @@ async function h2connect(obj) {
         const session = http2.connect(urlobj.origin, {
             ...{
                 settings: { enablePush: false },
+                servername: '_',
             },
             ...options,
         });
@@ -120,6 +121,15 @@ async function h2req(...argv) {
         }, timeout);
         req.on("error", (err) => {
             clearTimeout(timeoutId);
+            if (err.code === "ERR_HTTP2_ERROR") {
+                try {
+                    return resolve(h1req(reqbd));
+                }
+                catch (error) {
+                    console.error(error);
+                    return resolve(resbuild.bind(reqbd)(false));
+                }
+            }
             console.error(err);
             resolve(resbuild.bind(reqbd)(false, "h2"));
         });
@@ -181,6 +191,7 @@ async function h1req(...argv) {
         });
         req.on("socket", (socket) => {
             if (socket.connecting) {
+                console.dev("创建h1连接");
             }
             else {
                 console.dev("复用h1连接");
@@ -331,7 +342,7 @@ function reqbuild(...argv) {
     }
 }
 async function resbuild(ok, protocol, code, headers, body) {
-    ok = (code >= 200 && code < 300) ? true : false;
+    ok = code >= 200 && code < 300 ? true : false;
     const reqbd = this;
     let cookie = setcookie(headers?.["set-cookie"], reqbd.headers.cookie);
     if (cookie)

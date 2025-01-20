@@ -1,6 +1,6 @@
 export { h2s, hs, hss };
 
-import { gcatch, rf, xpath, style } from "../basic.js";
+import { gcatch, rf, xpath, style, myip } from "../basic.js";
 import kit from "../../main.js";
 import http2 from "http2";
 import https from "https";
@@ -10,113 +10,125 @@ import { hd_stream } from "./gold.js";
 import { addr, _404 } from "./router.js";
 import { extname } from "path";
 import { fileSystem } from "./template.js";
-/**
+/*
  * hs定位:业务核心服务器,及h2测试服务器,生产环境中主要反代使用
  * 安防交给nginx cf等网关
- * @param  {...any} argv
- * @returns
  */
-function hs(...argv) {
-  let { port, config } = argv_port_config(argv),
-    server,
-    scheme,
-    protocol = "http/1.1",
-    currentConnections = 0; //记录当前连接数
-  if (config?.key) {
-    if (config.hasOwnProperty("allowHTTP1")) {
-      server = http2.createSecureServer(config);
-      if (config.allowHTTP1) protocol = "h2,http/1.1";
-      else protocol = "h2";
-    } else server = https.createServer(config);
-    scheme = "https";
-  } else {
-    server = http.createServer({ insecureHTTPParser: false });
-    scheme = "http";
-  }
-  server.listen(port, () => {
-    console.info.bind({ xinfo: 2 })(
-      `${style.reset}${style.bold}${style.brightGreen} ✓ ${style.brightWhite}Running on ${style.underline}${scheme}://localhost:${port}${style.reset}`
-    );
-    gcatch();
+/**
+ * @typedef {Object} ServerExtension
+ * @property {boolean} local
+ * @property {any[]} routes
+ * @property {Function} addr
+ * @property {Function} static
+ * @property {Function} _404
+ * @property {Function} router_begin
+ * @property {number} cnn
+ * @property {any} cluster
+ * @property {number} port
+ */
+
+/**
+ * @param {...any} argv
+ * @returns {Promise<import('http').Server & ServerExtension>}
+ */
+async function hs(...argv) {
+  return new Promise((resolve, reject) => {
+    let { port, config } = argv_port_config(argv),
+      server,
+      scheme,
+      local,
+      protocol = "http/1.1",
+      currentConnections = 0; //记录当前连接数
     if (config?.key) {
-      server.on("stream", (stream, headers) => {
-        stream.protocol = "h2";
-        hd_stream(server, stream, headers);
-      });
-    }
-  });
-  // 监听tcp connection✅  session(❌不够底层,防不了tcp级别ddos)
-  // 先起个简单查看状态作用,如有需要以后再拓展安防
-  server.on("connection", (socket) => {
-    currentConnections++; // 增加连接数
-    // console.dev(`当前连接数：${currentConnections}`);
-    // 监听连接关闭
-    socket.on("close", () => {
-      currentConnections--; // 减少连接数
-      // console.dev(`连接关闭，当前连接数：${currentConnections}`);
-    });
-    /* 给每ip限制最大连接数,超时断开连接 */
-    // 模拟 3 秒后主动关闭 HTTP/2 连接
-    // setTimeout(() => {
-    //   console.dev("主动关闭 HTTP/2 连接");
-    //   socket.destroy(); // 关闭 HTTP/2 连接
-    // }, 3000);
-  });
-  // h2特有,h1无
-  // server.on("session", (session) => {
-  //   currentConnections++;
-  //   session.on("close", () => {
-  //     currentConnections--; // 减少连接数
-  //     // console.dev(`连接关闭，当前连接数：${currentConnections}`);
-  //   });
-  // });
-  server.on("request", (req, res) => {
-    if (req.headers[":path"]) return;
-    req.scheme = scheme;
-    let { stream, headers } = simulateHttp2Stream(req, res);
-    hd_stream(server, stream, headers);
-  });
-  server.on("error", (err) => {
-    if (err.code === "EADDRINUSE" && port < 65535) {
-      console.warn.bind({ xinfo: 2 })(
-        `${style.bold}${style.yellow} ⚠ ${style.dim}${
-          style.brightMagenta
-        }Port ${port} is in use, trying ${port + 1} instead...${style.reset}`
-      );
-      port++;
-      server.listen(port);
+      if (config.hasOwnProperty("allowHTTP1")) {
+        server = http2.createSecureServer(config);
+        if (config.allowHTTP1) protocol = "h2,http/1.1";
+        else protocol = "h2";
+      } else server = https.createServer(config);
+      scheme = "https";
+      local = false;
     } else {
-      console.error(`Server error: ${err.message}`);
+      server = http.createServer({ insecureHTTPParser: false });
+      scheme = "http";
+      local = true;
     }
+    server.listen(port, () => {
+      console.info.bind({ xinfo: 2 })(
+        `${style.reset}${style.bold}${style.brightGreen} ✓ ${style.brightWhite}Running on ${style.underline}${scheme}://${local?'127.0.0.1':server.ip}:${port}${style.reset}`
+      );
+      gcatch();
+      server.port = port;
+      if (config?.key) {
+        server.on("stream", (stream, headers) => {
+          stream.protocol = "h2";
+          hd_stream(server, stream, headers);
+        });
+      }
+      return resolve(server);
+    });
+    // 监听tcp connection✅  session(❌不够底层,防不了tcp级别ddos)
+    // 先不管理连接数,在此作用不大,徒增开销
+    // server.on("connection", (socket) => {
+    //   currentConnections++; // 增加连接数
+    //   // console.dev(`当前连接数：${currentConnections}`);
+    //   socket.on("close", () => {
+    //     currentConnections--; // 减少连接数
+    //   });
+    // });
+    server.on("request", (req, res) => {
+      if (req.headers[":path"]) return;
+      req.scheme = scheme;
+      let { stream, headers } = simulateHttp2Stream(req, res);
+      hd_stream(server, stream, headers);
+    });
+    server.on("error", (err) => {
+      if (err.code === "EADDRINUSE" && port < 65535) {
+        console.warn.bind({ xinfo: 2 })(
+          `${style.bold}${style.yellow} ⚠ ${style.dim}${
+            style.brightMagenta
+          }Port ${port} is in use, trying ${port + 1} instead...${style.reset}`
+        );
+        port++;
+        server.listen(port);
+      } else {
+        console.error(`Server error: ${err.message}`);
+        return reject(err);
+      }
+    });
+    console.info.bind({ xinfo: 2 })(
+      `🚀 Start [${protocol}] ${scheme} server...`
+    );
+    // 虽然不赋值server也进行了修改,但ide跟踪不到,所以这里赋值一下
+    server = Object.assign(server, {
+      ip: myip(),
+      local,
+      routes: [],
+      addr,
+      static: fn_static,
+      _404,
+      router_begin: (server, gold) => {},
+      cnn: 0,
+      cluster_config: {},
+      cluster,
+      master,
+      ismaster: false,
+    });
+    Object.defineProperties(server, {
+      routes: { writable: false, configurable: false },
+      addr: { writable: false, configurable: false },
+      cnn: {
+        get: () => currentConnections,
+        enumerable: true,
+      },
+    });
   });
-  console.info.bind({ xinfo: 2 })(`🚀 Start [${protocol}] ${scheme} server...`);
-  // 虽然不赋值server也进行了修改,但ide跟踪不到,所以这里赋值一下
-  server = Object.assign(server, {
-    http_local: true,
-    https_local: false,
-    routes: [],
-    addr,
-    static: fn_static,
-    _404,
-    router_begin: (server, gold) => {},
-    cnn: 0,
-  });
-  Object.defineProperties(server, {
-    routes: { writable: false, configurable: false },
-    addr: { writable: false, configurable: false },
-    cnn: {
-      get: () => currentConnections,
-      enumerable: true,
-    },
-  });
-  return server;
 }
 /**
  * h2s 默认创建 h2tls 兼容 http1.1 tls 的服务器,也可通过配置仅创建h2server
  * @param  {...any} argv
  * @returns
  */
-function h2s(...argv) {
+async function h2s(...argv) {
   let { port, config } = argv_port_config(argv);
   config = {
     ...{
@@ -137,7 +149,7 @@ function h2s(...argv) {
  * @param  {...any} argv
  * @returns
  */
-function hss(...argv) {
+async function hss(...argv) {
   // 启动一个 HTTPS 服务器，使用指定的证书和密钥文件
   let { port, config } = argv_port_config(argv);
   config = {
@@ -343,4 +355,65 @@ function getContentType(ext) {
       "application/vnd.openxmlformats-officedocument.presentationml.presentation",
   };
   return mimeTypes[ext] || "application/octet-stream";
+}
+
+/* 集群间通讯,多主多从协同 
+从将统计数据发给所有主,主1统一通知所有,主1->主2->...主n保持ping,顺位顶替
+每个master也是worker,多份管理职责的worker
+1.在当前节点端口+10000创建h2状态服务器,状态变化时由所有主均衡告知当前服务器和所有其它cluster
+2.master之间顺位ping和替补
+*/
+
+// const cluster_config = {
+//   master: ["146.190.127.168", "138.68.85.226", "209.38.84.122"],
+//   worker: ["5.180.78.100"],
+// };
+async function master(fn) {
+  // 检查自身是主执行,可以是定时器,也可以单次执行
+  if (this.ismaster) {
+    fn();
+  }
+}
+async function cluster() {
+  const config = this.cluster_config;
+  if (kit.empty(config)) return;
+  const myip = kit.myip();
+  let leader;
+  console.log(this.port, config);
+  const app = await h2s(13000);
+  app.addr("/build", (g) => {
+    if (config.master.includes(myip)) {
+      if (config.master[0] === myip) {
+        leader = true;
+      }
+    }
+  });
+  // 有配置文件,按部就班;没有配置文件,等待通知接收配置文件.
+  if (config) {
+    // 检查自己职责
+    if (config.master.includes(myip)) {
+      if (config.master[0] === myip) {
+        console.dev("leader,去通知");
+        leader = true;
+        let all = [...config.master.slice(1), ...config.worker];
+        // all = all.filter(async (ip) => {
+        //   const res = await kit.req(`https://${ip}:13000/build`, {
+        //     json: config,
+        //   });
+        //   if (res.ok) return false;
+        //   return true;
+        // });
+        // console.log(all);
+      }
+      // 收ping
+      app.addr("/ping", "get", (g) => {
+        // g.ip
+        if (g.body === ".") {
+          g.raw(".");
+        }
+      });
+      // 发ping
+    } else {
+    }
+  }
 }
