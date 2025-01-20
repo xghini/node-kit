@@ -16,7 +16,7 @@ import { fileSystem } from "./template.js";
  */
 /**
  * @typedef {Object} ServerExtension
- * @property {boolean} local
+ * @property {number} open
  * @property {any[]} routes
  * @property {Function} addr
  * @property {Function} static
@@ -36,7 +36,7 @@ async function hs(...argv) {
     let { port, config } = argv_port_config(argv),
       server,
       scheme,
-      local,
+      open = 0,
       protocol = "http/1.1",
       currentConnections = 0; //记录当前连接数
     if (config?.key) {
@@ -46,15 +46,18 @@ async function hs(...argv) {
         else protocol = "h2";
       } else server = https.createServer(config);
       scheme = "https";
-      local = false;
+      open = 2;
     } else {
       server = http.createServer({ insecureHTTPParser: false });
       scheme = "http";
-      local = true;
     }
     server.listen(port, () => {
       console.info.bind({ xinfo: 2 })(
-        `${style.reset}${style.bold}${style.brightGreen} ✓ ${style.brightWhite}Running on ${style.underline}${scheme}://${local?'127.0.0.1':server.ip}:${port}${style.reset}`
+        `${style.reset}${style.bold}${style.brightGreen} ✓ ${
+          style.brightWhite
+        }Running on ${style.underline}${scheme}://${
+          open===0?'127.0.0.1':server.ip
+        }:${port}${style.reset}`
       );
       gcatch();
       server.port = port;
@@ -101,7 +104,7 @@ async function hs(...argv) {
     // 虽然不赋值server也进行了修改,但ide跟踪不到,所以这里赋值一下
     server = Object.assign(server, {
       ip: myip(),
-      local,
+      open, //开放级别 0本地 1局域网 2公网
       routes: [],
       addr,
       static: fn_static,
@@ -118,6 +121,13 @@ async function hs(...argv) {
       addr: { writable: false, configurable: false },
       cnn: {
         get: () => currentConnections,
+        enumerable: true,
+      },
+      _404: {
+        get: () => this.__404 || _404,
+        set: (v) => {
+          this.__404 = typeof v === "function" ? v : () => {};
+        },
         enumerable: true,
       },
     });

@@ -76,7 +76,27 @@ function addr(...argv) {
 }
 function router_find_resolve(server, stream, gold) {
   server.router_begin?.(server, gold);
-  if (server.local) {
+  if (server.open === 1) {
+    // 私网
+    const privateIPs = [
+      /^10\./, // 10.0.0.0 到 10.255.255.255
+      /^172\.(1[6-9]|2[0-9]|3[0-1])\./, // 172.16.0.0 到 172.31.255.255
+      /^192\.168\./, // 192.168.0.0 到 192.168.255.255
+      /^fc00::/, // fc00::/7 Unique Local IPv6
+      /^fd/, // fd00::/8 Unique Local IPv6
+    ];
+    // 检查是否为私网IP
+    const isPrivateIP = privateIPs.some((pattern) =>
+      pattern.test(gold.direct_ip)
+    );
+    if (!isPrivateIP) {
+      server._404?.(gold);
+      return;
+    }
+  } else if (server.open === 2) {
+    //公网
+  } else {
+    //本地
     if (
       gold.direct_ip !== "127.0.0.1" &&
       gold.direct_ip !== "::1" &&
@@ -110,7 +130,7 @@ function router_find_resolve(server, stream, gold) {
         ":status": 200,
         "content-type": "image/x-icon",
       });
-      const data = rf("../../store/favicon.png",null);
+      const data = rf("../../store/favicon.png", null);
       return gold.end(data);
     }
     arr = arr1;

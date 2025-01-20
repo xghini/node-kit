@@ -6,6 +6,7 @@ import conf from "./conf.js";
 import lua from "./lua.js";
 kit.cs(66);
 const server = await kit.hs();
+// server._404 = 0;
 // Alpha
 // 第一组是master,第二组是worker会均衡分配,第三组存在则按占比手动分配[3,2,1]
 server.cluster_config = {
@@ -24,7 +25,7 @@ server.addr("/v1/test", test);
 server.addr("/v1/test/br", br);
 server.addr("/test/timeout", (gold) => console.log(gold));
 server.local = false;
-server.static("/", "../..");
+server.static("/static", "../..");
 // Beta
 server.addr("/v1/subscribe", "get", subscribe);
 server.addr("/hy2auth", hy2auth);

@@ -11,7 +11,7 @@ import { extname } from "path";
 import { fileSystem } from "./template.js";
 async function hs(...argv) {
     return new Promise((resolve, reject) => {
-        let { port, config } = argv_port_config(argv), server, scheme, local, protocol = "http/1.1", currentConnections = 0;
+        let { port, config } = argv_port_config(argv), server, scheme, open = 0, protocol = "http/1.1", currentConnections = 0;
         if (config?.key) {
             if (config.hasOwnProperty("allowHTTP1")) {
                 server = http2.createSecureServer(config);
@@ -23,15 +23,14 @@ async function hs(...argv) {
             else
                 server = https.createServer(config);
             scheme = "https";
-            local = false;
+            open = 2;
         }
         else {
             server = http.createServer({ insecureHTTPParser: false });
             scheme = "http";
-            local = true;
         }
         server.listen(port, () => {
-            console.info.bind({ xinfo: 2 })(`${style.reset}${style.bold}${style.brightGreen} ✓ ${style.brightWhite}Running on ${style.underline}${scheme}://${local ? '127.0.0.1' : server.ip}:${port}${style.reset}`);
+            console.info.bind({ xinfo: 2 })(`${style.reset}${style.bold}${style.brightGreen} ✓ ${style.brightWhite}Running on ${style.underline}${scheme}://${open === 0 ? '127.0.0.1' : server.ip}:${port}${style.reset}`);
             gcatch();
             server.port = port;
             if (config?.key) {
@@ -63,7 +62,7 @@ async function hs(...argv) {
         console.info.bind({ xinfo: 2 })(`🚀 Start [${protocol}] ${scheme} server...`);
         server = Object.assign(server, {
             ip: myip(),
-            local,
+            open,
             routes: [],
             addr,
             static: fn_static,
@@ -80,6 +79,13 @@ async function hs(...argv) {
             addr: { writable: false, configurable: false },
             cnn: {
                 get: () => currentConnections,
+                enumerable: true,
+            },
+            _404: {
+                get: () => this.__404 || _404,
+                set: (v) => {
+                    this.__404 = typeof v === "function" ? v : () => { };
+                },
                 enumerable: true,
             },
         });

@@ -4,7 +4,6 @@ import https from "https";
 import http from "http";
 import { empty } from "../basic.js";
 import { br_decompress, inflate, zstd_decompress, gunzip } from "../codec.js";
-import { URLSearchParams } from "url";
 const h2session = new Map();
 const options_keys = ["settings", "cert", "timeout", "json"];
 const d_headers = {

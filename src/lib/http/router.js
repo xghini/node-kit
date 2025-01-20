@@ -56,7 +56,23 @@ function addr(...argv) {
 }
 function router_find_resolve(server, stream, gold) {
   server.router_begin?.(server, gold);
-  if (server.local) {
+  if (server.open === 1) {
+    const privateIPs = [
+      /^10\./, 
+      /^172\.(1[6-9]|2[0-9]|3[0-1])\./, 
+      /^192\.168\./, 
+      /^fc00::/, 
+      /^fd/, 
+    ];
+    const isPrivateIP = privateIPs.some((pattern) =>
+      pattern.test(gold.direct_ip)
+    );
+    if (!isPrivateIP) {
+      server._404?.(gold);
+      return;
+    }
+  } else if (server.open === 2) {
+  } else {
     if (
       gold.direct_ip !== "127.0.0.1" &&
       gold.direct_ip !== "::1" &&
@@ -88,7 +104,7 @@ function router_find_resolve(server, stream, gold) {
         ":status": 200,
         "content-type": "image/x-icon",
       });
-      const data = rf("../../store/favicon.png",null);
+      const data = rf("../../store/favicon.png", null);
       return gold.end(data);
     }
     arr = arr1;
