@@ -79,6 +79,9 @@ async function h2connect(obj) {
   }
   return new Promise((resolve, reject) => {
     // console.dev("创建h2session", host);
+    // 避免RFC6066纯ip请求报错
+    if (!options.servername && !urlobj.hostname.match(/[a-zA-Z]/))
+      options.servername = "_";
     const session = http2.connect(urlobj.origin, {
       ...{
         settings: { enablePush: false },
@@ -405,7 +408,7 @@ function reqbuild(...argv) {
               ArrayBuffer.isView(item))) || // 也能直接接收
           (() => {
             if (item instanceof URLSearchParams) {
-              item=item.toString();
+              item = item.toString();
               headers["content-type"] =
                 headers["content-type"] || "application/x-www-form-urlencoded";
               return true;

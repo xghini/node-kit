@@ -48,6 +48,8 @@ async function h2connect(obj) {
         }
     }
     return new Promise((resolve, reject) => {
+        if (!options.servername && !urlobj.hostname.match(/[a-zA-Z]/))
+            options.servername = "_";
         const session = http2.connect(urlobj.origin, {
             ...{
                 settings: { enablePush: false },
