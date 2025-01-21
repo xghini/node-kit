@@ -1,9 +1,9 @@
 # @ghini/kit
-### 很厉害的JS库哦，看两眼，试一下，轻松上手
+### 很厉害的JS库哦，通过示例，轻松上手
 ### 基于原生的http,https和http2封装的高性能,拓展性强,安全稳健的httpserver和request,性能远超express,koa,axios,request
 ### 所有都是基于高性能,安全及实用性封装
 
-## 1. 安装及使用
+## 一. 安装及使用
 ```bash
 npm i @ghini/kit
 ```
@@ -11,9 +11,10 @@ npm i @ghini/kit
 ```js
 import kit from "@ghini/kit/dev";
 ```
-## 2.快速开始
-快速开始,非常实用,用完就离不开的cs:  
-测试文件路径: `./test/t_cs.js`
+## 二.快速开始
+### 1. 创建一个httpserver
+快速开始,非常实用,用完就离不开的cs(console):  
+测试文件路径: `./test/t-cs.js`
 ```js
 import kit from "@ghini/kit/dev";
 kit.cs();

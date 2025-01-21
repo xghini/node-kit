@@ -18,3 +18,26 @@ console.debug("debug");
 console.warn("warn");
 console.error("error");
 console.dev("dev");
+
+// ============================================================
+kit.cs(1);
+await kit.sleep(2000);
+let n=0;
+const echo=kit.echo(n+'%');
+while(n<100){
+  n++;
+  echo.show=n+'%';
+  await kit.sleep(20);
+}
+let obj = {
+  name: "测试对象1",
+  status: "loading...",
+};
+echo.show = obj;
+let s = setInterval(() => {
+  // kit.fresh();
+  obj.name = "asdfsafsdfsfsa".repeat(kit.rint(15));
+}, 500);
+await kit.sleep(3000);
+clearInterval(s);
+echo.stop();

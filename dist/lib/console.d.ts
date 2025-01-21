@@ -51,7 +51,7 @@ export namespace style {
     export { bgBrightWhite };
 }
 export function clear(n?: number): void;
-export function zzz(data: any): {
+export function echo(data: any): {
     show: any;
     stop(): void;
 };

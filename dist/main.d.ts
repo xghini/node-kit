@@ -119,7 +119,7 @@ declare const kit: {
         bgBrightWhite: string;
     };
     clear: typeof basic.clear;
-    zzz: typeof basic.zzz;
+    echo: typeof basic.echo;
     fresh: typeof basic.fresh;
 };
 import * as captcha from "./lib/captcha/captcha.js";

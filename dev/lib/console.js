@@ -10,7 +10,7 @@ export {
   prompt,
   style,
   clear,
-  zzz,
+  echo,
   fresh,
 };
 /**
@@ -387,7 +387,7 @@ function preStyle(opt, mainstyle) {
     case -1:
       return;
     case 1:
-      pre = `${reset} `;
+      pre = `${reset}`;
       break;
     case 2:
       pre = `${black}[${getTimestamp()}]: ` + mainstyle;
@@ -413,7 +413,7 @@ function fresh() {
   process.stdout.write("\x1b[J");
 }
 // 自清除的帧渲染输出
-function zzz(data) {
+function echo(data) {
   process.stdout.write(hidcursor);
   fresh();
   const obj = {};
@@ -424,7 +424,8 @@ function zzz(data) {
   const intervalId = setInterval(() => {
     const frame = frames[frameIndex % length];
     clear();
-    console.log(cyan + bold + frame + reset, obj.show);
+    process.stdout.write(cyan + bold + frame + reset + " ");
+    console.log(obj.show);
     frameIndex++;
   }, 100);
   obj.stop = () => {
