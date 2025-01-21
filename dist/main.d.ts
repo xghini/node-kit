@@ -35,6 +35,7 @@ declare const kit: {
     xpath: typeof basic.xpath;
     rm: typeof basic.rm;
     cp: typeof basic.cp;
+    env: typeof basic.env;
     arf: typeof basic.arf;
     awf: typeof basic.awf;
     amkdir: typeof basic.amkdir;
@@ -46,7 +47,6 @@ declare const kit: {
     aonedir: typeof basic.aonedir;
     astat: typeof basic.astat;
     aloadyml: typeof basic.aloadyml;
-    aloadenv: typeof basic.aloadenv;
     aloadjson: typeof basic.aloadjson;
     cookie_obj: typeof basic.cookie_obj;
     cookie_str: typeof basic.cookie_str;
@@ -118,6 +118,9 @@ declare const kit: {
         bgBrightCyan: string;
         bgBrightWhite: string;
     };
+    clear: typeof basic.clear;
+    zzz: typeof basic.zzz;
+    fresh: typeof basic.fresh;
 };
 import * as captcha from "./lib/captcha/captcha.js";
 import * as redis from "./lib/redis/redis.js";

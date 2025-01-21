@@ -2,10 +2,7 @@ import kit from "@ghini/kit/dev";
 kit.cs(666);
 import pkg from "pg";
 const { Pool } = pkg;
-import dotenv from "dotenv";
-dotenv.config();
-console.log(process.env);
-
+kit.env();
 const pool = new Pool({
   host: process.env.DB_HOST,
   database: process.env.DB_NAME,

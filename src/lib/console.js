@@ -1,4 +1,18 @@
-export { cs, csm, cdev, cdebug, cinfo, cwarn, clog, cerror, prompt, style };
+export {
+  cs,
+  csm,
+  cdev,
+  cdebug,
+  cinfo,
+  cwarn,
+  clog,
+  cerror,
+  prompt,
+  style,
+  clear,
+  zzz,
+  fresh,
+};
 /**
  * error 错误处理
  * log 日常输出
@@ -26,6 +40,8 @@ const dim = "\x1b[2m";
 const underline = "\x1b[4m"; 
 const reverse = "\x1b[7m"; 
 const hidden = "\x1b[8m"; 
+const hidcursor = "\x1b[?25l"; 
+const showcursor = "\x1b[?25h"; 
 const black = "\x1b[30m"; 
 const red = "\x1b[31m"; 
 const green = "\x1b[32m"; 
@@ -198,7 +214,7 @@ function cerror(...args) {
  * @returns {{ log: Function, error: Function }} - 返回扩展的日志方法：
  * - `log(...args: any[]): void` 用于日志输出。
  * - `error(...args: any[]): void` 用于错误输出。
- * 
+ *
  * @example 实用用法
  * cs() cs(3) 简单使用:一般性的都能显示
  * cs(66) cs(88,5) 进阶使用:两者等效,大于10后看个位,可加入第二个参数调整line
@@ -213,7 +229,7 @@ function cs(config, n) {
     console.log = originalLog;
     console.error = originalError;
     return;
-  }else if (typeof config === "object") {
+  } else if (typeof config === "object") {
     config.info ? (csconf.info = config.info) : 0;
     config.line ? (csconf.line = config.line) : 0;
     config.xinfo ? (csconf.xinfo = config.xinfo) : 0;
@@ -336,7 +352,6 @@ function getLineInfo(i = 3) {
   const arr = new Error().stack.split("\n");
   let res = arr[i]?.split("(").at(-1).split(sep_file).at(-1);
   if (res?.endsWith(")")) res = res.slice(0, -1);
-  if (!res) originalLog(555, arr);
   return res;
 }
 function preStyle(opt, mainstyle) {
@@ -359,8 +374,39 @@ function preStyle(opt, mainstyle) {
       break;
     default:
       pre =
-        `${black}[${getTimestamp()}] ${blue}${getLineInfo(line)}: ` +
-        mainstyle;
+        `${black}[${getTimestamp()}] ${blue}${getLineInfo(line)}: ` + mainstyle;
   }
   return pre;
+}
+/** @param {number} [n=999] 清理的行数,默认999相当于(仅限当前窗口高度)全部清理 */
+function clear(n = 999) {
+  process.stdout.write(`\x1b[${n}A\r`);
+  process.stdout.write("\x1b[J");
+}
+function fresh() {
+  process.stdout.write("\n".repeat(process.stdout.rows));
+  process.stdout.write(`\x1b[999A\r`);
+  process.stdout.write("\x1b[J");
+}
+function zzz(data) {
+  process.stdout.write(hidcursor);
+  fresh();
+  const obj = {};
+  const frames = ["⠋", "⠙", "⠹", "⠸", "⠼", "⠴", "⠦", "⠧", "⠇", "⠏"];
+  const length = frames.length;
+  let frameIndex = 0;
+  obj.show = data; 
+  const intervalId = setInterval(() => {
+    const frame = frames[frameIndex % length];
+    clear();
+    console.log(cyan + bold + frame + reset, obj.show);
+    frameIndex++;
+  }, 100);
+  obj.stop = () => {
+    clearInterval(intervalId);
+    clear();
+    console.log(obj.show);
+    process.stdout.write(showcursor);
+  };
+  return obj;
 }

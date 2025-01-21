@@ -50,6 +50,12 @@ export namespace style {
     export { bgBrightCyan };
     export { bgBrightWhite };
 }
+export function clear(n?: number): void;
+export function zzz(data: any): {
+    show: any;
+    stop(): void;
+};
+export function fresh(): void;
 declare const reset: "\u001B[0m";
 declare const bold: "\u001B[1m";
 declare const dim: "\u001B[2m";

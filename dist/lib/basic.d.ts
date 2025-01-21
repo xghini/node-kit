@@ -10,6 +10,7 @@ export function exist(path: string): boolean;
 export function xpath(targetPath: any, basePath?: string, separator?: string): string;
 export function rm(targetPath: string): undefined;
 export function cp(oldPath: string, newPath: string): void;
+export function env(filePath: string): Promise<object>;
 export function arf(filename: any, option?: string): Promise<Buffer<ArrayBufferLike> & string>;
 export function awf(filename: any, data: any, append?: boolean, option?: string): Promise<boolean>;
 export function amkdir(dir: any): Promise<string>;
@@ -21,7 +22,6 @@ export function arm(targetPath: any, confirm?: boolean): Promise<boolean>;
 export function aonedir(dir: any): Promise<string>;
 export function astat(path: any): Promise<fs.Stats>;
 export function aloadyml(filePath: string): Promise<any>;
-export function aloadenv(filePath: string): Promise<object>;
 export function aloadjson(filePath: any): Promise<any>;
 export function cookie_obj(str: any): {
     value: {};

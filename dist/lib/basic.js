@@ -1,4 +1,4 @@
-export { myip, rf, wf, mkdir, isdir, isfile, dir, exist, xpath, rm, cp, arf, awf, amkdir, aisdir, aisfile, adir, aexist, arm, aonedir, astat, aloadyml, aloadenv, aloadjson, cookie_obj, cookie_str, cookie_merge, cookies_obj, cookies_str, cookies_merge, mreplace, mreplace_calc, xreq, ast_jsbuild, sleep, interval, timelog, getDate, gcatch, uuid, rint, rside, gchar, fhash, empty, };
+export { myip, rf, wf, mkdir, isdir, isfile, dir, exist, xpath, rm, cp, env, arf, awf, amkdir, aisdir, aisfile, adir, aexist, arm, aonedir, astat, aloadyml, aloadjson, cookie_obj, cookie_str, cookie_merge, cookies_obj, cookies_str, cookies_merge, mreplace, mreplace_calc, xreq, ast_jsbuild, sleep, interval, timelog, getDate, gcatch, uuid, rint, rside, gchar, fhash, empty, };
 export * from "./console.js";
 import { createRequire } from "module";
 import { parse } from "acorn";
@@ -145,7 +145,7 @@ async function aloadyml(filePath) {
 }
 function parseENV(content) {
     const result = {};
-    const lines = content.split("\n");
+    const lines = content?.split("\n") || [];
     for (let line of lines) {
         if (!line.trim() ||
             line.trim().startsWith("#") ||
@@ -162,17 +162,45 @@ function parseENV(content) {
     }
     return result;
 }
-async function aloadenv(filePath) {
+function env(filePath) {
     try {
-        const absolutePath = path.isAbsolute(filePath)
-            ? filePath
-            : path.resolve(path.dirname(process.argv[1]), filePath);
-        const content = await fs.promises.readFile(absolutePath, "utf8");
-        return parseENV(content);
+        if (filePath)
+            filePath = xpath(filePath);
+        else {
+            let currentPath = path.dirname(process.argv[1]);
+            if (isfile(path.join(currentPath, ".env")))
+                filePath = path.join(currentPath, ".env");
+            currentPath = findPackageJsonDir(currentPath);
+            if (currentPath && isfile(path.join(currentPath, ".env")))
+                filePath = path.join(currentPath, ".env");
+            if (!filePath)
+                return null;
+        }
+        console.log(filePath);
+        const content = parseENV(rf(filePath));
+        process.env = { ...content, ...process.env };
+        return content;
     }
     catch (error) {
-        throw new Error(`Error loading ENV file ${filePath}: ${error.message}`);
+        console.error(error);
     }
+}
+function findPackageJsonDir(currentPath) {
+    if (isdir(currentPath)) {
+        if (isfile(path.join(currentPath, "package.json")))
+            return currentPath;
+    }
+    else {
+        currentPath = path.dirname(currentPath);
+        if (isfile(path.join(currentPath, "package.json")))
+            return currentPath;
+    }
+    while (currentPath !== path.dirname(currentPath)) {
+        currentPath = path.dirname(currentPath);
+        if (isfile(path.join(currentPath, "package.json")))
+            return currentPath;
+    }
+    return null;
 }
 async function aloadjson(filePath) {
     try {

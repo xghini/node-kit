@@ -1,4 +1,4 @@
-export { cs, csm, cdev, cdebug, cinfo, cwarn, clog, cerror, prompt, style };
+export { cs, csm, cdev, cdebug, cinfo, cwarn, clog, cerror, prompt, style, clear, zzz, fresh, };
 const sep_file = process.platform == "win32" ? "file:///" : "file://";
 console.sm = csm;
 console.dev = cdev.bind({ info: -1 });
@@ -13,6 +13,8 @@ const dim = "\x1b[2m";
 const underline = "\x1b[4m";
 const reverse = "\x1b[7m";
 const hidden = "\x1b[8m";
+const hidcursor = "\x1b[?25l";
+const showcursor = "\x1b[?25h";
 const black = "\x1b[30m";
 const red = "\x1b[31m";
 const green = "\x1b[32m";
@@ -307,8 +309,6 @@ function getLineInfo(i = 3) {
     let res = arr[i]?.split("(").at(-1).split(sep_file).at(-1);
     if (res?.endsWith(")"))
         res = res.slice(0, -1);
-    if (!res)
-        originalLog(555, arr);
     return res;
 }
 function preStyle(opt, mainstyle) {
@@ -333,8 +333,38 @@ function preStyle(opt, mainstyle) {
             break;
         default:
             pre =
-                `${black}[${getTimestamp()}] ${blue}${getLineInfo(line)}: ` +
-                    mainstyle;
+                `${black}[${getTimestamp()}] ${blue}${getLineInfo(line)}: ` + mainstyle;
     }
     return pre;
+}
+function clear(n = 999) {
+    process.stdout.write(`\x1b[${n}A\r`);
+    process.stdout.write("\x1b[J");
+}
+function fresh() {
+    process.stdout.write("\n".repeat(process.stdout.rows));
+    process.stdout.write(`\x1b[999A\r`);
+    process.stdout.write("\x1b[J");
+}
+function zzz(data) {
+    process.stdout.write(hidcursor);
+    fresh();
+    const obj = {};
+    const frames = ["⠋", "⠙", "⠹", "⠸", "⠼", "⠴", "⠦", "⠧", "⠇", "⠏"];
+    const length = frames.length;
+    let frameIndex = 0;
+    obj.show = data;
+    const intervalId = setInterval(() => {
+        const frame = frames[frameIndex % length];
+        clear();
+        console.log(cyan + bold + frame + reset, obj.show);
+        frameIndex++;
+    }, 100);
+    obj.stop = () => {
+        clearInterval(intervalId);
+        clear();
+        console.log(obj.show);
+        process.stdout.write(showcursor);
+    };
+    return obj;
 }
