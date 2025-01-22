@@ -1,7 +1,8 @@
 import zlib from "zlib";
 import { promisify } from "util";
-import { xreq, xpath } from "./basic.js";
+import { xreq, metaroot, xpath } from "./basic.js";
 export { gzip, gunzip, deflate, inflate, br_compress, br_decompress, zstd_compress, zstd_decompress, };
+import { fileURLToPath } from "url";
 async function gzip(data) {
     return await promisify(zlib.gzip)(data);
 }
@@ -40,7 +41,7 @@ let path = process.platform.startsWith("win")
     : process.platform === "linux"
         ? "linux.node"
         : "darwin.node";
-const zstd = xreq(xpath("../../store/zstd/" + path, import.meta.url));
+const zstd = xreq(xpath("store/zstd/" + path, metaroot()));
 const _compress = promisify(zstd.compress);
 const _decompress = promisify(zstd.decompress);
 async function zstd_compress(data, compressionLevel = 13) {

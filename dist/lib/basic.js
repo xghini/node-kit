@@ -1,12 +1,13 @@
-export { myip, rf, wf, mkdir, isdir, isfile, dir, exist, xpath, rm, cp, env, arf, awf, amkdir, aisdir, aisfile, adir, aexist, arm, aonedir, astat, aloadyml, aloadjson, cookie_obj, cookie_str, cookie_merge, cookies_obj, cookies_str, cookies_merge, mreplace, mreplace_calc, xreq, ast_jsbuild, sleep, interval, timelog, getDate, gcatch, uuid, rint, rside, gchar, fhash, empty, };
+export { myip, xpath, metafile, metadir, metaroot, fileurl2path, rf, wf, mkdir, isdir, isfile, dir, exist, rm, cp, env, arf, awf, amkdir, aisdir, aisfile, adir, aexist, arm, aonedir, astat, aloadyml, aloadjson, cookie_obj, cookie_str, cookie_merge, cookies_obj, cookies_str, cookies_merge, mreplace, mreplace_calc, xreq, ast_jsbuild, sleep, interval, timelog, getDate, gcatch, uuid, rint, rside, gchar, fhash, empty, };
 export * from "./console.js";
 import { createRequire } from "module";
 import { parse } from "acorn";
 import fs from "fs";
 import crypto from "crypto";
-import path from "path";
+import { dirname, resolve, join, normalize, isAbsolute, sep } from "path";
 import yaml from "yaml";
 import os from "os";
+import { fileURLToPath } from "url";
 const platform = process.platform;
 const sep_file = platform == "win32" ? "file:///" : "file://";
 const slice_len_file = platform == "win32" ? 8 : 7;
@@ -133,9 +134,9 @@ function uuid(len = 21) {
 }
 async function aloadyml(filePath) {
     try {
-        const absolutePath = path.isAbsolute(filePath)
+        const absolutePath = isAbsolute(filePath)
             ? filePath
-            : path.resolve(process.cwd(), filePath);
+            : resolve(process.cwd(), filePath);
         const content = await fs.promises.readFile(absolutePath, "utf8");
         return yaml.parse(content);
     }
@@ -167,12 +168,12 @@ function env(filePath) {
         if (filePath)
             filePath = xpath(filePath);
         else {
-            let currentPath = path.dirname(process.argv[1]);
-            if (isfile(path.join(currentPath, ".env")))
-                filePath = path.join(currentPath, ".env");
+            let currentPath = dirname(process.argv[1]);
+            if (isfile(join(currentPath, ".env")))
+                filePath = join(currentPath, ".env");
             currentPath = findPackageJsonDir(currentPath);
-            if (currentPath && isfile(path.join(currentPath, ".env")))
-                filePath = path.join(currentPath, ".env");
+            if (currentPath && isfile(join(currentPath, ".env")))
+                filePath = join(currentPath, ".env");
             if (!filePath)
                 return null;
         }
@@ -187,26 +188,26 @@ function env(filePath) {
 }
 function findPackageJsonDir(currentPath) {
     if (isdir(currentPath)) {
-        if (isfile(path.join(currentPath, "package.json")))
+        if (isfile(join(currentPath, "package.json")))
             return currentPath;
     }
     else {
-        currentPath = path.dirname(currentPath);
-        if (isfile(path.join(currentPath, "package.json")))
+        currentPath = dirname(currentPath);
+        if (isfile(join(currentPath, "package.json")))
             return currentPath;
     }
-    while (currentPath !== path.dirname(currentPath)) {
-        currentPath = path.dirname(currentPath);
-        if (isfile(path.join(currentPath, "package.json")))
+    while (currentPath !== dirname(currentPath)) {
+        currentPath = dirname(currentPath);
+        if (isfile(join(currentPath, "package.json")))
             return currentPath;
     }
     return null;
 }
 async function aloadjson(filePath) {
     try {
-        const absolutePath = path.isAbsolute(filePath)
+        const absolutePath = isAbsolute(filePath)
             ? filePath
-            : path.resolve(path.dirname(process.argv[1]), filePath);
+            : resolve(dirname(process.argv[1]), filePath);
         const content = await fs.promises.readFile(absolutePath, "utf8");
         const processedContent = content
             .replace(/\/\*[\s\S]*?\*\//g, "")
@@ -255,7 +256,7 @@ async function arf(filename, option = "utf8") {
 }
 async function awf(filename, data, append = false, option = "utf8") {
     try {
-        await amkdir(path.dirname(filename));
+        await amkdir(dirname(filename));
         const writeOption = append ? { encoding: option, flag: "a" } : option;
         await fs.promises.writeFile(filename, data, writeOption);
         return true;
@@ -339,38 +340,54 @@ async function interval(fn, ms, PX) {
             fn();
     }, ms);
 }
+function metafile() {
+    return fileurl2path(new Error().stack
+        .split("\n")[2]);
+}
+function metadir() {
+    return dirname(fileurl2path(new Error().stack.split("\n")[2]));
+}
+function metaroot() {
+    return findPackageJsonDir(metadir());
+}
+function fileurl2path(url) {
+    return (url = url
+        .slice(url.indexOf("file:///"))
+        .replace(/\:\d.*$/, "")
+        .slice(slice_len_file));
+}
 function xpath(targetPath, basePath, separator = "/") {
     try {
         if (basePath) {
             if (basePath.startsWith("file:///"))
                 basePath = basePath.slice(slice_len_file);
             if (fs.existsSync(basePath) && fs.statSync(basePath).isFile()) {
-                basePath = path.dirname(basePath);
+                basePath = dirname(basePath);
             }
         }
         else {
-            basePath = path.dirname(process.argv[1]);
+            basePath = dirname(process.argv[1]);
         }
         let resPath;
         if (targetPath.startsWith("file:///"))
             targetPath = targetPath.slice(slice_len_file);
-        if (path.isAbsolute(targetPath)) {
-            resPath = path.normalize(targetPath);
+        if (isAbsolute(targetPath)) {
+            resPath = normalize(targetPath);
         }
         else {
-            if (path.isAbsolute(basePath)) {
-                resPath = path.resolve(basePath, targetPath);
+            if (isAbsolute(basePath)) {
+                resPath = resolve(basePath, targetPath);
             }
             else {
-                resPath = path.resolve(path.dirname(process.argv[1]), path.join(basePath, targetPath));
+                resPath = resolve(dirname(process.argv[1]), join(basePath, targetPath));
             }
         }
         if (separator === "/" && slice_len_file === 7) {
-            return resPath.split(path.sep).join("/");
+            return resPath.split(sep).join("/");
         }
         if (separator === "\\")
             return resPath.split("/").join("\\");
-        return resPath.split(path.sep).join(separator);
+        return resPath.split(sep).join(separator);
     }
     catch (error) {
         console.error(error);
@@ -383,13 +400,13 @@ function cp(oldPath, newPath) {
             fs.mkdirSync(newPath, { recursive: true });
             const entries = fs.readdirSync(oldPath);
             for (const entry of entries) {
-                const srcPath = path.join(oldPath, entry);
-                const destPath = path.join(newPath, entry);
+                const srcPath = join(oldPath, entry);
+                const destPath = join(newPath, entry);
                 cp(srcPath, destPath);
             }
         }
         else if (stats.isFile()) {
-            const targetDir = path.dirname(newPath);
+            const targetDir = dirname(newPath);
             fs.mkdirSync(targetDir, { recursive: true });
             fs.copyFileSync(oldPath, newPath);
         }
@@ -485,7 +502,7 @@ function rf(filename, option = "utf8") {
 }
 function wf(filename, data, append = false, option = "utf8") {
     try {
-        mkdir(path.dirname(filename));
+        mkdir(dirname(filename));
         append ? (option = { encoding: option, flag: "a" }) : 0;
         fs.writeFileSync(filename, data, option);
         return true;

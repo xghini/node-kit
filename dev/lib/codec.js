@@ -1,7 +1,7 @@
 import zlib from "zlib"; //异步
 // import { zstd_compress, zstd_decompress } from "@ghini/zstd-win"; //同步
 import { promisify } from "util";
-import { xreq, xpath } from "./basic.js";
+import { xreq, metaroot, xpath } from "./basic.js";
 export {
   gzip,
   gunzip,
@@ -91,11 +91,11 @@ let path = process.platform.startsWith("win")
   : process.platform === "linux"
   ? "linux.node"
   : "darwin.node";
-const zstd = xreq(xpath("../../store/zstd/" + path,import.meta.url));
+const zstd = xreq(xpath("store/zstd/" + path, metaroot()));
 const _compress = promisify(zstd.compress);
 const _decompress = promisify(zstd.decompress);
-async function zstd_compress(data, compressionLevel=13) {
-  data=toUint8Array(data);
+async function zstd_compress(data, compressionLevel = 13) {
+  data = toUint8Array(data);
   if (compressionLevel != null && typeof compressionLevel !== "number") {
     throw new TypeError(`parameter 'compressionLevel' must be a number.`);
   }

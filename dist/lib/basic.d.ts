@@ -1,5 +1,10 @@
 export * from "./console.js";
 export function myip(): string;
+export function xpath(targetPath: any, basePath?: string, separator?: string): string;
+export function metafile(): string;
+export function metadir(): string;
+export function metaroot(): string;
+export function fileurl2path(url: string): string;
 export function rf(filename: string, option?: string): string | null;
 export function wf(filename: string, data: string | Buffer, append?: boolean, option?: string): boolean;
 export function mkdir(dir: any): undefined;
@@ -7,7 +12,6 @@ export function isdir(path: string): boolean | undefined;
 export function isfile(path: string): boolean | undefined;
 export function dir(path: string): string[] | undefined;
 export function exist(path: string): boolean;
-export function xpath(targetPath: any, basePath?: string, separator?: string): string;
 export function rm(targetPath: string): undefined;
 export function cp(oldPath: string, newPath: string): void;
 export function env(filePath: string): Promise<object>;

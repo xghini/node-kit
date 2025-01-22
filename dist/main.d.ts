@@ -25,6 +25,11 @@ declare const kit: {
     zstd_compress: typeof codec.zstd_compress;
     zstd_decompress: typeof codec.zstd_decompress;
     myip: typeof basic.myip;
+    xpath: typeof basic.xpath;
+    metafile: typeof basic.metafile;
+    metadir: typeof basic.metadir;
+    metaroot: typeof basic.metaroot;
+    fileurl2path: typeof basic.fileurl2path;
     rf: typeof basic.rf;
     wf: typeof basic.wf;
     mkdir: typeof basic.mkdir;
@@ -32,7 +37,6 @@ declare const kit: {
     isfile: typeof basic.isfile;
     dir: typeof basic.dir;
     exist: typeof basic.exist;
-    xpath: typeof basic.xpath;
     rm: typeof basic.rm;
     cp: typeof basic.cp;
     env: typeof basic.env;

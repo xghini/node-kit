@@ -1,5 +1,11 @@
 export {
   myip,
+  // path路径相关
+  xpath,
+  metafile,
+  metadir,
+  metaroot,
+  fileurl2path,
   // fs path相关 同步
   rf,
   wf,
@@ -8,7 +14,6 @@ export {
   isfile,
   dir,
   exist,
-  xpath,
   rm,
   cp,
   env,
@@ -54,9 +59,10 @@ import { createRequire } from "module";
 import { parse } from "acorn";
 import fs from "fs";
 import crypto from "crypto";
-import path from "path";
+import { dirname, resolve, join, normalize, isAbsolute, sep } from "path";
 import yaml from "yaml";
 import os from "os";
+import { fileURLToPath } from "url";
 const platform = process.platform; //win32|linux|darwin
 const sep_file = platform == "win32" ? "file:///" : "file://";
 const slice_len_file = platform == "win32" ? 8 : 7;
@@ -230,9 +236,9 @@ function uuid(len = 21) {
 async function aloadyml(filePath) {
   try {
     // Convert to absolute path if relative
-    const absolutePath = path.isAbsolute(filePath)
+    const absolutePath = isAbsolute(filePath)
       ? filePath
-      : path.resolve(process.cwd(), filePath);
+      : resolve(process.cwd(), filePath);
 
     // Read and parse YAML file
     const content = await fs.promises.readFile(absolutePath, "utf8");
@@ -285,11 +291,12 @@ function env(filePath) {
     if (filePath) filePath = xpath(filePath);
     else {
       // 从运行文件向上找package.json目录下的.env,如果没有则用当前目录下,还没有返回null
-      let currentPath = path.dirname(process.argv[1]);
-      if (isfile(path.join(currentPath, ".env")))
-        filePath = path.join(currentPath, ".env");
+      let currentPath = dirname(process.argv[1]);
+      if (isfile(join(currentPath, ".env")))
+        filePath = join(currentPath, ".env");
       currentPath = findPackageJsonDir(currentPath);
-      if (currentPath&&isfile(path.join(currentPath, ".env"))) filePath = path.join(currentPath, ".env");
+      if (currentPath && isfile(join(currentPath, ".env")))
+        filePath = join(currentPath, ".env");
       if (!filePath) return null;
     }
     console.log(filePath);
@@ -302,14 +309,14 @@ function env(filePath) {
 }
 function findPackageJsonDir(currentPath) {
   if (isdir(currentPath)) {
-    if (isfile(path.join(currentPath, "package.json"))) return currentPath;
+    if (isfile(join(currentPath, "package.json"))) return currentPath;
   } else {
-    currentPath = path.dirname(currentPath);
-    if (isfile(path.join(currentPath, "package.json"))) return currentPath;
+    currentPath = dirname(currentPath);
+    if (isfile(join(currentPath, "package.json"))) return currentPath;
   }
-  while (currentPath !== path.dirname(currentPath)) {
-    currentPath = path.dirname(currentPath);
-    if (isfile(path.join(currentPath, "package.json"))) return currentPath;
+  while (currentPath !== dirname(currentPath)) {
+    currentPath = dirname(currentPath);
+    if (isfile(join(currentPath, "package.json"))) return currentPath;
   }
   return null;
 }
@@ -317,9 +324,9 @@ function findPackageJsonDir(currentPath) {
 async function aloadjson(filePath) {
   try {
     // 获取绝对路径
-    const absolutePath = path.isAbsolute(filePath)
+    const absolutePath = isAbsolute(filePath)
       ? filePath
-      : path.resolve(path.dirname(process.argv[1]), filePath);
+      : resolve(dirname(process.argv[1]), filePath);
 
     // 读取文件内容
     const content = await fs.promises.readFile(absolutePath, "utf8");
@@ -382,7 +389,7 @@ async function arf(filename, option = "utf8") {
 
 async function awf(filename, data, append = false, option = "utf8") {
   try {
-    await amkdir(path.dirname(filename));
+    await amkdir(dirname(filename));
     const writeOption = append ? { encoding: option, flag: "a" } : option;
     await fs.promises.writeFile(filename, data, writeOption);
     return true;
@@ -488,48 +495,79 @@ async function interval(fn, ms, PX) {
   }, ms);
 }
 /**
+ * @param {number} [n=0] 返回当前的为默认0即可,返回调用的设置n
+ * @returns {string} 返回当前文件的绝对路径
+ */
+// 为何不用process.argv[1]?此为运行时的入口文件,而非当前库文件
+function metafile(n=0) {
+  const line = 2 + n;
+  return fileurl2path(new Error().stack.split("\n")[line]);
+}
+/**
+ * @param {number} [n=0] 返回当前的为默认0即可,返回调用的设置n
+ * @returns {string} 返回当前文件目录的绝对路径
+ */
+function metadir(n=0) {
+  const line = 2 + n;
+  return dirname(fileurl2path(new Error().stack.split("\n")[line]));
+}
+/**
+ * @param {number} [n=0] 返回当前的为默认0即可,返回调用的设置n
+ * @returns {string} 返回当前文件所处最近nodejs项目的绝对路径
+ */
+function metaroot(n=0) {
+  return findPackageJsonDir(metadir(n));
+}
+/**
+ * 将file:///形式的url转换为绝对路径,初始开发场景为解决stack中的file:///格式
+ * @param {string} url
+ */
+function fileurl2path(url) {
+  // 从file://开始,去掉末尾行号,最后根据系统去掉开头长度转化为path
+  return (url = url
+    .slice(url.indexOf("file:///"))
+    .replace(/\:\d.*$/, "")
+    .slice(slice_len_file));
+}
+/**
+ * 强大可靠的路径处理
  * 使用此函数的最大好处是安全省心!符合逻辑,不用处理尾巴带不带/,../裁切,不能灵活拼接等;用了就不怕格式错误,要错都路径问题,且最后都输出绝对路径方便检验
  * @param {string} inputPath - 目标路径（可以是相对路径或绝对路径）
- * @param {string} [basePath=process.cwd()] - 辅助路径，默认为当前目录（可以是相对路径或绝对路径）
+ * @param {string} [basePath=process.argv[1]] - 辅助路径，默认为运行文件目录（可以是相对路径或绝对路径）
  * @returns {string} 绝对路径在前,相对路径在后,最终都转换为绝对路径
  */
 function xpath(targetPath, basePath, separator = "/") {
   // 判断basePath是否存在,是否文件?处理为目录:继续
   try {
     if (basePath) {
-      // 如果使用import.meta.url,则需要处理file:///开头的路径
       if (basePath.startsWith("file:///"))
         basePath = basePath.slice(slice_len_file);
       if (fs.existsSync(basePath) && fs.statSync(basePath).isFile()) {
-        basePath = path.dirname(basePath);
+        basePath = dirname(basePath);
       }
     } else {
-      // basePath = import.meta.url;
       // basePath = process.cwd();
-      basePath = path.dirname(process.argv[1]);
+      basePath = dirname(process.argv[1]);
     }
     let resPath;
     // 判断targetPath是否为绝对路径,是就直接使用
     if (targetPath.startsWith("file:///"))
       targetPath = targetPath.slice(slice_len_file);
-    if (path.isAbsolute(targetPath)) {
-      resPath = path.normalize(targetPath);
+    if (isAbsolute(targetPath)) {
+      resPath = normalize(targetPath);
     } else {
       // 判断basePath是否为绝对路径
-      if (path.isAbsolute(basePath)) {
-        resPath = path.resolve(basePath, targetPath);
+      if (isAbsolute(basePath)) {
+        resPath = resolve(basePath, targetPath);
       } else {
-        resPath = path.resolve(
-          path.dirname(process.argv[1]),
-          path.join(basePath, targetPath)
-        );
+        resPath = resolve(dirname(process.argv[1]), join(basePath, targetPath));
       }
     }
     if (separator === "/" && slice_len_file === 7) {
-      return resPath.split(path.sep).join("/");
+      return resPath.split(sep).join("/");
     }
     if (separator === "\\") return resPath.split("/").join("\\");
-    return resPath.split(path.sep).join(separator);
+    return resPath.split(sep).join(separator);
   } catch (error) {
     console.error(error);
   }
@@ -553,15 +591,15 @@ function cp(oldPath, newPath) {
       const entries = fs.readdirSync(oldPath);
       for (const entry of entries) {
         // 构建源和目标的完整路径
-        const srcPath = path.join(oldPath, entry);
-        const destPath = path.join(newPath, entry);
+        const srcPath = join(oldPath, entry);
+        const destPath = join(newPath, entry);
         // 递归复制子项
         cp(srcPath, destPath);
       }
     } else if (stats.isFile()) {
       // 处理文件复制
       // 确保目标文件的父目录存在
-      const targetDir = path.dirname(newPath);
+      const targetDir = dirname(newPath);
       fs.mkdirSync(targetDir, { recursive: true });
 
       // 执行文件复制
@@ -654,7 +692,7 @@ function isdir(path) {
 function mkdir(dir) {
   try {
     return fs.mkdirSync(dir, { recursive: true });
-    // return fs.mkdirSync(path.dirname(dir), { recursive: true });
+    // return fs.mkdirSync(dirname(dir), { recursive: true });
   } catch (err) {
     console.error(err.message);
   }
@@ -720,7 +758,7 @@ function rf(filename, option = "utf8") {
 function wf(filename, data, append = false, option = "utf8") {
   try {
     // fs.writeFileSync()
-    mkdir(path.dirname(filename));
+    mkdir(dirname(filename));
     append ? (option = { encoding: option, flag: "a" }) : 0;
     fs.writeFileSync(filename, data, option);
     // console.log(filename + "文件写入成功");

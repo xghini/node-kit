@@ -1,6 +1,6 @@
 export { h2s, hs, hss };
 
-import { gcatch, rf, xpath, style, myip } from "../basic.js";
+import { gcatch, rf, xpath, style, myip, metaroot } from "../basic.js";
 import kit from "../../main.js";
 import http2 from "http2";
 import https from "https";
@@ -126,7 +126,6 @@ async function hs(...argv) {
       _404: {
         get: () => server.routes.__404 || _404,
         set: (v) => {
-          console.dev("!!", server.routes);
           server.routes.__404 = typeof v === "function" ? v : () => {};
         },
         enumerable: true,
@@ -141,10 +140,11 @@ async function hs(...argv) {
  */
 async function h2s(...argv) {
   let { port, config } = argv_port_config(argv);
+  const basicpath = metaroot();
   config = {
     ...{
-      key: rf(xpath("../../../store/cert/selfsigned.key", import.meta.url)),
-      cert: rf(xpath("../../../store/cert/selfsigned.cert", import.meta.url)),
+      key: rf(xpath("store/cert/selfsigned.key", basicpath)),
+      cert: rf(xpath("store/cert/selfsigned.cert", basicpath)),
       allowHTTP1: true,
       // settings: {
       //   maxConcurrentStreams: 100, // 最大并发流数
@@ -163,10 +163,11 @@ async function h2s(...argv) {
 async function hss(...argv) {
   // 启动一个 HTTPS 服务器，使用指定的证书和密钥文件
   let { port, config } = argv_port_config(argv);
+  const basicpath = metaroot();
   config = {
     ...{
-      key: rf(xpath("../../../store/cert/selfsigned.key", import.meta.url)),
-      cert: rf(xpath("../../../store/cert/selfsigned.cert", import.meta.url)),
+      key: rf(xpath("store/cert/selfsigned.key", basicpath)),
+      cert: rf(xpath("store/cert/selfsigned.cert", basicpath)),
     },
     config,
   };
