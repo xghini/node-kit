@@ -15,9 +15,15 @@ function hd_stream(server, stream, headers) {
       if (this.startsWith("::ffff:")) return this.slice(7);
       else return this;
     }.call(stream.ip || stream.session.socket.remoteAddress);
-    const url = new URL(
-      `${headers[":scheme"]}://${headers[":authority"]}${headers[":path"]}`
-    );
+    let url;
+    try {
+      url = new URL(
+        `${headers[":scheme"]}://${headers[":authority"]}${headers[":path"]}`
+      );
+    } catch (error) {
+      console.error(error, headers);
+      url = new URL("http://error.com");
+    }
     const pathname = decodeURI(url.pathname);
     return {
       headers: headers,
@@ -27,7 +33,7 @@ function hd_stream(server, stream, headers) {
       protocol: stream.protocol,
       cookie: cookies_obj(headers["cookie"]),
       pathname,
-      path: pathname.replace(/\/+/g,'/').replace(/\/$/,'')||'/',//去重/和去掉末尾/
+      path: pathname.replace(/\/+/g, "/").replace(/\/$/, "") || "/", //去重/和去掉末尾/
       search: decodeURI(url.search),
       query: (() => {
         // 最多解析一维数组,更复杂结构就通过search自行解析
@@ -112,7 +118,7 @@ function hd_stream(server, stream, headers) {
           ":status": code,
           "content-type": "text/plain; charset=utf-8",
         });
-        console.error.bind({ info: 2,line:5 })(
+        console.error.bind({ info: 2, line: 5 })(
           gold.ip,
           headers["cf-ipcountry"] || "",
           gold.path + gold.search,
@@ -135,7 +141,7 @@ function hd_stream(server, stream, headers) {
         });
         data = JSON.stringify(data);
         // console.error(gold.headers[":path"] + "\n", data);
-        console.error.bind({ info: 2,line:5 })(
+        console.error.bind({ info: 2, line: 5 })(
           gold.ip,
           headers["cf-ipcountry"] || "",
           gold.path + gold.search,

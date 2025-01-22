@@ -15,7 +15,14 @@ function hd_stream(server, stream, headers) {
             else
                 return this;
         }.call(stream.ip || stream.session.socket.remoteAddress);
-        const url = new URL(`${headers[":scheme"]}://${headers[":authority"]}${headers[":path"]}`);
+        let url;
+        try {
+            url = new URL(`${headers[":scheme"]}://${headers[":authority"]}${headers[":path"]}`);
+        }
+        catch (error) {
+            console.error(error, headers);
+            url = new URL("http://error.com");
+        }
         const pathname = decodeURI(url.pathname);
         return {
             headers: headers,
@@ -25,7 +32,7 @@ function hd_stream(server, stream, headers) {
             protocol: stream.protocol,
             cookie: cookies_obj(headers["cookie"]),
             pathname,
-            path: pathname.replace(/\/+/g, '/').replace(/\/$/, '') || '/',
+            path: pathname.replace(/\/+/g, "/").replace(/\/$/, "") || "/",
             search: decodeURI(url.search),
             query: (() => {
                 const obj = {}, params = url.searchParams;

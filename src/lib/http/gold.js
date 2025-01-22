@@ -13,9 +13,15 @@ function hd_stream(server, stream, headers) {
       if (this.startsWith("::ffff:")) return this.slice(7);
       else return this;
     }.call(stream.ip || stream.session.socket.remoteAddress);
-    const url = new URL(
-      `${headers[":scheme"]}://${headers[":authority"]}${headers[":path"]}`
-    );
+    let url;
+    try {
+      url = new URL(
+        `${headers[":scheme"]}://${headers[":authority"]}${headers[":path"]}`
+      );
+    } catch (error) {
+      console.error(error, headers);
+      url = new URL("http://error.com");
+    }
     const pathname = decodeURI(url.pathname);
     return {
       headers: headers,
@@ -25,7 +31,7 @@ function hd_stream(server, stream, headers) {
       protocol: stream.protocol,
       cookie: cookies_obj(headers["cookie"]),
       pathname,
-      path: pathname.replace(/\/+/g,'/').replace(/\/$/,'')||'/',
+      path: pathname.replace(/\/+/g, "/").replace(/\/$/, "") || "/", 
       search: decodeURI(url.search),
       query: (() => {
         const obj = {},
@@ -105,7 +111,7 @@ function hd_stream(server, stream, headers) {
           ":status": code,
           "content-type": "text/plain; charset=utf-8",
         });
-        console.error.bind({ info: 2,line:5 })(
+        console.error.bind({ info: 2, line: 5 })(
           gold.ip,
           headers["cf-ipcountry"] || "",
           gold.path + gold.search,
@@ -126,7 +132,7 @@ function hd_stream(server, stream, headers) {
           "content-type": "application/json; charset=utf-8",
         });
         data = JSON.stringify(data);
-        console.error.bind({ info: 2,line:5 })(
+        console.error.bind({ info: 2, line: 5 })(
           gold.ip,
           headers["cf-ipcountry"] || "",
           gold.path + gold.search,
