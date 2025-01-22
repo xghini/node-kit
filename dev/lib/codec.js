@@ -1,5 +1,4 @@
 import zlib from "zlib"; //异步
-// import { zstd_compress, zstd_decompress } from "@ghini/zstd-win"; //同步
 import { promisify } from "util";
 import { xreq, metaroot, xpath } from "./basic.js";
 export {
