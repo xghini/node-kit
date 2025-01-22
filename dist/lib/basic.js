@@ -346,7 +346,7 @@ function metadir(n = 0) {
     return dirname(fileurl2path(new Error().stack.split("\n")[line]));
 }
 function metaroot(n = 0) {
-    return findPackageJsonDir(metadir(n));
+    return findPackageJsonDir(metadir(n + 1));
 }
 function fileurl2path(url) {
     return (url = url

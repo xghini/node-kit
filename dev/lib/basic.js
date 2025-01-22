@@ -513,7 +513,7 @@ function metadir(n=0) {
  * @returns {string} 返回当前文件所处最近nodejs项目的绝对路径
  */
 function metaroot(n=0) {
-  return findPackageJsonDir(metadir(n));
+  return findPackageJsonDir(metadir(n+1));
 }
 /**
  * 将file:///形式的url转换为绝对路径,初始开发场景为解决stack中的file:///格式
