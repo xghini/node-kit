@@ -365,7 +365,6 @@ function getTimestamp() {
 }
 function getLineInfo(i = 3) {
   const arr = new Error().stack.split("\n");
-  // const res = arr[1]?.replace(/:[^:]*$/, "");
   let res = arr[i]?.split("(").at(-1).split(sep_file).at(-1);
   if (res?.endsWith(")")) res = res.slice(0, -1);
   // if (!res) console.warn('exceed:', arr);

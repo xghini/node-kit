@@ -62,9 +62,7 @@ import crypto from "crypto";
 import { dirname, resolve, join, normalize, isAbsolute, sep } from "path";
 import yaml from "yaml";
 import os from "os";
-import { fileURLToPath } from "url";
 const platform = process.platform; //win32|linux|darwin
-const sep_file = platform == "win32" ? "file:///" : "file://";
 const slice_len_file = platform == "win32" ? 8 : 7;
 
 let globalCatchError = false;
