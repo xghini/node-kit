@@ -1,4 +1,4 @@
-import { rf, wf, mkdir, isdir, xpath, isfile, rm } from "../basic.js";
+import { rf, wf, mkdir, isdir, xpath, isfile, rm } from "../index.js";
 export default { keypath };
 export function keypath(key) {
   // \/:*?"<>|`  路径不允许的符号,被当成/处理

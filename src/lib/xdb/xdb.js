@@ -1,5 +1,5 @@
 export { Xdb };
-import { rf, wf, mkdir, isdir, xpath, isfile, rm } from "../basic.js";
+import { rf, wf, mkdir, isdir, xpath, isfile, rm } from "../index.js";
 import * as output from "./output.js";
 import * as tool from "./tool.js";
 const root =

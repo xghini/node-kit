@@ -18,7 +18,7 @@ import {
   arm,
   aonedir,
   prompt,
-} from "../basic.js";
+} from "../index.js";
 export async function set(key, value) {
   const path = this.keypath(key);
   if (!path) return;

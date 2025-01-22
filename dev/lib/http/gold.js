@@ -1,5 +1,5 @@
 export { hd_stream };
-import { cookies_obj, cookie_merge } from "../basic.js";
+import { cookies_obj, cookie_merge } from "../index.js";
 import { router_find_resolve } from "./router.js";
 function hd_stream(server, stream, headers) {
   //去掉h2的headers继承于null prototype的多余显示,及无用的Symbol("sensitiveHeaders")

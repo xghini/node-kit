@@ -18,7 +18,7 @@ import {
   arm,
   aonedir,
   prompt,
-} from "../basic.js";
+} from "../index.js";
 
 // export default { set, get, del, keys, flushall };
 

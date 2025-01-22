@@ -2,7 +2,7 @@ export { req, h2req, h1req };
 import http2 from "http2";
 import https from "https";
 import http from "http";
-import { empty } from "../basic.js";
+import { empty } from "../index.js";
 import { br_decompress, inflate, zstd_decompress, gunzip } from "../codec.js";
 
 // 缓存 HTTP/2 连接

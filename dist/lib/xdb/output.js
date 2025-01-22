@@ -1,4 +1,4 @@
-import { rf, wf, mkdir, dir, isdir, xpath, isfile, rm, sleep, arf, awf, amkdir, aisdir, aisfile, adir, aexist, arm, aonedir, prompt, } from "../basic.js";
+import { rf, wf, mkdir, dir, isdir, xpath, isfile, rm, sleep, arf, awf, amkdir, aisdir, aisfile, adir, aexist, arm, aonedir, prompt, } from "../index.js";
 export async function set(key, value) {
     const path = this.keypath(key);
     if (!path)

@@ -1,9 +1,8 @@
-export * from "./console.js";
 export function myip(): string;
 export function xpath(targetPath: any, basePath?: string, separator?: string): string;
-export function metafile(): string;
-export function metadir(): string;
-export function metaroot(): string;
+export function metafile(n?: number): string;
+export function metadir(n?: number): string;
+export function metaroot(n?: number): string;
 export function fileurl2path(url: string): string;
 export function rf(filename: string, option?: string): string | null;
 export function wf(filename: string, data: string | Buffer, append?: boolean, option?: string): boolean;

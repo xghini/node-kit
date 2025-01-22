@@ -1,5 +1,5 @@
 export { router_find_resolve, addr, _404 };
-import { rf } from "../basic.js";
+import { rf } from "../index.js";
 // 这是http https允许的methods,http2不限制
 // const methods = [
 //   'ACL', 'BIND', 'CHECKOUT', 'CONNECT', 'COPY', 'DELETE', 'GET', 'HEAD', 'LINK',

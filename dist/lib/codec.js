@@ -2,7 +2,6 @@ import zlib from "zlib";
 import { promisify } from "util";
 import { xreq, metaroot, xpath } from "./basic.js";
 export { gzip, gunzip, deflate, inflate, br_compress, br_decompress, zstd_compress, zstd_decompress, };
-import { fileURLToPath } from "url";
 async function gzip(data) {
     return await promisify(zlib.gzip)(data);
 }

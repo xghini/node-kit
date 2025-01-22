@@ -1,5 +1,4 @@
 export { myip, xpath, metafile, metadir, metaroot, fileurl2path, rf, wf, mkdir, isdir, isfile, dir, exist, rm, cp, env, arf, awf, amkdir, aisdir, aisfile, adir, aexist, arm, aonedir, astat, aloadyml, aloadjson, cookie_obj, cookie_str, cookie_merge, cookies_obj, cookies_str, cookies_merge, mreplace, mreplace_calc, xreq, ast_jsbuild, sleep, interval, timelog, getDate, gcatch, uuid, rint, rside, gchar, fhash, empty, };
-export * from "./console.js";
 import { createRequire } from "module";
 import { parse } from "acorn";
 import fs from "fs";
@@ -7,9 +6,7 @@ import crypto from "crypto";
 import { dirname, resolve, join, normalize, isAbsolute, sep } from "path";
 import yaml from "yaml";
 import os from "os";
-import { fileURLToPath } from "url";
 const platform = process.platform;
-const sep_file = platform == "win32" ? "file:///" : "file://";
 const slice_len_file = platform == "win32" ? 8 : 7;
 let globalCatchError = false;
 function myip() {
@@ -340,15 +337,16 @@ async function interval(fn, ms, PX) {
             fn();
     }, ms);
 }
-function metafile() {
-    return fileurl2path(new Error().stack
-        .split("\n")[2]);
+function metafile(n = 0) {
+    const line = 2 + n;
+    return fileurl2path(new Error().stack.split("\n")[line]);
 }
-function metadir() {
-    return dirname(fileurl2path(new Error().stack.split("\n")[2]));
+function metadir(n = 0) {
+    const line = 2 + n;
+    return dirname(fileurl2path(new Error().stack.split("\n")[line]));
 }
-function metaroot() {
-    return findPackageJsonDir(metadir());
+function metaroot(n = 0) {
+    return findPackageJsonDir(metadir(n));
 }
 function fileurl2path(url) {
     return (url = url

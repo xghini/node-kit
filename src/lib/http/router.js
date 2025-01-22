@@ -1,5 +1,5 @@
 export { router_find_resolve, addr, _404 };
-import { rf } from "../basic.js";
+import { rf } from "../index.js";
 function addr(...argv) {
   let path,
     method,

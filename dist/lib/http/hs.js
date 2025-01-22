@@ -1,5 +1,5 @@
 export { h2s, hs, hss };
-import { gcatch, rf, xpath, style, myip, metaroot } from "../basic.js";
+import { gcatch, rf, xpath, style, myip, metaroot } from "../index.js";
 import kit from "../../main.js";
 import http2 from "http2";
 import https from "https";

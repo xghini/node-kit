@@ -49,7 +49,6 @@ export {
   fhash,
   empty,
 };
-export * from "./console.js";
 import { createRequire } from "module";
 import { parse } from "acorn";
 import fs from "fs";
@@ -57,9 +56,7 @@ import crypto from "crypto";
 import { dirname, resolve, join, normalize, isAbsolute, sep } from "path";
 import yaml from "yaml";
 import os from "os";
-import { fileURLToPath } from "url";
 const platform = process.platform; 
-const sep_file = platform == "win32" ? "file:///" : "file://";
 const slice_len_file = platform == "win32" ? 8 : 7;
 let globalCatchError = false;
 function myip() {
@@ -422,25 +419,27 @@ async function interval(fn, ms, PX) {
   }, ms);
 }
 /**
+ * @param {number} [n=0] 返回当前的为默认0即可,返回调用的设置n
  * @returns {string} 返回当前文件的绝对路径
  */
-function metafile() {
-  return fileurl2path(
-    new Error().stack
-      .split("\n")[2]
-  );
+function metafile(n=0) {
+  const line = 2 + n;
+  return fileurl2path(new Error().stack.split("\n")[line]);
 }
 /**
+ * @param {number} [n=0] 返回当前的为默认0即可,返回调用的设置n
  * @returns {string} 返回当前文件目录的绝对路径
  */
-function metadir() {
-  return dirname(fileurl2path(new Error().stack.split("\n")[2]));
+function metadir(n=0) {
+  const line = 2 + n;
+  return dirname(fileurl2path(new Error().stack.split("\n")[line]));
 }
 /**
+ * @param {number} [n=0] 返回当前的为默认0即可,返回调用的设置n
  * @returns {string} 返回当前文件所处最近nodejs项目的绝对路径
  */
-function metaroot() {
-  return findPackageJsonDir(metadir());
+function metaroot(n=0) {
+  return findPackageJsonDir(metadir(n));
 }
 /**
  * 将file:///形式的url转换为绝对路径,初始开发场景为解决stack中的file:///格式
@@ -453,9 +452,10 @@ function fileurl2path(url) {
     .slice(slice_len_file));
 }
 /**
+ * 强大可靠的路径处理
  * 使用此函数的最大好处是安全省心!符合逻辑,不用处理尾巴带不带/,../裁切,不能灵活拼接等;用了就不怕格式错误,要错都路径问题,且最后都输出绝对路径方便检验
  * @param {string} inputPath - 目标路径（可以是相对路径或绝对路径）
- * @param {string} [basePath=process.cwd()] - 辅助路径，默认为当前目录（可以是相对路径或绝对路径）
+ * @param {string} [basePath=process.argv[1]] - 辅助路径，默认为运行文件目录（可以是相对路径或绝对路径）
  * @returns {string} 绝对路径在前,相对路径在后,最终都转换为绝对路径
  */
 function xpath(targetPath, basePath, separator = "/") {

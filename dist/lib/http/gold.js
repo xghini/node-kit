@@ -1,5 +1,5 @@
 export { hd_stream };
-import { cookies_obj, cookie_merge } from "../basic.js";
+import { cookies_obj, cookie_merge } from "../index.js";
 import { router_find_resolve } from "./router.js";
 function hd_stream(server, stream, headers) {
     headers = Object.keys(headers).reduce((obj, key) => {
