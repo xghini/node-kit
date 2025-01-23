@@ -17,7 +17,7 @@ function hd_stream(server, stream, headers) {
         }.call(stream.ip || stream.session.socket.remoteAddress);
         let url;
         try {
-            url = new URL(`${headers[":scheme"]}://${headers[":authority"]}${headers[":path"]}`);
+            url = new URL(`${headers[":scheme"]}://${headers[":authority"] || '_'}${headers[":path"]}`);
         }
         catch (error) {
             console.error(error, headers);

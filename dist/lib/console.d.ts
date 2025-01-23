@@ -52,8 +52,10 @@ export namespace style {
 }
 export function clear(n?: number): void;
 export function echo(data: any): {
-    show: any;
-    stop(): void;
+    show: string;
+    frames: string[];
+    intervalId: any;
+    stop: () => void;
 };
 export function fresh(): void;
 declare const reset: "\u001B[0m";

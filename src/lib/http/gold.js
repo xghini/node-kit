@@ -16,7 +16,7 @@ function hd_stream(server, stream, headers) {
     let url;
     try {
       url = new URL(
-        `${headers[":scheme"]}://${headers[":authority"]}${headers[":path"]}`
+        `${headers[":scheme"]}://${headers[":authority"]||'_'}${headers[":path"]}`
       );
     } catch (error) {
       console.error(error, headers);

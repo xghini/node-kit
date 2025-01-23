@@ -124,9 +124,7 @@ function randint(a, b = 0) {
     }
 }
 function getDate(offset = 8) {
-    const now = new Date();
-    const beijingTime = new Date(now.getTime() + offset * 3600000);
-    return beijingTime.toISOString().replace("T", " ").substring(0, 19);
+    return new Date(Date.now() + offset * 3600000).toISOString().slice(0, 19).replace('T', ' ');
 }
 function uuid(len = 21) {
     const byteLength = Math.ceil((len * 3) / 4);
