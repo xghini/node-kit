@@ -412,26 +412,33 @@ function fresh() {
   process.stdout.write("\x1b[J");
 }
 // 自清除的帧渲染输出
-function echo(data) {
-  process.stdout.write(hidcursor);
-  fresh();
-  const obj = {};
-  const frames = ["⠋", "⠙", "⠹", "⠸", "⠼", "⠴", "⠦", "⠧", "⠇", "⠏"];
-  const length = frames.length;
-  let frameIndex = 0;
-  obj.show = data; //如果是对象,会保持引用
-  const intervalId = setInterval(() => {
-    const frame = frames[frameIndex % length];
-    clear();
-    process.stdout.write(cyan + bold + frame + reset + " ");
-    console.log(obj.show);
-    frameIndex++;
-  }, 100);
-  obj.stop = () => {
-    clearInterval(intervalId);
+const echo1 = {
+  show: "",
+  frames: ["⠋", "⠙", "⠹", "⠸", "⠼", "⠴", "⠦", "⠧", "⠇", "⠏"],
+  intervalId: undefined,
+  stop: () => {
+    clearInterval(echo1.intervalId);
+    echo1.intervalId = undefined;
     clear();
     console.log(obj.show);
     process.stdout.write(showcursor);
-  };
-  return obj;
+  },
+};
+function echo(data) {
+  if (!echo1.intervalId) {
+    process.stdout.write(hidcursor);
+    fresh();
+  }
+  let frameIndex = 0;
+  echo1.show = data; //如果是对象,会保持引用
+  const frames = echo1.frames;
+  const length = frames.length;
+  echo1.intervalId = setInterval(() => {
+    const frame = frames[frameIndex % length];
+    clear();
+    process.stdout.write(cyan + bold + frame + reset + " ");
+    console.log(echo1.show);
+    frameIndex++;
+  }, 100);
+  return echo1;
 }

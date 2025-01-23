@@ -221,9 +221,7 @@ function randint(a, b = 0) {
 }
 // 生成各时区时间,默认北京时间
 function getDate(offset = 8) {
-  const now = new Date(); // 当前时间
-  const beijingTime = new Date(now.getTime() + offset * 3600000); // UTC 时间加 8 小时
-  return beijingTime.toISOString().replace("T", " ").substring(0, 19); // 格式化为 'YYYY-MM-DD HH:MM:SS'
+  return new Date(Date.now() + offset * 3600000).toISOString().slice(0,19).replace('T',' ');
 }
 // 通用唯一识别码 Universally unique identifier,此函数21位(64^21=2^126)已强于36位的uuidv4(2^122),这里的len为最终生成字符的长度
 function uuid(len = 21) {

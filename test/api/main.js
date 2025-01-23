@@ -1,9 +1,9 @@
 import kit from "@ghini/kit/dev";
-import Redis from "ioredis";
-// import * as auth from "./auth.js";
-// import * as user from "./user.js";
 import conf from "./conf.js";
 import lua from "./lua.js";
+// import * as auth from "./auth.js";
+// import * as user from "./user.js";
+
 kit.cs(66);
 const server = await kit.hs();
 // server._404 = 0;
@@ -15,6 +15,7 @@ server.open = 1;
 server.static("/static", "..");
 // Beta
 server.addr("/v1/subscribe", "get", subscribe);
+server.addr("/v1/user/orderplan", orderplan);
 server.addr("/hy2auth", hy2auth);
 // RC(Release Candidate)
 server.addr("/v1/auth/signin", "post", signin);
@@ -25,17 +26,15 @@ server.addr("/v1/auth/reset", "post", reset);
 server.addr("/v1/user/signout", signout);
 server.addr("/v1/user/signoutall", signoutall);
 server.addr("/v1/user/profile", profile);
-server.addr("/v1/user/orderplan", orderplan);
 server.addr("/v1/admin/status", status);
 // Release
 
 /* Redis */
-// const redis = new Redis();
 const redis = kit.xredis(conf.redis[0]);
-// const redis1 = new Redis(conf.redis[1]);
-// const redis2 = new Redis(conf.redis[2]);
-// const redis3 = new Redis(conf.redis[3]);
-// const redis4 = new Redis(conf.redis[4]);
+const redis1 = kit.xredis(conf.redis[1]);
+const redis2 = kit.xredis(conf.redis[2]);
+const redis3 = kit.xredis(conf.redis[3]);
+const redis4 = kit.xredis(conf.redis[4]);
 // 开发期间保持同步
 // redis1.flushdb();
 // redis.sync(redis2,'*');
@@ -356,18 +355,21 @@ export async function profile(gold) {
 }
 export async function orderplan(gold) {
   // orderplan plan:维护列表,
-  const key = "plan:" + kit.uuid(21);
+  const key = "plan:test" + kit.uuid(21);
+  const expire=new Date('2025/2/1').getTime()/1000
   const data = {
-    upload: 0,
-    download: 0,
-    total: 107374182400,
-    expire: 1762502400,
+    upload: 0, //已用总上传
+    download: 0, //已用总下载
+    total: 107374182400, //当期总量
+    fullTotal:976366325465088, //整期总量
+    expire, //当期到期时间 | 重置时间
+    fullExpire:expire, //整期到期时间
     title: "凌日拓途计划",
-    type: "hy2",
-    resetDate: 0,
+    createDate: kit.getDate(),
   };
   await redis.hset(key, data);
-  await redis.expireat(key, 1762502400);
+  await redis.expireat(key, expire);
+  redis.sync([redis1, redis2, redis3, redis4], key);
   // 添加订阅,并将订阅添加到user.subscribe中
   // const res = await redis.eval(lua.orderplan, 2, key, email, ...obj2arr(data));
   // await redis.hset(key,data);
