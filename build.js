@@ -38,7 +38,7 @@ function traverseAndProcess(inputDir, outputDir) {
       const code = rf(inputPath);
       const processedCode = ast_jsbuild(code);
       wf(outputPath, processedCode);
-      console.log.bind({model:3})(`Processed: ${inputPath} -> ${outputPath}`);
+      console.dev(`Processed: ${inputPath} -> ${outputPath}`);
     }
   });
 }
@@ -49,9 +49,10 @@ rm("./dist");
 traverseAndProcess("./dev", "./src");
 
 // 每次加个小版本发布 +0.0.1
+console.log(rf("./package.json"));
 const packageJson = JSON.parse(rf("./package.json"));
 const parts = packageJson.version.split(".").map(Number);
-parts[2]+=1;
+parts[2] += 1;
 const newVersion = parts.join(".");
 // 更新 package.json 中的版本号
 packageJson.version = newVersion;

@@ -1,6 +1,6 @@
 export { h2s, hs, hss };
 
-import { gcatch, rf, xpath, style, myip, metaroot } from "../index.js";
+import { gcatch, rf, xpath, style, myip, callroot } from "../index.js";
 import kit from "../../main.js";
 import http2 from "http2";
 import https from "https";
@@ -140,7 +140,7 @@ async function hs(...argv) {
  */
 async function h2s(...argv) {
   let { port, config } = argv_port_config(argv);
-  const basicpath = metaroot();
+  const basicpath = callroot();
   config = {
     ...{
       key: rf(xpath("store/cert/selfsigned.key", basicpath)),
@@ -163,7 +163,7 @@ async function h2s(...argv) {
 async function hss(...argv) {
   // 启动一个 HTTPS 服务器，使用指定的证书和密钥文件
   let { port, config } = argv_port_config(argv);
-  const basicpath = metaroot();
+  const basicpath = callroot();
   config = {
     ...{
       key: rf(xpath("store/cert/selfsigned.key", basicpath)),

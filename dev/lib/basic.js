@@ -2,9 +2,9 @@ export {
   myip,
   // path路径相关
   xpath,
-  metafile,
-  metadir,
-  metaroot,
+  callfile,
+  calldir,
+  callroot,
   fileurl2path,
   // fs path相关 同步
   rf,
@@ -288,7 +288,7 @@ function env(filePath) {
     if (filePath) filePath = xpath(filePath);
     else {
       // 从运行文件向上找package.json目录下的.env,如果没有则用当前目录下,还没有返回null
-      let currentPath = dirname(process.argv[1]);
+      let currentPath = calldir(1);
       if (isfile(join(currentPath, ".env")))
         filePath = join(currentPath, ".env");
       currentPath = findPackageJsonDir(currentPath);
@@ -321,12 +321,8 @@ function findPackageJsonDir(currentPath) {
 async function aloadjson(filePath) {
   try {
     // 获取绝对路径
-    const absolutePath = isAbsolute(filePath)
-      ? filePath
-      : resolve(dirname(process.argv[1]), filePath);
-
-    // 读取文件内容
-    const content = await fs.promises.readFile(absolutePath, "utf8");
+    const absolutePath = xpath(filePath);
+    const content = await arf(absolutePath);
 
     // 预处理内容以移除注释
     const processedContent = content
@@ -492,28 +488,31 @@ async function interval(fn, ms, PX) {
   }, ms);
 }
 /**
+ * 凡是meta路径自用不需要参数(),提供则设置(1)
  * @param {number} [n=0] 返回当前的为默认0即可,返回调用的设置n
  * @returns {string} 返回当前文件的绝对路径
  */
-// 为何不用process.argv[1]?此为运行时的入口文件,而非当前库文件
-function metafile(n=0) {
+// 为何不用process.argv[1]?比如使用pm2就不符合预期
+function callfile(n = 0) {
   const line = 2 + n;
   return fileurl2path(new Error().stack.split("\n")[line]);
 }
 /**
+ * 凡是meta路径自用不需要参数(),提供则设置(1)
  * @param {number} [n=0] 返回当前的为默认0即可,返回调用的设置n
  * @returns {string} 返回当前文件目录的绝对路径
  */
-function metadir(n=0) {
+function calldir(n = 0) {
   const line = 2 + n;
   return dirname(fileurl2path(new Error().stack.split("\n")[line]));
 }
 /**
+ * 凡是meta路径自用不需要参数(),提供则设置(1)
  * @param {number} [n=0] 返回当前的为默认0即可,返回调用的设置n
  * @returns {string} 返回当前文件所处最近nodejs项目的绝对路径
  */
-function metaroot(n=0) {
-  return findPackageJsonDir(metadir(n+1));
+function callroot(n = 0) {
+  return findPackageJsonDir(calldir(n + 1));
 }
 /**
  * 将file:///形式的url转换为绝对路径,初始开发场景为解决stack中的file:///格式
@@ -530,10 +529,11 @@ function fileurl2path(url) {
  * 强大可靠的路径处理
  * 使用此函数的最大好处是安全省心!符合逻辑,不用处理尾巴带不带/,../裁切,不能灵活拼接等;用了就不怕格式错误,要错都路径问题,且最后都输出绝对路径方便检验
  * @param {string} inputPath - 目标路径（可以是相对路径或绝对路径）
- * @param {string} [basePath=process.argv[1]] - 辅助路径，默认为运行文件目录（可以是相对路径或绝对路径）
+ * @param {string} [basePath=calldir(1)] - 辅助路径，默认为运行文件目录（可以是相对路径或绝对路径）
  * @returns {string} 绝对路径在前,相对路径在后,最终都转换为绝对路径
  */
 function xpath(targetPath, basePath, separator = "/") {
+  // const meta_n = this ? 1 : 0; //xpath如果不是当前用,而是封装函数,使用xpath.bind(1)(...)
   // 判断basePath是否存在,是否文件?处理为目录:继续
   try {
     if (basePath) {
@@ -543,8 +543,8 @@ function xpath(targetPath, basePath, separator = "/") {
         basePath = dirname(basePath);
       }
     } else {
-      // basePath = process.cwd();
-      basePath = dirname(process.argv[1]);
+      basePath = process.cwd();
+      // basePath = calldir(1+meta_n);
     }
     let resPath;
     // 判断targetPath是否为绝对路径,是就直接使用
@@ -557,7 +557,8 @@ function xpath(targetPath, basePath, separator = "/") {
       if (isAbsolute(basePath)) {
         resPath = resolve(basePath, targetPath);
       } else {
-        resPath = resolve(dirname(process.argv[1]), join(basePath, targetPath));
+        resPath = resolve(process.cwd(), join(basePath, targetPath));
+        // resPath = resolve(calldir(1+meta_n), join(basePath, targetPath));
       }
     }
     if (separator === "/" && slice_len_file === 7) {
@@ -722,7 +723,7 @@ function ast_jsbuild(code) {
  * @returns {object}
  */
 function xreq(path) {
-  const require = createRequire(process.argv[1]);
+  const require = createRequire(callfile(1));
   return require(path);
 }
 
