@@ -20,7 +20,7 @@ const root =
 function Xdb(dir) {
   // 检查最后一个是否以xdb 或+数字结尾
   if (dir) {
-    dir = xpath.bind(1)(dir);
+    dir = xpath(dir);
     const last = dir.split("/").at(-1).toLowerCase();
     if (last.match(/^xdb\d*$/)) {
       dir = dir.replace(/\/xdb(\d*)$/i, "/xdb$1");

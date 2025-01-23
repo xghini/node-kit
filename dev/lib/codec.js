@@ -90,7 +90,7 @@ let path = process.platform.startsWith("win")
   : process.platform === "linux"
   ? "linux.node"
   : "darwin.node";
-const zstd = xreq(xpath("store/zstd/" + path, metaroot()));
+const zstd = xreq(xpath("store/zstd/" + path, metaroot));
 const _compress = promisify(zstd.compress);
 const _decompress = promisify(zstd.decompress);
 async function zstd_compress(data, compressionLevel = 13) {

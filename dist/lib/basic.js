@@ -1,4 +1,4 @@
-export { myip, xpath, callfile, calldir, callroot, metaroot, fileurl2path, rf, wf, mkdir, isdir, isfile, dir, exist, rm, cp, env, arf, awf, amkdir, aisdir, aisfile, adir, aexist, arm, aonedir, astat, aloadyml, aloadjson, cookie_obj, cookie_str, cookie_merge, cookies_obj, cookies_str, cookies_merge, mreplace, mreplace_calc, xreq, ast_jsbuild, sleep, interval, timelog, getDate, gcatch, uuid, rint, rside, gchar, fhash, empty, };
+export { myip, exepath, exedir, exeroot, metaroot, xpath, fileurl2path, rf, wf, mkdir, isdir, isfile, dir, exist, rm, cp, env, arf, awf, amkdir, aisdir, aisfile, adir, aexist, arm, aonedir, astat, aloadyml, aloadjson, cookie_obj, cookie_str, cookie_merge, cookies_obj, cookies_str, cookies_merge, mreplace, mreplace_calc, xreq, ast_jsbuild, sleep, interval, timelog, getDate, gcatch, uuid, rint, rside, gchar, fhash, empty, };
 import { createRequire } from "module";
 import { parse } from "acorn";
 import fs from "fs";
@@ -8,6 +8,10 @@ import yaml from "yaml";
 import os from "os";
 const platform = process.platform;
 const slice_len_file = platform == "win32" ? 8 : 7;
+const exepath = process.env.KIT_EXEPATH || process.argv[1];
+const exedir = dirname(exepath);
+const exeroot = findPackageJsonDir(exepath);
+const metaroot = findPackageJsonDir(import.meta.dirname);
 let globalCatchError = false;
 function myip() {
     const networkInterfaces = os.networkInterfaces();
@@ -160,23 +164,23 @@ function parseENV(content) {
     }
     return result;
 }
-function env(filePath) {
+function env(filePath, cover = false) {
     try {
         if (filePath)
-            filePath = xpath.bind(1)(filePath);
+            filePath = xpath(filePath);
         else {
-            let currentPath = calldir();
-            if (isfile(join(currentPath, ".env")))
-                filePath = join(currentPath, ".env");
-            currentPath = findPackageJsonDir(currentPath);
-            if (currentPath && isfile(join(currentPath, ".env")))
-                filePath = join(currentPath, ".env");
-            if (!filePath)
-                return null;
+            filePath = join(exeroot, ".env");
+            if (!isfile(filePath)) {
+                filePath = join(exepath, ".env");
+                if (!isfile(filePath))
+                    return null;
+            }
         }
-        console.log(filePath);
         const content = parseENV(rf(filePath));
-        process.env = { ...content, ...process.env };
+        if (cover)
+            process.env = { ...process.env, ...content };
+        else
+            process.env = { ...content, ...process.env };
         return content;
     }
     catch (error) {
@@ -202,7 +206,7 @@ function findPackageJsonDir(currentPath) {
 }
 async function aloadjson(filePath) {
     try {
-        const absolutePath = xpath.bind(1)(filePath);
+        const absolutePath = xpath(filePath);
         const content = await arf(absolutePath);
         const processedContent = content
             .replace(/\/\*[\s\S]*?\*\//g, "")
@@ -240,7 +244,7 @@ async function aonedir(dir) {
 }
 async function arf(filename, option = "utf8") {
     try {
-        const data = await fs.promises.readFile(xpath.bind(1)(filename), option);
+        const data = await fs.promises.readFile(xpath(filename), option);
         return data;
     }
     catch (error) {
@@ -335,20 +339,6 @@ async function interval(fn, ms, PX) {
             fn();
     }, ms);
 }
-function callfile(n = 0) {
-    const line = 3 + n;
-    return fileurl2path(new Error().stack.split("\n")[line]);
-}
-function calldir(n = 0) {
-    const line = 3 + n;
-    return dirname(fileurl2path(new Error().stack.split("\n")[line]));
-}
-function callroot(n = 0) {
-    return findPackageJsonDir(calldir(n + 1));
-}
-function metaroot() {
-    return callroot();
-}
 function fileurl2path(url) {
     return (url = url
         .slice(url.indexOf("file:///"))
@@ -356,37 +346,41 @@ function fileurl2path(url) {
         .slice(slice_len_file));
 }
 function xpath(targetPath, basePath, separator = "/") {
-    const call_n = this ? 1 : 0;
     try {
         if (basePath) {
             if (basePath.startsWith("file:///"))
                 basePath = basePath.slice(slice_len_file);
-            if (fs.existsSync(basePath) && fs.statSync(basePath).isFile()) {
-                basePath = dirname(basePath);
+            else if (!isAbsolute(basePath)) {
+                if (fs.existsSync(basePath) && fs.statSync(basePath).isFile()) {
+                    basePath = dirname(basePath);
+                }
+                basePath = join(exedir, basePath);
             }
         }
         else {
-            basePath = calldir(call_n);
+            basePath = exedir;
         }
         let resPath;
         if (targetPath.startsWith("file:///"))
-            targetPath = targetPath.slice(slice_len_file);
-        if (isAbsolute(targetPath)) {
+            resPath = normalize(targetPath.slice(slice_len_file));
+        else if (isAbsolute(targetPath)) {
             resPath = normalize(targetPath);
         }
         else {
-            if (isAbsolute(basePath)) {
-                resPath = resolve(basePath, targetPath);
-            }
-            else {
-                resPath = resolve(calldir(call_n), join(basePath, targetPath));
-            }
+            resPath = join(basePath, targetPath);
         }
-        if (separator === "/" && slice_len_file === 7) {
-            return resPath.split(sep).join("/");
+        if (separator === "/") {
+            if (slice_len_file === 7)
+                return resPath;
+            else
+                return resPath.split(sep).join("/");
         }
-        if (separator === "\\")
-            return resPath.split("/").join("\\");
+        if (separator === "\\") {
+            if (slice_len_file === 8)
+                return resPath;
+            else
+                return resPath.split(sep).join("\\");
+        }
         return resPath.split(sep).join(separator);
     }
     catch (error) {
@@ -486,12 +480,12 @@ function ast_jsbuild(code) {
     return (newContent + code.slice(cursor)).replace(/^\s*[\r\n]/gm, "");
 }
 function xreq(path) {
-    const require = createRequire(callfile());
+    const require = createRequire(exepath);
     return require(path);
 }
 function rf(filename, option = "utf8") {
     try {
-        const data = fs.readFileSync(xpath.bind(1)(filename), option);
+        const data = fs.readFileSync(xpath(filename), option);
         return data;
     }
     catch (error) {

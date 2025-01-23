@@ -16,11 +16,11 @@ declare const kit: {
     h2req: typeof http.h2req;
     h1req: typeof http.h1req;
     myip: typeof index.myip;
+    exepath: string;
+    exedir: string;
+    exeroot: any;
+    metaroot: any;
     xpath: typeof index.xpath;
-    callfile: typeof index.callfile;
-    calldir: typeof index.calldir;
-    callroot: typeof index.callroot;
-    metaroot: typeof index.metaroot;
     fileurl2path: typeof index.fileurl2path;
     rf: typeof index.rf;
     wf: typeof index.wf;

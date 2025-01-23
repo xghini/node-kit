@@ -84,6 +84,9 @@ function router_find_resolve(server, stream, gold) {
       /^192\.168\./, // 192.168.0.0 到 192.168.255.255
       /^fc00::/, // fc00::/7 Unique Local IPv6
       /^fd/, // fd00::/8 Unique Local IPv6
+      // 本地回环地址
+      /^127\./, // IPv4 回环地址 127.0.0.0 到 127.255.255.255
+      /^::1$/, // IPv6 回环地址
     ];
     // 检查是否为私网IP
     const isPrivateIP = privateIPs.some((pattern) =>

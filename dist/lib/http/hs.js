@@ -93,11 +93,10 @@ async function hs(...argv) {
 }
 async function h2s(...argv) {
     let { port, config } = argv_port_config(argv);
-    const basicpath = metaroot();
     config = {
         ...{
-            key: rf(xpath("store/cert/selfsigned.key", basicpath)),
-            cert: rf(xpath("store/cert/selfsigned.cert", basicpath)),
+            key: rf(xpath("store/cert/selfsigned.key", metaroot)),
+            cert: rf(xpath("store/cert/selfsigned.cert", metaroot)),
             allowHTTP1: true,
         },
         ...config,
@@ -106,11 +105,10 @@ async function h2s(...argv) {
 }
 async function hss(...argv) {
     let { port, config } = argv_port_config(argv);
-    const basicpath = metaroot();
     config = {
         ...{
-            key: rf(xpath("store/cert/selfsigned.key", basicpath)),
-            cert: rf(xpath("store/cert/selfsigned.cert", basicpath)),
+            key: rf(xpath("store/cert/selfsigned.key", metaroot)),
+            cert: rf(xpath("store/cert/selfsigned.cert", metaroot)),
         },
         config,
     };
@@ -150,14 +148,14 @@ function simulateHttp2Stream(req, res) {
     req.on("error", (err) => stream.emit("error", err));
     return { stream, headers };
 }
-function fn_static(url, path = "./") {
+function fn_static(url, path = ".") {
     let reg;
     if (url === "/")
         reg = new RegExp(`^/(.*)?$`);
     else
         reg = new RegExp(`^${url}(\/.*)?$`);
     this.addr(reg, "get", async (g) => {
-        let filePath = kit.xpath.bind(1)(g.path.slice(url.length).replace(/^\//, ""), path);
+        let filePath = kit.xpath(g.path.slice(url.length).replace(/^\//, ""), path);
         if (await kit.aisdir(filePath)) {
             let files = await kit.adir(filePath);
             let html = fileSystem;
@@ -169,7 +167,7 @@ function fn_static(url, path = "./") {
             let directories = [];
             let regularFiles = [];
             for (let file of files) {
-                let fullPath = kit.xpath.bind(1)(file, filePath);
+                let fullPath = kit.xpath(file, filePath);
                 let isDir = await kit.aisdir(fullPath);
                 if (isDir) {
                     directories.push(file);
@@ -182,7 +180,7 @@ function fn_static(url, path = "./") {
             regularFiles.sort((a, b) => a.localeCompare(b));
             const sortedFiles = [...directories, ...regularFiles];
             for (let file of sortedFiles) {
-                let fullPath = kit.xpath.bind(1)(file, filePath);
+                let fullPath = kit.xpath(file, filePath);
                 let isDir = await kit.aisdir(fullPath);
                 let link = g.path === "/" ? "/" + file : g.path + "/" + file;
                 let icon = isDir ? "fa-folder" : "fa-file";

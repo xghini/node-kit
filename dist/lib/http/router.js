@@ -70,6 +70,8 @@ function router_find_resolve(server, stream, gold) {
             /^192\.168\./,
             /^fc00::/,
             /^fd/,
+            /^127\./,
+            /^::1$/,
         ];
         const isPrivateIP = privateIPs.some((pattern) => pattern.test(gold.direct_ip));
         if (!isPrivateIP) {

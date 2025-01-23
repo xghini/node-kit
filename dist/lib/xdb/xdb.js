@@ -9,7 +9,7 @@ const root = process.platform === "win32"
         : "/usr/local/var/db/xdb";
 function Xdb(dir) {
     if (dir) {
-        dir = xpath.bind(1)(dir);
+        dir = xpath(dir);
         const last = dir.split("/").at(-1).toLowerCase();
         if (last.match(/^xdb\d*$/)) {
             dir = dir.replace(/\/xdb(\d*)$/i, "/xdb$1");

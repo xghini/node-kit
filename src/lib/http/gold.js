@@ -96,6 +96,12 @@ function hd_stream(server, stream, headers) {
         });
         gold.end(`${data}`);
       },
+      html: (data) => {
+        gold.respond({
+          "content-type": "text/html; charset=utf-8",
+        });
+        gold.end(`${data}`);
+      },
       download: (data, name) => {
         const opt = {
           ":status": 200,

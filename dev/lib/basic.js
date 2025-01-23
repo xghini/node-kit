@@ -1,11 +1,11 @@
 export {
   myip,
   // path路径相关
-  xpath,
-  callfile,
-  calldir,
-  callroot,
+  exepath,
+  exedir,
+  exeroot,
   metaroot,
+  xpath,
   fileurl2path,
   // fs path相关 同步
   rf,
@@ -64,6 +64,14 @@ import yaml from "yaml";
 import os from "os";
 const platform = process.platform; //win32|linux|darwin
 const slice_len_file = platform == "win32" ? 8 : 7;
+const exepath = process.env.KIT_EXEPATH || process.argv[1]; //执行文件的路径,如果使用如pm2等工具需要设置,补偿process.argv[1]的修改
+const exedir = dirname(exepath);
+const exeroot = findPackageJsonDir(exepath);
+/**
+ * 当前库的rootpath
+ * @returns {string} 返回当前文件所处最近nodejs项目的绝对路径
+ */
+const metaroot = findPackageJsonDir(import.meta.dirname);
 
 let globalCatchError = false;
 /*XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX*/
@@ -284,22 +292,19 @@ function parseENV(content) {
  * @param {string} filePath - ENV 文件的绝对或相对路径
  * @returns {Promise<object>} 解析后的对象
  */
-function env(filePath) {
+function env(filePath, cover = false) {
   try {
-    if (filePath) filePath = xpath.bind(1)(filePath);
+    if (filePath) filePath = xpath(filePath);
     else {
-      // 从运行文件向上找package.json目录下的.env,如果没有则用当前目录下,还没有返回null
-      let currentPath = calldir();
-      if (isfile(join(currentPath, ".env")))
-        filePath = join(currentPath, ".env");
-      currentPath = findPackageJsonDir(currentPath);
-      if (currentPath && isfile(join(currentPath, ".env")))
-        filePath = join(currentPath, ".env");
-      if (!filePath) return null;
+      filePath = join(exeroot, ".env");
+      if (!isfile(filePath)) {
+        filePath = join(exepath, ".env");
+        if (!isfile(filePath)) return null;
+      }
     }
-    console.log(filePath);
     const content = parseENV(rf(filePath));
-    process.env = { ...content, ...process.env };
+    if (cover) process.env = { ...process.env, ...content };
+    else process.env = { ...content, ...process.env };
     return content;
   } catch (error) {
     console.error(error);
@@ -322,7 +327,7 @@ function findPackageJsonDir(currentPath) {
 async function aloadjson(filePath) {
   try {
     // 获取绝对路径
-    const absolutePath = xpath.bind(1)(filePath);
+    const absolutePath = xpath(filePath);
     const content = await arf(absolutePath);
 
     // 预处理内容以移除注释
@@ -371,7 +376,7 @@ async function aonedir(dir) {
 }
 async function arf(filename, option = "utf8") {
   try {
-    const data = await fs.promises.readFile(xpath.bind(1)(filename), option);
+    const data = await fs.promises.readFile(xpath(filename), option);
     return data;
   } catch (error) {
     if (error.code === "ENOENT") {
@@ -488,41 +493,7 @@ async function interval(fn, ms, PX) {
     } else fn();
   }, ms);
 }
-/**
- * 辅助库确定调用者filepath
- * @param {number} [n=0] 返回当前的为默认0即可,返回调用的设置n
- * @returns {string} 返回当前文件的绝对路径
- */
-// 为何不用process.argv[1]?容易被运行的方式打乱,比如使用pm2就不符合预期
-function callfile(n = 0) {
-  const line = 3 + n;
-  return fileurl2path(new Error().stack.split("\n")[line]);
-}
-/**
- * 辅助库确定调用者dirpath
- * @param {number} [n=0] 返回当前的为默认0即可,返回调用的设置n
- * @returns {string} 返回当前文件目录的绝对路径
- */
-function calldir(n = 0) {
-  const line = 3 + n;
-  return dirname(fileurl2path(new Error().stack.split("\n")[line]));
-}
-/**
- * 辅助库确定调用者rootpath
- * @param {number} [n=0] 返回当前的为默认0即可,返回调用的设置n
- * @returns {string} 返回当前文件所处最近nodejs项目的绝对路径
- */
-function callroot(n = 0) {
-  return findPackageJsonDir(calldir(n + 1));
-}
-/**
- * 当前rootpath
- * @param {number} [n=0] 返回当前的为默认0即可,返回调用的设置n
- * @returns {string} 返回当前文件所处最近nodejs项目的绝对路径
- */
-function metaroot() {
-  return callroot();
-}
+
 /**
  * 将file:///形式的url转换为绝对路径,初始开发场景为解决stack中的file:///格式
  * @param {string} url
@@ -537,41 +508,43 @@ function fileurl2path(url) {
 /**
  * 强大可靠的路径处理
  * 使用此函数的最大好处是安全省心!符合逻辑,不用处理尾巴带不带/,../裁切,不能灵活拼接等;用了就不怕格式错误,要错都路径问题,且最后都输出绝对路径方便检验
- * @param {string} inputPath - 目标路径（可以是相对路径或绝对路径）
- * @param {string} [basePath=calldir()] - 辅助路径，默认为运行文件目录（可以是相对路径或绝对路径）
- * @returns {string} 绝对路径在前,相对路径在后,最终都转换为绝对路径
+ * @param {string} inputPath - 目标路径（最终指向,可以是相对路径或绝对路径）
+ * @param {string} [basePath=exedir] - 辅助路径，默认为exedir（可以是相对路径或绝对路径）
+ * @returns {string} 绝对路径在前,相对路径在后,最终都转换为绝对路径统一sep,方便比较路径
  */
 function xpath(targetPath, basePath, separator = "/") {
-  const call_n = this ? 1 : 0; //xpath如果不是当前用,而是封装函数,使用xpath.bind(1)(...)
   // 判断basePath是否存在,是否文件?处理为目录:继续
   try {
     if (basePath) {
       if (basePath.startsWith("file:///"))
         basePath = basePath.slice(slice_len_file);
-      if (fs.existsSync(basePath) && fs.statSync(basePath).isFile()) {
-        basePath = dirname(basePath);
+      else if (!isAbsolute(basePath)) {
+        // 如果存在且是个文件,dirname处理
+        if (fs.existsSync(basePath) && fs.statSync(basePath).isFile()) {
+          basePath = dirname(basePath);
+        }
+        basePath = join(exedir, basePath);
       }
     } else {
-      basePath = calldir(call_n);
+      basePath = exedir;
     }
     let resPath;
     // 判断targetPath是否为绝对路径,是就直接使用
     if (targetPath.startsWith("file:///"))
-      targetPath = targetPath.slice(slice_len_file);
-    if (isAbsolute(targetPath)) {
+      resPath = normalize(targetPath.slice(slice_len_file));
+    else if (isAbsolute(targetPath)) {
       resPath = normalize(targetPath);
     } else {
-      // 判断basePath是否为绝对路径
-      if (isAbsolute(basePath)) {
-        resPath = resolve(basePath, targetPath);
-      } else {
-        resPath = resolve(calldir(call_n), join(basePath, targetPath));
-      }
+      resPath = join(basePath, targetPath);
     }
-    if (separator === "/" && slice_len_file === 7) {
-      return resPath.split(sep).join("/");
+    if (separator === "/" ) {
+      if(slice_len_file === 7)return resPath
+      else return resPath.split(sep).join("/");
     }
-    if (separator === "\\") return resPath.split("/").join("\\");
+    if (separator === "\\"){
+      if(slice_len_file === 8)return resPath
+      else return resPath.split(sep).join("\\");
+    } 
     return resPath.split(sep).join(separator);
   } catch (error) {
     console.error(error);
@@ -730,7 +703,7 @@ function ast_jsbuild(code) {
  * @returns {object}
  */
 function xreq(path) {
-  const require = createRequire(callfile());
+  const require = createRequire(exepath);
   return require(path);
 }
 
@@ -742,7 +715,7 @@ function xreq(path) {
  */
 function rf(filename, option = "utf8") {
   try {
-    const data = fs.readFileSync(xpath.bind(1)(filename), option);
+    const data = fs.readFileSync(xpath(filename), option);
     return data;
   } catch (error) {
     if (error.code === "ENOENT") {
