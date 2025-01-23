@@ -14,7 +14,7 @@ const root =
  */
 function Xdb(dir) {
   if (dir) {
-    dir = xpath(dir);
+    dir = xpath.bind(1)(dir);
     const last = dir.split("/").at(-1).toLowerCase();
     if (last.match(/^xdb\d*$/)) {
       dir = dir.replace(/\/xdb(\d*)$/i, "/xdb$1");
