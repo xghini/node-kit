@@ -88,7 +88,6 @@ async function h2req(...argv) {
         if (sess === false)
             throw new Error("H2 connect failed");
         req = await sess.request(headers);
-        console.log(method);
         if (method === "GET" || method === "DELETE" || method === "HEAD") {
             if (!empty(body))
                 console.warn("NodeJS原生请求限制, ", method, "Body不会生效");
