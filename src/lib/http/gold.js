@@ -26,8 +26,9 @@ function hd_stream(server, stream, headers) {
     return {
       headers: headers,
       method: headers[":method"].toUpperCase(),
-      ct: headers["content-type"],
-      auth: headers["authorization"],
+      agent: headers["user-agent"]||'',
+      ct: headers["content-type"]||'',
+      auth: headers["authorization"]||'',
       protocol: stream.protocol,
       cookie: cookies_obj(headers["cookie"]),
       pathname,

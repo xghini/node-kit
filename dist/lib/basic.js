@@ -1,4 +1,4 @@
-export { myip, exepath, exedir, exeroot, metaroot, xpath, fileurl2path, rf, wf, mkdir, isdir, isfile, dir, exist, rm, cp, env, arf, awf, amkdir, aisdir, aisfile, adir, aexist, arm, aonedir, astat, aloadyml, aloadjson, cookie_obj, cookie_str, cookie_merge, cookies_obj, cookies_str, cookies_merge, mreplace, mreplace_calc, xreq, ast_jsbuild, sleep, interval, timelog, getDate, gcatch, uuid, rint, rside, gchar, fhash, empty, };
+export { myip, exepath, exedir, exeroot, metaroot, xpath, fileurl2path, sleep, interval, timelog, getDate, rf, wf, mkdir, isdir, isfile, dir, exist, rm, cp, env, arf, awf, amkdir, aisdir, aisfile, adir, aexist, arm, aonedir, astat, aloadyml, aloadjson, cookie_obj, cookie_str, cookie_merge, cookies_obj, cookies_str, cookies_merge, mreplace, mreplace_calc, xreq, ast_jsbuild, gcatch, uuid, rint, rside, gchar, fhash, empty, };
 import { createRequire } from "module";
 import { parse } from "acorn";
 import fs from "fs";

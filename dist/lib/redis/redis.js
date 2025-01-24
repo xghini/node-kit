@@ -123,12 +123,12 @@ async function sync(targetRedisList, pattern, options = {}) {
             targetRedisList = [targetRedisList];
         }
         else {
-            xerr("Need Redis clients");
+            console.error("Need Redis clients");
             return;
         }
     }
     else if (targetRedisList.length === 0) {
-        xerr("Need Redis clients");
+        console.error("Need Redis clients");
         return;
     }
     const scriptShas = {};
@@ -206,10 +206,9 @@ async function sync(targetRedisList, pattern, options = {}) {
             await Promise.all(pipelines.map(async (pipeline) => {
                 await pipeline.exec();
                 if (pipeline.org.status === "ready") {
-                    console.dev("Sync ok", pipeline.org.options.host);
                 }
                 else {
-                    xerr("error", pipeline.org.options.host, pipeline.org.status);
+                    console.error("error", pipeline.org.options.host, pipeline.org.status);
                 }
             }));
         }

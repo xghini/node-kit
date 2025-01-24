@@ -40,7 +40,6 @@ async function h2connect(obj) {
     if (h2session.has(host)) {
         const session = h2session.get(host);
         if (!session.destroyed && !session.closed) {
-            console.dev("复用h2session", host);
             return session;
         }
         else {
@@ -58,7 +57,6 @@ async function h2connect(obj) {
             ...options,
         });
         session.once("connect", () => {
-            console.dev("新建h2session", host);
             h2session.set(host, session);
             return resolve(session);
         });
@@ -197,14 +195,6 @@ async function h1req(...argv) {
         req.on("timeout", () => {
             req.destroy(new Error(`HTTP/1.1 req timeout >${options.timeout}ms`));
             resolve(resbuild.bind(reqbd)(false, "http/1.1", 408));
-        });
-        req.on("socket", (socket) => {
-            if (socket.connecting) {
-                console.dev("创建h1连接");
-            }
-            else {
-                console.dev("复用h1连接");
-            }
         });
         if (!empty(body))
             req.write(body);

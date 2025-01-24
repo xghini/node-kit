@@ -7,6 +7,11 @@ export {
   metaroot,
   xpath,
   fileurl2path,
+  // 时间相关
+  sleep,
+  interval,
+  timelog,
+  getDate,
   // fs path相关 同步
   rf,
   wf,
@@ -42,10 +47,6 @@ export {
   mreplace_calc,
   xreq,
   ast_jsbuild,
-  sleep,
-  interval,
-  timelog,
-  getDate,
   gcatch,
   // Math
   uuid,
@@ -219,6 +220,9 @@ function randint(a, b = 0) {
     return Math.floor(Math.random() * (b + 1 - a)) + a;
   }
 }
+/*
+Date.now() msstamp
+*/
 // 生成各时区时间,默认北京时间
 function getDate(offset = 8) {
   return new Date(Date.now() + offset * 3600000).toISOString().slice(0,19).replace('T',' ');

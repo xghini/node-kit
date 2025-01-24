@@ -13,7 +13,7 @@ function xredis(...argv) {
 // 用scan找到首个匹配的key返回
 async function scankey(pattern) {
   let cursor = '0';
-  const batchSize = 1000; // 一次扫描的数量
+  const batchSize = 1000;
   do {
       // 使用 SCAN 命令带 MATCH 和 COUNT 参数
       const [newCursor, keys] = await this.scan(cursor, 'MATCH', pattern, 'COUNT', batchSize);
@@ -23,13 +23,13 @@ async function scankey(pattern) {
       }
       // 更新游标
       cursor = newCursor;
-  } while (cursor !== '0'); // 如果游标回到 0，说明遍历完成
-  return null; // 如果没有找到任何匹配的 key，返回 null
+  } while (cursor !== '0');
+  return null;
 }
 
 async function scankeys(pattern) {
   let cursor = '0';
-  const batchSize = 1000; // 一次扫描的数量
+  const batchSize = 1000;
   const allKeys = [];
   do {
       // 使用 SCAN 命令带 MATCH 和 COUNT 参数
@@ -38,7 +38,7 @@ async function scankeys(pattern) {
       allKeys.push(...keys);
       // 更新游标
       cursor = newCursor;
-  } while (cursor !== '0'); // 如果游标回到 0，说明遍历完成
+  } while (cursor !== '0');
   return allKeys;
 }
 
@@ -144,11 +144,11 @@ async function sync(targetRedisList, pattern, options = {}) {
     if (targetRedisList instanceof Redis) {
       targetRedisList = [targetRedisList];
     } else {
-      xerr("Need Redis clients");
+      console.error("Need Redis clients");
       return;
     }
   } else if (targetRedisList.length === 0) {
-    xerr("Need Redis clients");
+    console.error("Need Redis clients");
     return;
   }
 
@@ -238,14 +238,13 @@ async function sync(targetRedisList, pattern, options = {}) {
 
       totalKeys += keys.length;
       console.dev(`Sync ${pattern} to ${targetRedisList.length} target , total ${totalKeys} keys`);
-
       await Promise.all(
         pipelines.map(async (pipeline) => {
           await pipeline.exec();
           if (pipeline.org.status === "ready") {
-            console.dev("Sync ok", pipeline.org.options.host);
+            // console.dev("Sync ok", pipeline.org.options.host);
           } else {
-            xerr("error", pipeline.org.options.host, pipeline.org.status);
+            console.error("error", pipeline.org.options.host, pipeline.org.status);
           }
         })
       );

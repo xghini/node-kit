@@ -10,25 +10,25 @@ function xredis(...argv) {
 }
 async function scankey(pattern) {
   let cursor = '0';
-  const batchSize = 1000; 
+  const batchSize = 1000;
   do {
       const [newCursor, keys] = await this.scan(cursor, 'MATCH', pattern, 'COUNT', batchSize);
       if (keys.length > 0) {
           return keys[0];
       }
       cursor = newCursor;
-  } while (cursor !== '0'); 
-  return null; 
+  } while (cursor !== '0');
+  return null;
 }
 async function scankeys(pattern) {
   let cursor = '0';
-  const batchSize = 1000; 
+  const batchSize = 1000;
   const allKeys = [];
   do {
       const [newCursor, keys] = await this.scan(cursor, 'MATCH', pattern, 'COUNT', batchSize);
       allKeys.push(...keys);
       cursor = newCursor;
-  } while (cursor !== '0'); 
+  } while (cursor !== '0');
   return allKeys;
 }
 const FILTER_SCRIPTS = {
@@ -122,11 +122,11 @@ async function sync(targetRedisList, pattern, options = {}) {
     if (targetRedisList instanceof Redis) {
       targetRedisList = [targetRedisList];
     } else {
-      xerr("Need Redis clients");
+      console.error("Need Redis clients");
       return;
     }
   } else if (targetRedisList.length === 0) {
-    xerr("Need Redis clients");
+    console.error("Need Redis clients");
     return;
   }
   const scriptShas = {};
@@ -209,9 +209,8 @@ async function sync(targetRedisList, pattern, options = {}) {
         pipelines.map(async (pipeline) => {
           await pipeline.exec();
           if (pipeline.org.status === "ready") {
-            console.dev("Sync ok", pipeline.org.options.host);
           } else {
-            xerr("error", pipeline.org.options.host, pipeline.org.status);
+            console.error("error", pipeline.org.options.host, pipeline.org.status);
           }
         })
       );

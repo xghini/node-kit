@@ -22,6 +22,10 @@ declare const kit: {
     metaroot: any;
     xpath: typeof index.xpath;
     fileurl2path: typeof index.fileurl2path;
+    sleep: typeof index.sleep;
+    interval: typeof index.interval;
+    timelog: typeof index.timelog;
+    getDate: typeof index.getDate;
     rf: typeof index.rf;
     wf: typeof index.wf;
     mkdir: typeof index.mkdir;
@@ -54,10 +58,6 @@ declare const kit: {
     mreplace_calc: typeof index.mreplace_calc;
     xreq: typeof index.xreq;
     ast_jsbuild: typeof index.ast_jsbuild;
-    sleep: typeof index.sleep;
-    interval: typeof index.interval;
-    timelog: typeof index.timelog;
-    getDate: typeof index.getDate;
     gcatch: typeof index.gcatch;
     uuid: typeof index.uuid;
     rint: typeof index.rint;
