@@ -5,7 +5,7 @@ import http from "http";
 import { empty } from "../index.js";
 import { br_decompress, inflate, zstd_decompress, gunzip } from "../codec.js";
 const h2session = new Map();
-const options_keys = ["settings", "cert", "timeout", "json"];
+const options_keys = ["settings", "cert", "timeout", "json", "auth"];
 const d_headers = {
     "user-agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/119.0.0.0 Safari/537.36",
 };
@@ -317,7 +317,7 @@ function reqbuild(...argv) {
                 else if (empty(item))
                     new_options = {};
                 else if (typeof item === "object") {
-                    if (Object.keys(item).every((key) => options_keys.includes(key))) {
+                    if (Object.keys(item).some((key) => options_keys.includes(key))) {
                         if (!new_options)
                             new_options = item;
                         else if (!new_headers)
@@ -345,18 +345,20 @@ function reqbuild(...argv) {
                 delete options.cert;
             }
             if ("json" in options) {
-                headers["content-type"] = headers["content-type"] || "application/json";
+                headers["content-type"] = "application/json";
                 body = JSON.stringify(options.json);
                 delete options.json;
             }
             if ("param" in options) {
-                headers["content-type"] =
-                    headers["content-type"] || "application/x-www-form-urlencoded";
+                headers["content-type"] = "application/x-www-form-urlencoded";
                 body =
                     typeof options.param === "string"
                         ? options.param
                         : new URLSearchParams(options.param).toString();
                 delete options.param;
+            }
+            if ("auth" in options) {
+                headers["authorization"] = options.auth;
             }
         }
         return new Reqbd({
