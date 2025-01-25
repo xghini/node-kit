@@ -3,7 +3,6 @@ import conf from "./conf.js";
 import lua from "./lua.js";
 // import * as auth from "./auth.js";
 // import * as user from "./user.js";
-
 kit.cs(66);
 const server = await kit.hs();
 // server._404 = 0;
@@ -158,6 +157,7 @@ export async function signin(gold) {
 export async function signup(gold) {
   // user:admin@xship.top @123321 18812345678
   const { email, pwd, code } = gold.data;
+  const auth = kit.uuid(24);
   const fields = [
     "pwd",
     pwd,
@@ -165,8 +165,11 @@ export async function signup(gold) {
     email.replace(/@.*/, ""),
     "regdate",
     kit.getDate(8),
+    "plans",
+    auth,
   ];
-  // 使用Lua脚本一次连接搞定 ：验证邮箱,检查键是否存在，如果不存在则创建
+  newplan(auth);
+  // 使用Lua脚本一次连接搞定 ：验证邮箱,检查键是否存在，如果不存在则创建,并自动分配初始auth
   const result = await redis.eval(lua.signup, 2, email, code, ...fields);
   if (result[0]) {
     const token = kit.uuid(21);
@@ -245,6 +248,7 @@ export async function emailverify(gold) {
     ["signup", "reset"].includes(type)
   ) {
     // 邮箱是否存在&&验证码校验
+    console.log(captchaId, code);
     const res = await redis.eval(
       lua.emailverify,
       0,
@@ -258,12 +262,13 @@ export async function emailverify(gold) {
       return;
     }
   } else {
-    gold.jerr("参数错误");
+    gold.jerr("验证码格式错误");
     return;
   }
   const subject = type === "signup" ? "注册账号" : "重置密码";
-  const newcode =
-    type === "signup" ? kit.gchar(6, "0123456789666888") : kit.gchar(8, 2);
+  const newcode = kit.gchar(6, "0123456789666888");
+  // type === "signup" ? kit.gchar(6, "0123456789666888") : kit.gchar(8, 2);
+
   const html = `
       <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px;">
         <h2 style="color: #333; text-align: center;">XShip ${subject}</h2>
@@ -345,7 +350,9 @@ export async function profile(gold) {
       const arr = [];
       await Promise.all(
         result.plans.split(";").map(async (item) => {
-          arr.push(await redis.hgetall("plan:" + item));
+          const obj = await redis.hgetall("plan:" + item);
+          obj.auth = item;
+          arr.push(obj);
         })
       );
       result.plans = arr;
@@ -355,21 +362,10 @@ export async function profile(gold) {
 }
 export async function orderplan(gold) {
   // orderplan plan:维护列表,
-  const key = "plan:test" + kit.uuid(21);
-  const expire=new Date('2025/2/1').getTime()/1000
-  const data = {
-    upload: 0, //已用总上传
-    download: 0, //已用总下载
-    total: 107374182400, //当期总量
-    fullTotal:976366325465088, //整期总量
-    expire, //当期到期时间 | 重置时间
-    fullExpire:expire, //整期到期时间
-    title: "凌日拓途计划",
-    createDate: kit.getDate(),
-  };
-  await redis.hset(key, data);
-  await redis.expireat(key, expire);
-  redis.sync([redis1, redis2, redis3, redis4], key);
+  // newplan();
+  newplan("test" + kit.uuid(24));
+
+  // redis.sync([redis1, redis2, redis3, redis4], key);
   // 添加订阅,并将订阅添加到user.subscribe中
   // const res = await redis.eval(lua.orderplan, 2, key, email, ...obj2arr(data));
   // await redis.hset(key,data);
@@ -379,6 +375,22 @@ export async function orderplan(gold) {
   // const a = await redis.keys();
   // redis.hset("user:admin@xship.top", "subscribe", JSON.stringify(a));
   gold.json("ok");
+}
+async function newplan(auth) {
+  const key = "plan:" + auth || kit.uuid(24);
+  const expire = new Date("2025/2/1").getTime() / 1000;
+  const data = {
+    upload: 0, //已用总上传
+    download: 0, //已用总下载
+    total: 52428800, //当期总量
+    fullTotal: 976366325465088, //整期总量
+    expire, //当期到期时间 | 重置时间
+    fullExpire: expire, //整期到期时间
+    title: "凌日拓途计划",
+    createDate: kit.getDate(),
+  };
+  await redis.hset(key, data);
+  await redis.expireat(key, expire);
 }
 
 function obj2arr(obj) {

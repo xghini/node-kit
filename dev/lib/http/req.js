@@ -168,7 +168,7 @@ async function h2req(...argv) {
     const timeout = options.timeout || d_timeout;
     const timeoutId = setTimeout(() => {
       req.close();
-      console.error(`H2 req timeout >${timeout}ms`);
+      console.error(`H2 req timeout >${timeout}ms`,urlobj.host);
       resolve(resbuild.bind(reqbd)(false, "h2", 408));
       // throw new Error(`H2 req timeout >${timeout}ms`);
       // return resolve(`timeout >${timeout}ms`);
@@ -260,7 +260,7 @@ async function h1req(...argv) {
     });
     req.on("timeout", () => {
       // 此destroy后再触发onerror来传递错误
-      req.destroy(new Error(`HTTP/1.1 req timeout >${options.timeout}ms`));
+      req.destroy(new Error(`HTTP/1.1 req timeout >${options.timeout}ms`,urlobj.host));
       // req.destroy();
       // resolve(`timeout >${options.timeout}ms`);
       resolve(resbuild.bind(reqbd)(false, "http/1.1", 408));

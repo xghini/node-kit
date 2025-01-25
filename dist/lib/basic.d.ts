@@ -51,4 +51,9 @@ export function rside(): 1 | -1;
 export function gchar(n?: number, characters?: number): string;
 export function fhash(cx: string | Buffer | TypedArray | DataView, encode?: string, type?: string): string;
 export function empty(x: any, recursive?: any): bool;
+export function addobjs(...objects: any[]): {};
+export function obj2v1(obj2v: any): {
+    [k: string]: any;
+};
+export function addTwoDimensionalObjects(...objects: any[]): {};
 import fs from "fs";

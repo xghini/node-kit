@@ -1,4 +1,4 @@
-export { myip, exepath, exedir, exeroot, metaroot, xpath, fileurl2path, sleep, interval, timelog, getDate, rf, wf, mkdir, isdir, isfile, dir, exist, rm, cp, env, arf, awf, amkdir, aisdir, aisfile, adir, aexist, arm, aonedir, astat, aloadyml, aloadjson, cookie_obj, cookie_str, cookie_merge, cookies_obj, cookies_str, cookies_merge, mreplace, mreplace_calc, xreq, ast_jsbuild, gcatch, uuid, rint, rside, gchar, fhash, empty, };
+export { myip, exepath, exedir, exeroot, metaroot, xpath, fileurl2path, sleep, interval, timelog, getDate, rf, wf, mkdir, isdir, isfile, dir, exist, rm, cp, env, arf, awf, amkdir, aisdir, aisfile, adir, aexist, arm, aonedir, astat, aloadyml, aloadjson, cookie_obj, cookie_str, cookie_merge, cookies_obj, cookies_str, cookies_merge, mreplace, mreplace_calc, xreq, ast_jsbuild, gcatch, uuid, rint, rside, gchar, fhash, empty, addobjs, obj2v1, addTwoDimensionalObjects, };
 import { createRequire } from "module";
 import { parse } from "acorn";
 import fs from "fs";
@@ -13,6 +13,44 @@ const exedir = dirname(exepath);
 const exeroot = findPackageJsonDir(exepath);
 const metaroot = findPackageJsonDir(import.meta.dirname);
 let globalCatchError = false;
+function addTwoDimensionalObjects(...objects) {
+    const level1Keys = [...new Set(objects.flatMap((obj) => Object.keys(obj)))];
+    const level2Keys = [
+        ...new Set(objects.flatMap((obj) => Object.values(obj).flatMap((innerObj) => Object.keys(innerObj)))),
+    ];
+    const result = {};
+    level1Keys.forEach((key1) => {
+        result[key1] = {};
+        level2Keys.forEach((key2) => {
+            result[key1][key2] = objects.reduce((sum, obj) => {
+                if (!obj[key1])
+                    return sum;
+                return sum + (obj[key1][key2] || 0);
+            }, 0);
+        });
+    });
+    return result;
+}
+function obj2v1(obj2v) {
+    return Object.fromEntries(Object.entries(obj2v).map(([key, value]) => {
+        if (typeof value === "object" &&
+            value !== null &&
+            !Array.isArray(value)) {
+            return [
+                key,
+                Object.values(value).reduce((sum, val) => sum + (typeof val === "number" ? val / 1048576 : 0), 0),
+            ];
+        }
+        return [key, value];
+    }));
+}
+function addobjs(...objects) {
+    const keys = [...new Set(objects.flatMap((obj) => Object.keys(obj)))];
+    return keys.reduce((result, key) => {
+        result[key] = objects.reduce((sum, obj) => sum + (obj[key] || 0), 0);
+        return result;
+    }, {});
+}
 function myip() {
     const networkInterfaces = os.networkInterfaces();
     let arr = [];
@@ -124,7 +162,10 @@ function randint(a, b = 0) {
     }
 }
 function getDate(offset = 8) {
-    return new Date(Date.now() + offset * 3600000).toISOString().slice(0, 19).replace('T', ' ');
+    return new Date(Date.now() + offset * 3600000)
+        .toISOString()
+        .slice(0, 19)
+        .replace("T", " ");
 }
 function uuid(len = 21) {
     const byteLength = Math.ceil((len * 3) / 4);

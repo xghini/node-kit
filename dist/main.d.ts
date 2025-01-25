@@ -65,6 +65,9 @@ declare const kit: {
     gchar: typeof index.gchar;
     fhash: typeof index.fhash;
     empty: typeof index.empty;
+    addobjs: typeof index.addobjs;
+    obj2v1: typeof index.obj2v1;
+    addTwoDimensionalObjects: typeof index.addTwoDimensionalObjects;
     cs: typeof index.cs;
     csm: typeof index.csm;
     cdev: typeof index.cdev;

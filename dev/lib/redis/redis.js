@@ -13,7 +13,7 @@ function xredis(...argv) {
 // 用scan找到首个匹配的key返回
 async function scankey(pattern) {
   let cursor = '0';
-  const batchSize = 1000;
+  const batchSize = 5000;
   do {
       // 使用 SCAN 命令带 MATCH 和 COUNT 参数
       const [newCursor, keys] = await this.scan(cursor, 'MATCH', pattern, 'COUNT', batchSize);
@@ -29,7 +29,7 @@ async function scankey(pattern) {
 
 async function scankeys(pattern) {
   let cursor = '0';
-  const batchSize = 1000;
+  const batchSize = 5000;
   const allKeys = [];
   do {
       // 使用 SCAN 命令带 MATCH 和 COUNT 参数
@@ -139,6 +139,7 @@ const FILTER_SCRIPTS = {
   `
 };
 
+// claude说shangyou
 async function sync(targetRedisList, pattern, options = {}) {
   if (!Array.isArray(targetRedisList)) {
     if (targetRedisList instanceof Redis) {
@@ -151,19 +152,16 @@ async function sync(targetRedisList, pattern, options = {}) {
     console.error("Need Redis clients");
     return;
   }
-
   // 预加载所有 Lua 脚本
   const scriptShas = {};
   for (const [type, script] of Object.entries(FILTER_SCRIPTS)) {
     scriptShas[type] = await this.script('LOAD', script);
   }
-
   let totalKeys = 0;
   let cursor = "0";
   do {
-    const [newCursor, keys] = await this.scan(cursor, "MATCH", pattern, "COUNT", 1000);
+    const [newCursor, keys] = await this.scan(cursor, "MATCH", pattern, "COUNT", 5000);
     cursor = newCursor;
-    
     if (keys.length) {
       const pipelines = targetRedisList.map((target) => {
         const p = target.pipeline();
@@ -174,7 +172,6 @@ async function sync(targetRedisList, pattern, options = {}) {
       for (const key of keys) {
         const type = await this.type(key);
         const ttlPromise = this.ttl(key);
-
         let data = null;
         if (type === 'string') {
           // 对于 string 类型，使用 pattern 匹配
@@ -190,9 +187,7 @@ async function sync(targetRedisList, pattern, options = {}) {
             JSON.stringify(fields)
           );
         }
-
         const ttl = await ttlPromise;
-
         if (data) {
           pipelines.forEach((pipeline) => {
             switch (type) {

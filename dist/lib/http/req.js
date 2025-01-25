@@ -121,7 +121,7 @@ async function h2req(...argv) {
         const timeout = options.timeout || d_timeout;
         const timeoutId = setTimeout(() => {
             req.close();
-            console.error(`H2 req timeout >${timeout}ms`);
+            console.error(`H2 req timeout >${timeout}ms`, urlobj.host);
             resolve(resbuild.bind(reqbd)(false, "h2", 408));
         }, timeout);
         req.on("error", (err) => {
@@ -192,7 +192,7 @@ async function h1req(...argv) {
             resolve(resbuild.bind(reqbd)(false, "http/1.1"));
         });
         req.on("timeout", () => {
-            req.destroy(new Error(`HTTP/1.1 req timeout >${options.timeout}ms`));
+            req.destroy(new Error(`HTTP/1.1 req timeout >${options.timeout}ms`, urlobj.host));
             resolve(resbuild.bind(reqbd)(false, "http/1.1", 408));
         });
         if (!empty(body))

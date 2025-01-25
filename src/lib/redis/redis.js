@@ -10,7 +10,7 @@ function xredis(...argv) {
 }
 async function scankey(pattern) {
   let cursor = '0';
-  const batchSize = 1000;
+  const batchSize = 5000;
   do {
       const [newCursor, keys] = await this.scan(cursor, 'MATCH', pattern, 'COUNT', batchSize);
       if (keys.length > 0) {
@@ -22,7 +22,7 @@ async function scankey(pattern) {
 }
 async function scankeys(pattern) {
   let cursor = '0';
-  const batchSize = 1000;
+  const batchSize = 5000;
   const allKeys = [];
   do {
       const [newCursor, keys] = await this.scan(cursor, 'MATCH', pattern, 'COUNT', batchSize);
@@ -136,7 +136,7 @@ async function sync(targetRedisList, pattern, options = {}) {
   let totalKeys = 0;
   let cursor = "0";
   do {
-    const [newCursor, keys] = await this.scan(cursor, "MATCH", pattern, "COUNT", 1000);
+    const [newCursor, keys] = await this.scan(cursor, "MATCH", pattern, "COUNT", 5000);
     cursor = newCursor;
     if (keys.length) {
       const pipelines = targetRedisList.map((target) => {

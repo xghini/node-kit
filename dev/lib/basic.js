@@ -55,6 +55,9 @@ export {
   gchar,
   fhash,
   empty,
+  addobjs,
+  obj2v1,
+  addTwoDimensionalObjects,
 };
 import { createRequire } from "module";
 import { parse } from "acorn";
@@ -76,6 +79,66 @@ const metaroot = findPackageJsonDir(import.meta.dirname);
 
 let globalCatchError = false;
 /*XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX*/
+function addTwoDimensionalObjects(...objects) {
+  // 第一步：收集所有可能的第一维度和第二维度的键
+  const level1Keys = [...new Set(objects.flatMap((obj) => Object.keys(obj)))];
+  const level2Keys = [
+    ...new Set(
+      objects.flatMap((obj) =>
+        Object.values(obj).flatMap((innerObj) => Object.keys(innerObj))
+      )
+    ),
+  ];
+  // 第二步：构建结果对象
+  const result = {};
+  // 第三步：对每个第一维度的键进行处理
+  level1Keys.forEach((key1) => {
+    result[key1] = {};
+    // 对每个第二维度的键进行处理
+    level2Keys.forEach((key2) => {
+      // 计算所有对象在这个位置的值的和
+      result[key1][key2] = objects.reduce((sum, obj) => {
+        // 如果第一维度的键不存在，返回0
+        if (!obj[key1]) return sum;
+        // 如果第二维度的键不存在，返回0
+        return sum + (obj[key1][key2] || 0);
+      }, 0);
+    });
+  });
+
+  return result;
+}
+// 将二维对象变一维,sum
+function obj2v1(obj2v) {
+  // {x:{...}}=>{x:'11mb'}
+  return Object.fromEntries(
+    Object.entries(obj2v).map(([key, value]) => {
+      // 如果值是对象且不是数组，计算它所有数值的和
+      if (
+        typeof value === "object" &&
+        value !== null &&
+        !Array.isArray(value)
+      ) {
+        return [
+          key,
+          Object.values(value).reduce(
+            (sum, val) => sum + (typeof val === "number" ? val / 1048576 : 0),
+            0
+          ),
+        ];
+      }
+      // 如果不是对象，保持原值
+      return [key, value];
+    })
+  );
+}
+function addobjs(...objects) {
+  const keys = [...new Set(objects.flatMap((obj) => Object.keys(obj)))];
+  return keys.reduce((result, key) => {
+    result[key] = objects.reduce((sum, obj) => sum + (obj[key] || 0), 0);
+    return result;
+  }, {});
+}
 function myip() {
   const networkInterfaces = os.networkInterfaces();
   let arr = [];
@@ -225,7 +288,10 @@ Date.now() msstamp
 */
 // 生成各时区时间,默认北京时间
 function getDate(offset = 8) {
-  return new Date(Date.now() + offset * 3600000).toISOString().slice(0,19).replace('T',' ');
+  return new Date(Date.now() + offset * 3600000)
+    .toISOString()
+    .slice(0, 19)
+    .replace("T", " ");
 }
 // 通用唯一识别码 Universally unique identifier,此函数21位(64^21=2^126)已强于36位的uuidv4(2^122),这里的len为最终生成字符的长度
 function uuid(len = 21) {
@@ -539,14 +605,14 @@ function xpath(targetPath, basePath, separator = "/") {
     } else {
       resPath = join(basePath, targetPath);
     }
-    if (separator === "/" ) {
-      if(slice_len_file === 7)return resPath
+    if (separator === "/") {
+      if (slice_len_file === 7) return resPath;
       else return resPath.split(sep).join("/");
     }
-    if (separator === "\\"){
-      if(slice_len_file === 8)return resPath
+    if (separator === "\\") {
+      if (slice_len_file === 8) return resPath;
       else return resPath.split(sep).join("\\");
-    } 
+    }
     return resPath.split(sep).join(separator);
   } catch (error) {
     console.error(error);
