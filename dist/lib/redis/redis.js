@@ -2,6 +2,12 @@ export { xredis };
 import Redis from "ioredis";
 function xredis(...argv) {
     const redis = new Redis(...argv);
+    let x = 0, y = 10;
+    redis.on('error', (err) => {
+        if (x % y === 0)
+            console.error(err, y === 100 ? y = 1000 : y = 100);
+        x++;
+    });
     return Object.assign(redis, {
         scankey,
         scankeys,
@@ -9,26 +15,26 @@ function xredis(...argv) {
     });
 }
 async function scankey(pattern) {
-    let cursor = '0';
+    let cursor = "0";
     const batchSize = 5000;
     do {
-        const [newCursor, keys] = await this.scan(cursor, 'MATCH', pattern, 'COUNT', batchSize);
+        const [newCursor, keys] = await this.scan(cursor, "MATCH", pattern, "COUNT", batchSize);
         if (keys.length > 0) {
             return keys[0];
         }
         cursor = newCursor;
-    } while (cursor !== '0');
+    } while (cursor !== "0");
     return null;
 }
 async function scankeys(pattern) {
-    let cursor = '0';
+    let cursor = "0";
     const batchSize = 5000;
     const allKeys = [];
     do {
-        const [newCursor, keys] = await this.scan(cursor, 'MATCH', pattern, 'COUNT', batchSize);
+        const [newCursor, keys] = await this.scan(cursor, "MATCH", pattern, "COUNT", batchSize);
         allKeys.push(...keys);
         cursor = newCursor;
-    } while (cursor !== '0');
+    } while (cursor !== "0");
     return allKeys;
 }
 const FILTER_SCRIPTS = {
@@ -115,7 +121,7 @@ const FILTER_SCRIPTS = {
       end
     end
     return result
-  `
+  `,
 };
 async function sync(targetRedisList, pattern, options = {}) {
     if (!Array.isArray(targetRedisList)) {
@@ -133,7 +139,7 @@ async function sync(targetRedisList, pattern, options = {}) {
     }
     const scriptShas = {};
     for (const [type, script] of Object.entries(FILTER_SCRIPTS)) {
-        scriptShas[type] = await this.script('LOAD', script);
+        scriptShas[type] = await this.script("LOAD", script);
     }
     let totalKeys = 0;
     let cursor = "0";
@@ -150,8 +156,8 @@ async function sync(targetRedisList, pattern, options = {}) {
                 const type = await this.type(key);
                 const ttlPromise = this.ttl(key);
                 let data = null;
-                if (type === 'string') {
-                    const stringPattern = options.string || '';
+                if (type === "string") {
+                    const stringPattern = options.string || "";
                     data = await this.evalsha(scriptShas.string, 1, key, stringPattern);
                 }
                 else if (type in FILTER_SCRIPTS) {

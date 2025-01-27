@@ -4,41 +4,59 @@ import Redis from "ioredis";
 
 function xredis(...argv) {
   const redis = new Redis(...argv);
+  let x=0,y=10
+  redis.on('error', (err) => {
+    // 避免一直抱错
+    if(x%y===0)console.error(err,y===100?y=1000:y=100);
+    x++
+  });
   return Object.assign(redis, {
     scankey,
-    scankeys,    
+    scankeys,
     sync,
   });
 }
 // 用scan找到首个匹配的key返回
 async function scankey(pattern) {
-  let cursor = '0';
+  let cursor = "0";
   const batchSize = 5000;
   do {
-      // 使用 SCAN 命令带 MATCH 和 COUNT 参数
-      const [newCursor, keys] = await this.scan(cursor, 'MATCH', pattern, 'COUNT', batchSize);
-      // 如果找到匹配的 keys，返回第一个匹配的 key
-      if (keys.length > 0) {
-          return keys[0];
-      }
-      // 更新游标
-      cursor = newCursor;
-  } while (cursor !== '0');
+    // 使用 SCAN 命令带 MATCH 和 COUNT 参数
+    const [newCursor, keys] = await this.scan(
+      cursor,
+      "MATCH",
+      pattern,
+      "COUNT",
+      batchSize
+    );
+    // 如果找到匹配的 keys，返回第一个匹配的 key
+    if (keys.length > 0) {
+      return keys[0];
+    }
+    // 更新游标
+    cursor = newCursor;
+  } while (cursor !== "0");
   return null;
 }
 
 async function scankeys(pattern) {
-  let cursor = '0';
+  let cursor = "0";
   const batchSize = 5000;
   const allKeys = [];
   do {
-      // 使用 SCAN 命令带 MATCH 和 COUNT 参数
-      const [newCursor, keys] = await this.scan(cursor, 'MATCH', pattern, 'COUNT', batchSize);
-      // 合并找到的匹配 keys
-      allKeys.push(...keys);
-      // 更新游标
-      cursor = newCursor;
-  } while (cursor !== '0');
+    // 使用 SCAN 命令带 MATCH 和 COUNT 参数
+    const [newCursor, keys] = await this.scan(
+      cursor,
+      "MATCH",
+      pattern,
+      "COUNT",
+      batchSize
+    );
+    // 合并找到的匹配 keys
+    allKeys.push(...keys);
+    // 更新游标
+    cursor = newCursor;
+  } while (cursor !== "0");
   return allKeys;
 }
 
@@ -136,10 +154,16 @@ const FILTER_SCRIPTS = {
       end
     end
     return result
-  `
+  `,
 };
 
-// claude说shangyou
+/**
+ *
+ * @param {*} targetRedisList [redis,...]
+ * @param {*} pattern 精确匹配及通配符匹配
+ * @param {*} options {hash:['a','b],set:['some','field']}
+ * @returns
+ */
 async function sync(targetRedisList, pattern, options = {}) {
   if (!Array.isArray(targetRedisList)) {
     if (targetRedisList instanceof Redis) {
@@ -155,12 +179,18 @@ async function sync(targetRedisList, pattern, options = {}) {
   // 预加载所有 Lua 脚本
   const scriptShas = {};
   for (const [type, script] of Object.entries(FILTER_SCRIPTS)) {
-    scriptShas[type] = await this.script('LOAD', script);
+    scriptShas[type] = await this.script("LOAD", script);
   }
   let totalKeys = 0;
   let cursor = "0";
   do {
-    const [newCursor, keys] = await this.scan(cursor, "MATCH", pattern, "COUNT", 5000);
+    const [newCursor, keys] = await this.scan(
+      cursor,
+      "MATCH",
+      pattern,
+      "COUNT",
+      5000
+    );
     cursor = newCursor;
     if (keys.length) {
       const pipelines = targetRedisList.map((target) => {
@@ -173,17 +203,17 @@ async function sync(targetRedisList, pattern, options = {}) {
         const type = await this.type(key);
         const ttlPromise = this.ttl(key);
         let data = null;
-        if (type === 'string') {
+        if (type === "string") {
           // 对于 string 类型，使用 pattern 匹配
-          const stringPattern = options.string || '';
+          const stringPattern = options.string || "";
           data = await this.evalsha(scriptShas.string, 1, key, stringPattern);
         } else if (type in FILTER_SCRIPTS) {
           // 对于其他类型，使用对应的过滤脚本
           const fields = options[type] || [];
           data = await this.evalsha(
-            scriptShas[type], 
-            1, 
-            key, 
+            scriptShas[type],
+            1,
+            key,
             JSON.stringify(fields)
           );
         }
@@ -232,14 +262,20 @@ async function sync(targetRedisList, pattern, options = {}) {
       }
 
       totalKeys += keys.length;
-      console.dev(`Sync ${pattern} to ${targetRedisList.length} target , total ${totalKeys} keys`);
+      console.dev(
+        `Sync ${pattern} to ${targetRedisList.length} target , total ${totalKeys} keys`
+      );
       await Promise.all(
         pipelines.map(async (pipeline) => {
           await pipeline.exec();
           if (pipeline.org.status === "ready") {
             // console.dev("Sync ok", pipeline.org.options.host);
           } else {
-            console.error("error", pipeline.org.options.host, pipeline.org.status);
+            console.error(
+              "error",
+              pipeline.org.options.host,
+              pipeline.org.status
+            );
           }
         })
       );

@@ -30,10 +30,11 @@ server.addr("/v1/admin/status", status);
 
 /* Redis */
 const redis = kit.xredis(conf.redis[0]);
-const redis1 = kit.xredis(conf.redis[1]);
-const redis2 = kit.xredis(conf.redis[2]);
-const redis3 = kit.xredis(conf.redis[3]);
-const redis4 = kit.xredis(conf.redis[4]);
+const redis1 = kit.xredis({port:6333});
+// const redis1 = kit.xredis(conf.redis[1]);
+// const redis2 = kit.xredis(conf.redis[2]);
+// const redis3 = kit.xredis(conf.redis[3]);
+// const redis4 = kit.xredis(conf.redis[4]);
 // 开发期间保持同步
 // redis1.flushdb();
 // redis.sync(redis2,'*');
@@ -358,7 +359,10 @@ export async function profile(gold) {
       result.plans = arr;
     }
     gold.json(result);
-  } else gold.jerr("需要登录");
+  } else {
+    gold.delcookie(["auth_token", "user"]);
+    gold.jerr("需要登录");
+  }
 }
 export async function orderplan(gold) {
   // orderplan plan:维护列表,
