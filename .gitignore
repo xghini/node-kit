@@ -6,6 +6,8 @@
 
 **/static
 
+node_modules
+private
 # 以下正式上线后开启
 # dev/
 # src/

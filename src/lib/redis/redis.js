@@ -234,13 +234,11 @@ async function sync(targetRedisList, pattern, options = {}) {
         }
       }
       totalKeys += keys.length;
-      console.dev(
-        `Sync ${pattern} to ${targetRedisList.length} target , total ${totalKeys} keys`
-      );
       await Promise.all(
         pipelines.map(async (pipeline) => {
           await pipeline.exec();
           if (pipeline.org.status === "ready") {
+            console.dev("Sync ok", pipeline.org.options.host);
           } else {
             console.error(
               "error",
@@ -252,4 +250,7 @@ async function sync(targetRedisList, pattern, options = {}) {
       );
     }
   } while (cursor !== "0");
+  console.dev(
+    `Sync ${pattern} to ${targetRedisList.length} target , total ${totalKeys} keys`
+  );
 }
