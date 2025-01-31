@@ -30,7 +30,7 @@ server.addr("/v1/admin/status", status);
 
 /* Redis */
 const redis = kit.xredis(conf.redis[0]);
-const redis1 = kit.xredis({port:6333});
+// const redis1 = kit.xredis({port:6333});
 // const redis1 = kit.xredis(conf.redis[1]);
 // const redis2 = kit.xredis(conf.redis[2]);
 // const redis3 = kit.xredis(conf.redis[3]);
@@ -288,17 +288,18 @@ export async function emailverify(gold) {
   const response = await fetch("https://api.resend.com/emails", {
     method: "POST",
     headers: {
-      Authorization: `Bearer ${conf.RESEND_API_KEY}`,
+      Authorization: `Bearer ${conf.RESEND_API_KEY1}`,
       "Content-Type": "application/json",
     },
     body: JSON.stringify({
-      from: "XShip <admin@xship.top>",
+      from: "星链Starlink <xship@topchat.vip>",
       to: email,
       subject,
       html,
     }),
   });
   if (!response.ok) {
+    console.log(response);
     gold.jerr("Failed to send email");
   } else {
     redis.set("verify:" + email, newcode, "EX", 900);

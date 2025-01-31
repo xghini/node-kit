@@ -269,7 +269,7 @@ async function sync(targetRedisList, pattern, options = {}) {
         pipelines.map(async (pipeline) => {
           await pipeline.exec();
           if (pipeline.org.status === "ready") {
-            // console.dev("Sync ok", pipeline.org.options.host);
+            console.dev("Sync ok", pipeline.org.options.host);
           } else {
             console.error(
               "error",
