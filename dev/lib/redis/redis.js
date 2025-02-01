@@ -4,11 +4,12 @@ import Redis from "ioredis";
 
 function xredis(...argv) {
   const redis = new Redis(...argv);
-  let x=0,y=10
-  redis.on('error', (err) => {
+  let x = 0,
+    y = 10;
+  redis.on("error", (err) => {
     // 避免一直抱错
-    if(x%y===0)console.error(err,y===100?y=1000:y=100);
-    x++
+    if (x % y === 0) console.error(err, y === 100 ? (y = 1000) : (y = 100));
+    x++;
   });
   return Object.assign(redis, {
     scankey,
@@ -271,11 +272,7 @@ async function sync(targetRedisList, pattern, options = {}) {
       if (pipeline.org.status === "ready") {
         console.dev("Sync ok", pipeline.org.options.host);
       } else {
-        console.error(
-          "error",
-          pipeline.org.options.host,
-          pipeline.org.status
-        );
+        console.error("error", pipeline.org.options.host, pipeline.org.status);
       }
     })
   );
