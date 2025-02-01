@@ -26,6 +26,10 @@ export {
  * 开发隐藏输出console.log.bind({info: -1})() (优先级10)
  * 强化输出带opt指明() (优先级5)
  */
+const error_map = new Map();
+const MAX_ERRORS = 1000;
+const TTL = 180000;
+let timer;
 const sep_file = process.platform == "win32" ? "file:///" : "file://"; 
 console.sm = csm; 
 console.dev = cdev.bind({ info: -1 }); 
@@ -182,6 +186,31 @@ function clog(...args) {
   originalLog(...arvg_final(args), `${reset}`);
 }
 function cerror(...args) {
+  const jerr = JSON.stringify(
+    args.map((arg) => (arg instanceof Error ? arg.message : arg))
+  );
+  const now = Date.now();
+  const tmp = error_map.get(jerr);
+  if (tmp && now - tmp.t < TTL) return;
+  if (error_map.size >= MAX_ERRORS) {
+    const oldestKey = Array.from(error_map.entries()).sort(
+      (a, b) => a[1].t - b[1].t
+    )[0][0];
+    error_map.delete(oldestKey);
+  }
+  error_map.set(jerr, { t: now });
+  if (!timer) {
+    timer = setInterval(() => {
+      const now = Date.now();
+      error_map.forEach((v, k) => {
+        if (Date.now() - v.t > TTL) error_map.delete(k);
+      });
+      if (!error_map.size) {
+        clearInterval(timer);
+        timer = undefined;
+      }
+    }, TTL + 15000);
+  }
   const mainstyle = `${reset}${red}`;
   let pre = preStyle(this, mainstyle);
   if (!pre) return;

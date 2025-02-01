@@ -26,6 +26,11 @@ export {
  * 开发隐藏输出console.log.bind({info: -1})() (优先级10)
  * 强化输出带opt指明() (优先级5)
  */
+// 错误跟log不一样,往往不需要重复显示,但高频请求错误会导致如此,所以使用error_map限制频率
+const error_map = new Map();
+const MAX_ERRORS = 1000;
+const TTL = 180000;
+let timer;
 const sep_file = process.platform == "win32" ? "file:///" : "file://"; //win32|linux|darwin
 console.sm = csm; //对长内容能简短输出 smart simple small
 console.dev = cdev.bind({ info: -1 }); //
@@ -193,6 +198,34 @@ function clog(...args) {
   originalLog(...arvg_final(args), `${reset}`);
 }
 function cerror(...args) {
+  // 从源头来判断是否阻断,往往error不会太长,所以不需要hash;如果有记录且未超时return,否则记录
+  const jerr = JSON.stringify(
+    args.map((arg) => (arg instanceof Error ? arg.message : arg))
+  );
+  const now = Date.now();
+  const tmp = error_map.get(jerr);
+  if (tmp && now - tmp.t < TTL) return;
+  // 容量控制
+  if (error_map.size >= MAX_ERRORS) {
+    const oldestKey = Array.from(error_map.entries()).sort(
+      (a, b) => a[1].t - b[1].t
+    )[0][0];
+    error_map.delete(oldestKey);
+  }
+  error_map.set(jerr, { t: now });
+  // 设置清理定时器,回头清理缓存
+  if (!timer) {
+    timer = setInterval(() => {
+      const now = Date.now();
+      error_map.forEach((v, k) => {
+        if (Date.now() - v.t > TTL) error_map.delete(k);
+      });
+      if (!error_map.size) {
+        clearInterval(timer);
+        timer = undefined;
+      }
+    }, TTL + 15000);
+  }
   const mainstyle = `${reset}${red}`;
   let pre = preStyle(this, mainstyle);
   if (!pre) return;

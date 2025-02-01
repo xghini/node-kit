@@ -19,6 +19,7 @@ export {
   rm,
   cp,
   env,
+  exe,
   arf,
   awf,
   amkdir,
@@ -58,6 +59,7 @@ import fs from "fs";
 import crypto from "crypto";
 import { dirname, resolve, join, normalize, isAbsolute, sep } from "path";
 import yaml from "yaml";
+import { exec } from "child_process";
 const platform = process.platform; 
 const slice_len_file = platform == "win32" ? 8 : 7;
 const exepath = process.env.KIT_EXEPATH || process.argv[1]; 
@@ -69,6 +71,21 @@ const exeroot = findPackageJsonDir(exepath);
  */
 const metaroot = findPackageJsonDir(import.meta.dirname);
 let globalCatchError = false;
+function exe(command) {
+  return new Promise((resolve) => {
+    exec(command, (error, stdout, stderr) => {
+      if (error) {
+        console.error(error);
+        return resolve(0);
+      }
+      if (stderr) {
+        console.warn("Warning:", stderr);
+      }
+      console.log(stdout);
+      resolve(stdout);
+    });
+  });
+}
 function addTwoDimensionalObjects(...objects) {
   const level1Keys = [...new Set(objects.flatMap((obj) => Object.keys(obj)))];
   const level2Keys = [

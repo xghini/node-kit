@@ -36,6 +36,7 @@ declare const kit: {
     rm: typeof index.rm;
     cp: typeof index.cp;
     env: typeof index.env;
+    exe: typeof index.exe;
     arf: typeof index.arf;
     awf: typeof index.awf;
     amkdir: typeof index.amkdir;

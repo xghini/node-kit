@@ -18,6 +18,7 @@ export function exist(path: string): boolean;
 export function rm(targetPath: string): undefined;
 export function cp(oldPath: string, newPath: string): void;
 export function env(filePath: string, cover?: boolean): Promise<object>;
+export function exe(command: any): Promise<any>;
 export function arf(filename: any, option?: string): Promise<Buffer<ArrayBufferLike> & string>;
 export function awf(filename: any, data: any, append?: boolean, option?: string): Promise<boolean>;
 export function amkdir(dir: any): Promise<string>;

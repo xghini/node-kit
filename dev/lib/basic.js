@@ -23,6 +23,7 @@ export {
   cp,
   env,
   // 异步版本
+  exe,
   arf,
   awf,
   amkdir,
@@ -64,6 +65,7 @@ import fs from "fs";
 import crypto from "crypto";
 import { dirname, resolve, join, normalize, isAbsolute, sep } from "path";
 import yaml from "yaml";
+import { exec } from "child_process";
 const platform = process.platform; //win32|linux|darwin
 const slice_len_file = platform == "win32" ? 8 : 7;
 const exepath = process.env.KIT_EXEPATH || process.argv[1]; //执行文件的路径,如果使用如pm2等工具需要设置,补偿process.argv[1]的修改
@@ -77,6 +79,21 @@ const metaroot = findPackageJsonDir(import.meta.dirname);
 
 let globalCatchError = false;
 /*XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX*/
+function exe(command) {
+  return new Promise((resolve) => {
+    exec(command, (error, stdout, stderr) => {
+      if (error) {
+        console.error(error);
+        return resolve(0);
+      }
+      if (stderr) {
+        console.warn("Warning:", stderr);
+      }
+      console.log(stdout);
+      resolve(stdout);
+    });
+  });
+}
 function addTwoDimensionalObjects(...objects) {
   // 第一步：收集所有可能的第一维度和第二维度的键
   const level1Keys = [...new Set(objects.flatMap((obj) => Object.keys(obj)))];
