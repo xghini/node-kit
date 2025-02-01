@@ -1,5 +1,6 @@
 export { h2s, hs, hss };
-import { gcatch, rf, xpath, style, myip, metaroot } from "../index.js";
+import { gcatch, rf, xpath, style, metaroot } from "../index.js";
+import { myip } from "./req.js";
 import kit from "../../main.js";
 import http2 from "http2";
 import https from "https";
@@ -61,7 +62,7 @@ async function hs(...argv) {
         });
         console.info.bind({ xinfo: 2 })(`🚀 Start [${protocol}] ${scheme} server...`);
         server = Object.assign(server, {
-            ip: myip(),
+            ip: myip,
             open,
             routes: [],
             addr,
@@ -277,7 +278,6 @@ async function cluster() {
     const config = this.cluster_config;
     if (kit.empty(config))
         return;
-    const myip = kit.myip();
     let leader;
     console.log(this.port, config);
     const app = await h2s(13000);

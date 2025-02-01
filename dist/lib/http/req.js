@@ -1,4 +1,4 @@
-export { req, h2req, h1req };
+export { req, h2req, h1req, myip };
 import http2 from "http2";
 import https from "https";
 import http from "http";
@@ -411,4 +411,30 @@ async function resbuild(ok, protocol, code, headers, body) {
         reset_hds: { enumerable: false, writable: false, configurable: false },
         reset_ops: { enumerable: false, writable: false, configurable: false },
     });
+}
+const myip = (await h1req("http://ipv4.ifconfig.me/ip")).body ||
+    (await h1req("http://v4.ident.me")).body ||
+    (await h1req("http://ipv4.icanhazip.com")).body ||
+    fn_myip();
+function fn_myip() {
+    const networkInterfaces = os.networkInterfaces();
+    let arr = [];
+    for (const interfaceName in networkInterfaces) {
+        const interfaces = networkInterfaces[interfaceName];
+        for (const infa of interfaces) {
+            if (infa.family === "IPv4" && !infa.internal) {
+                if (infa.address.startsWith("10.") ||
+                    infa.address.startsWith("192.168."))
+                    arr.push(infa.address);
+                else if (infa.address.startsWith("172.")) {
+                    const n = infa.address.split(".")[1];
+                    if (n < 16 && n > 31)
+                        return infa.address;
+                }
+                else
+                    return infa.address;
+            }
+        }
+    }
+    return arr.length > 0 ? arr[0] : "127.0.0.1";
 }

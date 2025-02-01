@@ -15,7 +15,7 @@ declare const kit: {
     req: typeof http.req;
     h2req: typeof http.h2req;
     h1req: typeof http.h1req;
-    myip: typeof index.myip;
+    myip: any;
     exepath: string;
     exedir: string;
     exeroot: any;
@@ -128,6 +128,7 @@ declare const kit: {
     br_decompress: typeof index.br_decompress;
     zstd_compress: typeof index.zstd_compress;
     zstd_decompress: typeof index.zstd_decompress;
+    cf: typeof index.cf;
 };
 import * as captcha from "./lib/captcha/captcha.js";
 import * as redis from "./lib/redis/redis.js";

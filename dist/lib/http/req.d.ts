@@ -1,6 +1,7 @@
 export function req(...argv: any[]): Promise<ReturnType<typeof resbuild>>;
 export function h2req(...argv: any[]): Promise<ReturnType<typeof resbuild>>;
 export function h1req(...argv: any[]): Promise<ReturnType<typeof resbuild>>;
+export const myip: any;
 declare function resbuild(ok: any, protocol: any, code: any, headers: any, body: any): Promise<Resbd>;
 declare class Resbd {
     constructor(props?: {});

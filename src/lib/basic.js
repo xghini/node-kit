@@ -1,5 +1,4 @@
 export {
-  myip,
   exepath,
   exedir,
   exeroot,
@@ -59,7 +58,6 @@ import fs from "fs";
 import crypto from "crypto";
 import { dirname, resolve, join, normalize, isAbsolute, sep } from "path";
 import yaml from "yaml";
-import os from "os";
 const platform = process.platform; 
 const slice_len_file = platform == "win32" ? 8 : 7;
 const exepath = process.env.KIT_EXEPATH || process.argv[1]; 
@@ -118,27 +116,6 @@ function addobjs(...objects) {
     result[key] = objects.reduce((sum, obj) => sum + (obj[key] || 0), 0);
     return result;
   }, {});
-}
-function myip() {
-  const networkInterfaces = os.networkInterfaces();
-  let arr = [];
-  for (const interfaceName in networkInterfaces) {
-    const interfaces = networkInterfaces[interfaceName];
-    for (const infa of interfaces) {
-      if (infa.family === "IPv4" && !infa.internal) {
-        if (
-          infa.address.startsWith("10.") || 
-          infa.address.startsWith("192.168.") 
-        )
-          arr.push(infa.address);
-        else if (infa.address.startsWith("172.")) {
-          const n = infa.address.split(".")[1];
-          if (n < 16 && n > 31) return infa.address;
-        } else return infa.address;
-      }
-    }
-  }
-  return arr.length > 0 ? arr[0] : "127.0.0.1";
 }
 /**
  * gcatch 捕获全局异常

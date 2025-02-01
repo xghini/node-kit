@@ -1,4 +1,3 @@
-export function myip(): string;
 export const exepath: string;
 export const exedir: string;
 export const exeroot: any;
