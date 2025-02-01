@@ -159,6 +159,11 @@ async function sync(targetRedisList, pattern, options = {}) {
   }
   let totalKeys = 0;
   let cursor = "0";
+  const pipelines = targetRedisList.map((target) => {
+    const p = target.pipeline();
+    p.org = target;
+    return p;
+  });
   do {
     const [newCursor, keys] = await this.scan(
       cursor,
@@ -169,11 +174,6 @@ async function sync(targetRedisList, pattern, options = {}) {
     );
     cursor = newCursor;
     if (keys.length) {
-      const pipelines = targetRedisList.map((target) => {
-        const p = target.pipeline();
-        p.org = target;
-        return p;
-      });
       for (const key of keys) {
         const type = await this.type(key);
         const ttlPromise = this.ttl(key);

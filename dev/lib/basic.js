@@ -1,5 +1,4 @@
 export {
-  myip,
   // path路径相关
   exepath,
   exedir,
@@ -65,7 +64,6 @@ import fs from "fs";
 import crypto from "crypto";
 import { dirname, resolve, join, normalize, isAbsolute, sep } from "path";
 import yaml from "yaml";
-import os from "os";
 const platform = process.platform; //win32|linux|darwin
 const slice_len_file = platform == "win32" ? 8 : 7;
 const exepath = process.env.KIT_EXEPATH || process.argv[1]; //执行文件的路径,如果使用如pm2等工具需要设置,补偿process.argv[1]的修改
@@ -138,32 +136,6 @@ function addobjs(...objects) {
     result[key] = objects.reduce((sum, obj) => sum + (obj[key] || 0), 0);
     return result;
   }, {});
-}
-function myip() {
-  const networkInterfaces = os.networkInterfaces();
-  let arr = [];
-  // 遍历所有网络接口
-  for (const interfaceName in networkInterfaces) {
-    const interfaces = networkInterfaces[interfaceName];
-    for (const infa of interfaces) {
-      // 过滤IPv4地址且不是内部地址 本地回环时 infa.internal=true
-      // 优先返回公网ip
-      if (infa.family === "IPv4" && !infa.internal) {
-        // console.log(`IP地址: ${infa.address}`);
-        if (
-          infa.address.startsWith("10.") || //A类私有 大型企业内网
-          infa.address.startsWith("192.168.") //C类私有 小型内网
-        )
-          arr.push(infa.address);
-        else if (infa.address.startsWith("172.")) {
-          //排除掉B类私有 虚拟机网络
-          const n = infa.address.split(".")[1];
-          if (n < 16 && n > 31) return infa.address;
-        } else return infa.address;
-      }
-    }
-  }
-  return arr.length > 0 ? arr[0] : "127.0.0.1";
 }
 /**
  * gcatch 捕获全局异常

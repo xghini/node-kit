@@ -1,4 +1,4 @@
-export { req, h2req, h1req };
+export { req, h2req, h1req, myip };
 import http2 from "http2";
 import https from "https";
 import http from "http";
@@ -14,6 +14,7 @@ const d_headers = {
     "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/119.0.0.0 Safari/537.36",
 };
 const d_timeout = 8000;
+
 /*
  * req直接发请求(适合简单发送)
  * @example
@@ -168,7 +169,7 @@ async function h2req(...argv) {
     const timeout = options.timeout || d_timeout;
     const timeoutId = setTimeout(() => {
       req.close();
-      console.error(`H2 req timeout >${timeout}ms`,urlobj.host);
+      console.error(`H2 req timeout >${timeout}ms`, urlobj.host);
       resolve(resbuild.bind(reqbd)(false, "h2", 408));
       // throw new Error(`H2 req timeout >${timeout}ms`);
       // return resolve(`timeout >${timeout}ms`);
@@ -260,7 +261,9 @@ async function h1req(...argv) {
     });
     req.on("timeout", () => {
       // 此destroy后再触发onerror来传递错误
-      req.destroy(new Error(`HTTP/1.1 req timeout >${options.timeout}ms`,urlobj.host));
+      req.destroy(
+        new Error(`HTTP/1.1 req timeout >${options.timeout}ms`, urlobj.host)
+      );
       // req.destroy();
       // resolve(`timeout >${options.timeout}ms`);
       resolve(resbuild.bind(reqbd)(false, "http/1.1", 408));
@@ -508,4 +511,38 @@ async function resbuild(ok, protocol, code, headers, body) {
     reset_hds: { enumerable: false, writable: false, configurable: false },
     reset_ops: { enumerable: false, writable: false, configurable: false },
   });
+}
+
+const myip =
+  (await h1req("http://ipv4.ifconfig.me/ip")).body ||
+  (await h1req("http://v4.ident.me")).body ||
+  (await h1req("http://ipv4.icanhazip.com")).body ||
+  fn_myip();
+
+// 以下的公网私网推断还不错,留供参考
+function fn_myip() {
+  const networkInterfaces = os.networkInterfaces();
+  let arr = [];
+  // 遍历所有网络接口
+  for (const interfaceName in networkInterfaces) {
+    const interfaces = networkInterfaces[interfaceName];
+    for (const infa of interfaces) {
+      // 过滤IPv4地址且不是内部地址 本地回环时 infa.internal=true
+      // 优先返回公网ip
+      if (infa.family === "IPv4" && !infa.internal) {
+        // console.log(`IP地址: ${infa.address}`);
+        if (
+          infa.address.startsWith("10.") || //A类私有 大型企业内网
+          infa.address.startsWith("192.168.") //C类私有 小型内网
+        )
+          arr.push(infa.address);
+        else if (infa.address.startsWith("172.")) {
+          //排除掉B类私有 虚拟机网络
+          const n = infa.address.split(".")[1];
+          if (n < 16 && n > 31) return infa.address;
+        } else return infa.address;
+      }
+    }
+  }
+  return arr.length > 0 ? arr[0] : "127.0.0.1";
 }
