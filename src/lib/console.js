@@ -30,6 +30,43 @@ const error_map = new Map();
 const MAX_ERRORS = 1000;
 const TTL = 180000;
 let timer;
+function error_cache(args) {
+  const jerr = JSON.stringify(
+    args.map((arg) => (arg instanceof Error ? arg.message : arg))
+  );
+  const tmp = error_map.get(jerr);
+  const now = Date.now();
+  if (tmp) {
+    if (now - tmp.t < TTL) {
+      tmp.n++;
+      return 1;
+    }
+    tmp.t = now;
+    tmp.n++;
+    args.push(tmp.n);
+  } else {
+    if (error_map.size >= MAX_ERRORS) {
+      const oldestKey = Array.from(error_map.entries()).sort(
+        (a, b) => a[1].t - b[1].t
+      )[0][0];
+      error_map.delete(oldestKey);
+    }
+    error_map.set(jerr, { t: now, n: 1 });
+  }
+  if (!timer) {
+    timer = setInterval(() => {
+      const now = Date.now();
+      error_map.forEach((v, k) => {
+        if (Date.now() - v.t > TTL) error_map.delete(k);
+      });
+      if (!error_map.size) {
+        clearInterval(timer);
+        timer = undefined;
+      }
+    }, TTL + 15000);
+  }
+  return 0;
+}
 const sep_file = process.platform == "win32" ? "file:///" : "file://"; 
 console.sm = csm; 
 console.dev = cdev.bind({ info: -1 }); 
@@ -186,31 +223,7 @@ function clog(...args) {
   originalLog(...arvg_final(args), `${reset}`);
 }
 function cerror(...args) {
-  const jerr = JSON.stringify(
-    args.map((arg) => (arg instanceof Error ? arg.message : arg))
-  );
-  const now = Date.now();
-  const tmp = error_map.get(jerr);
-  if (tmp && now - tmp.t < TTL) return;
-  if (error_map.size >= MAX_ERRORS) {
-    const oldestKey = Array.from(error_map.entries()).sort(
-      (a, b) => a[1].t - b[1].t
-    )[0][0];
-    error_map.delete(oldestKey);
-  }
-  error_map.set(jerr, { t: now });
-  if (!timer) {
-    timer = setInterval(() => {
-      const now = Date.now();
-      error_map.forEach((v, k) => {
-        if (Date.now() - v.t > TTL) error_map.delete(k);
-      });
-      if (!error_map.size) {
-        clearInterval(timer);
-        timer = undefined;
-      }
-    }, TTL + 15000);
-  }
+  if (error_cache(args)) return;
   const mainstyle = `${reset}${red}`;
   let pre = preStyle(this, mainstyle);
   if (!pre) return;
