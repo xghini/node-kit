@@ -4,11 +4,12 @@ import https from "https";
 import http from "http";
 import { empty } from "../index.js";
 import { br_decompress, inflate, zstd_decompress, gunzip } from "../codec.js";
+import os from "os";
 
 // 缓存 HTTP/2 连接
 const h2session = new Map();
 // 可能性拓展 maxSockets:256 maxSessionMemory:64 maxConcurrentStreams:100 minVersion:'TLSv1.2' ciphers ca cert key
-const options_keys = ["settings", "cert", "timeout", "json", "auth"];
+const options_keys = ["settings", "cert", "timeout", "json", "auth", "ua"];
 const d_headers = {
   "user-agent":
     "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/119.0.0.0 Safari/537.36",
@@ -58,7 +59,7 @@ async function req(...argv) {
     } else {
       // const stack = error.stack.split("\n");
       // console.error(stack[0], stack[1]);
-      console.error(error);
+      console.error(error, "目标服务器无法连接");
       return resbuild.bind(reqbd)(false);
     }
   }
@@ -255,7 +256,7 @@ async function h1req(...argv) {
       }
     });
     req.on("error", (error) => {
-      console.error(error.message);
+      console.error(error.message, "目标存在可能是http:");
       // reject(error);
       resolve(resbuild.bind(reqbd)(false, "http/1.1"));
     });
@@ -456,9 +457,8 @@ function reqbuild(...argv) {
             : new URLSearchParams(options.param).toString();
         delete options.param;
       }
-      if ("auth" in options) {
-        headers["authorization"] = options.auth;
-      }
+      if ("auth" in options) headers["authorization"] = options.auth;
+      if ("ua" in options) headers["user-agent"] = options.ua;
     }
 
     return new Reqbd({
@@ -514,13 +514,13 @@ async function resbuild(ok, protocol, code, headers, body) {
 }
 
 const myip =
-  (await h1req("http://ipv4.ifconfig.me/ip")).body ||
   (await h1req("http://v4.ident.me")).body ||
   (await h1req("http://ipv4.icanhazip.com")).body ||
   fn_myip();
 
 // 以下的公网私网推断还不错,留供参考
 function fn_myip() {
+  console.log(111);
   const networkInterfaces = os.networkInterfaces();
   let arr = [];
   // 遍历所有网络接口

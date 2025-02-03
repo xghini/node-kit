@@ -4,8 +4,9 @@ import https from "https";
 import http from "http";
 import { empty } from "../index.js";
 import { br_decompress, inflate, zstd_decompress, gunzip } from "../codec.js";
+import os from "os";
 const h2session = new Map();
-const options_keys = ["settings", "cert", "timeout", "json", "auth"];
+const options_keys = ["settings", "cert", "timeout", "json", "auth", "ua"];
 const d_headers = {
     "user-agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/119.0.0.0 Safari/537.36",
 };
@@ -29,7 +30,7 @@ async function req(...argv) {
             console.error(error.code, "maybe", reqbd.urlobj.protocol === "https:" ? "http" : "https");
         }
         else {
-            console.error(error);
+            console.error(error, "目标服务器无法连接");
             return resbuild.bind(reqbd)(false);
         }
     }
@@ -188,7 +189,7 @@ async function h1req(...argv) {
             }
         });
         req.on("error", (error) => {
-            console.error(error.message);
+            console.error(error.message, "目标存在可能是http:");
             resolve(resbuild.bind(reqbd)(false, "http/1.1"));
         });
         req.on("timeout", () => {
@@ -356,9 +357,10 @@ function reqbuild(...argv) {
                         : new URLSearchParams(options.param).toString();
                 delete options.param;
             }
-            if ("auth" in options) {
+            if ("auth" in options)
                 headers["authorization"] = options.auth;
-            }
+            if ("ua" in options)
+                headers["user-agent"] = options.ua;
         }
         return new Reqbd({
             h2session,
@@ -412,11 +414,11 @@ async function resbuild(ok, protocol, code, headers, body) {
         reset_ops: { enumerable: false, writable: false, configurable: false },
     });
 }
-const myip = (await h1req("http://ipv4.ifconfig.me/ip")).body ||
-    (await h1req("http://v4.ident.me")).body ||
+const myip = (await h1req("http://v4.ident.me")).body ||
     (await h1req("http://ipv4.icanhazip.com")).body ||
     fn_myip();
 function fn_myip() {
+    console.log(111);
     const networkInterfaces = os.networkInterfaces();
     let arr = [];
     for (const interfaceName in networkInterfaces) {

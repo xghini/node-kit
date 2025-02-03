@@ -72,7 +72,6 @@ function error_cache(args) {
   return 0;
 }
 
-
 const sep_file = process.platform == "win32" ? "file:///" : "file://"; //win32|linux|darwin
 console.sm = csm; //对长内容能简短输出 smart simple small
 console.dev = cdev.bind({ info: -1 }); //
@@ -244,6 +243,7 @@ function cerror(...args) {
   const mainstyle = `${reset}${red}`;
   let pre = preStyle(this, mainstyle);
   if (!pre) return;
+  console.log("???",this,csconf);
   process.stdout.write(pre);
   originalError(
     ...args.map((item) => {

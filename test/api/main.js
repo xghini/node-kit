@@ -3,8 +3,8 @@ import conf from "./conf.js";
 import lua from "./lua.js";
 // import * as auth from "./auth.js";
 // import * as user from "./user.js";
-kit.cs(66);
-const server = await kit.hs();
+kit.cs(6);
+const server = await kit.h2s();
 // server._404 = 0;
 // Alpha
 server.addr("/v1/test", test);
