@@ -204,7 +204,6 @@ function cerror(...args) {
     let pre = preStyle(this, mainstyle);
     if (!pre)
         return;
-    console.log("???", this, csconf);
     process.stdout.write(pre);
     originalError(...args.map((item) => {
         if (item instanceof Error) {

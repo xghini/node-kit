@@ -74,7 +74,6 @@ async function h2connect(obj) {
 async function h2req(...argv) {
     const reqbd = reqbuild(...argv);
     let { urlobj, method, headers, body, options } = reqbd;
-    console.dev("h2", urlobj.protocol, method, body);
     headers = {
         ...d_headers,
         ...headers,
@@ -152,7 +151,6 @@ const httpAgent = new http.Agent({
 async function h1req(...argv) {
     const reqbd = reqbuild(...argv);
     let { urlobj, method, body, headers, options } = reqbd;
-    console.dev("h1", urlobj.protocol, method, body);
     const protocol = urlobj.protocol === "https:" ? https : http;
     const agent = urlobj.protocol === "https:" ? httpsAgent : httpAgent;
     const new_headers = {

@@ -227,7 +227,6 @@ function cerror(...args) {
   const mainstyle = `${reset}${red}`;
   let pre = preStyle(this, mainstyle);
   if (!pre) return;
-  console.log("???",this,csconf);
   process.stdout.write(pre);
   originalError(
     ...args.map((item) => {

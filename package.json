@@ -1,6 +1,6 @@
 {
   "name": "@ghini/kit",
-  "version": "3.3.17",
+  "version": "3.4.1",
   "scripts": {
     "build": "node ./build.js && tsc",
     "pub": "npm run build && npm publish"
@@ -19,7 +19,8 @@
   "type": "module",
   "keywords": [
     "kit",
-    "http2",
+    "server",
+    "request",
     "db",
     "redis",
     "io"
@@ -29,11 +30,11 @@
   "dependencies": {
     "acorn": "8.14.0",
     "ioredis": "5.4.2",
-    "pg": "^8.13.1",
+    "pg": "8.13.1",
     "yaml": "2.7.0"
   },
   "devDependencies": {
-    "@types/node": "22.10.7",
+    "@types/node": "22.13.1",
     "typescript": "5.7.3"
   }
 }

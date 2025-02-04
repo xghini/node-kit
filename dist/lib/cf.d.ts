@@ -1,19 +1,20 @@
-export function cf(obj: any): {
+export function cf(obj: any): Promise<{
     auth: string;
     domain: any;
+    zid: any;
     getZoneId: typeof getZoneId;
     add: typeof add;
     madd: typeof madd;
-    edit: typeof edit;
-    medit: typeof medit;
+    set: typeof set;
+    mset: typeof mset;
     del: typeof del;
     mdel: typeof mdel;
-};
+}>;
 declare function getZoneId(): Promise<any>;
 declare function add(json: any): Promise<void>;
 declare function madd(arr: any): Promise<any[]>;
-declare function edit(str: any): Promise<void>;
-declare function medit(arr: any): Promise<any[]>;
+declare function set(str: any): Promise<void>;
+declare function mset(arr: any): Promise<any[]>;
 declare function del(pre: any): Promise<void>;
 declare function mdel(arr: any): Promise<any[]>;
 export {};

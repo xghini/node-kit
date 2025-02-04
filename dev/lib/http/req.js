@@ -121,7 +121,7 @@ async function h2connect(obj) {
 async function h2req(...argv) {
   const reqbd = reqbuild(...argv);
   let { urlobj, method, headers, body, options } = reqbd;
-  console.dev("h2", urlobj.protocol, method, body);
+  // console.dev("h2", urlobj.protocol, method, body);
   // 在connect('https://www.example.com')已经隐式设置了:authority和:scheme
   headers = {
     ...d_headers,
@@ -208,7 +208,7 @@ const httpAgent = new http.Agent({
 async function h1req(...argv) {
   const reqbd = reqbuild(...argv);
   let { urlobj, method, body, headers, options } = reqbd;
-  console.dev("h1", urlobj.protocol, method, body);
+  // console.dev("h1", urlobj.protocol, method, body);
   const protocol = urlobj.protocol === "https:" ? https : http;
   const agent = urlobj.protocol === "https:" ? httpsAgent : httpAgent;
   const new_headers = {

@@ -27,7 +27,7 @@ function hd_stream(server, stream, headers) {
         return {
             headers: headers,
             method: headers[":method"].toUpperCase(),
-            agent: headers["user-agent"] || '',
+            ua: headers["user-agent"] || '',
             ct: headers["content-type"] || '',
             auth: headers["authorization"] || '',
             protocol: stream.protocol,

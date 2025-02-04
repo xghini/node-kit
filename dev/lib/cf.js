@@ -2,15 +2,19 @@
 // cloudflare使用api的便捷封装
 import { req } from "./http/req.js";
 export { cf };
-function cf(obj) {
+async function cf(obj) {
+  const auth = "Bearer " + obj.key;
+  const domain = obj.domain;
+  const zid = await getZoneId.bind({auth, domain})();
   return {
-    auth: "Bearer " + obj.key,
-    domain: obj.domain,
+    auth,
+    domain,
+    zid,
     getZoneId,
     add,
     madd,
-    edit,
-    medit,
+    set,
+    mset,
     del,
     mdel,
   };
@@ -18,11 +22,11 @@ function cf(obj) {
 let res;
 async function getZoneId() {
   try {
+    console.log(this);
     const res = await req(
       `https://api.cloudflare.com/client/v4/zones?name=${this.domain}`,
       { auth: this.auth }
     );
-
     if (res.data.success && res.data.result.length > 0) {
       return res.data.result[0].id;
     } else {
@@ -33,22 +37,21 @@ async function getZoneId() {
     return null;
   }
 }
-async function medit(arr) {
-  return Promise.all(arr.map((item) => this.edit(item)));
+async function mset(arr) {
+  return Promise.all(arr.map((item) => this.set(item)));
 }
 // 查询ID+修改(没有批量)
-async function edit(str) {
+async function set(str) {
   const [pre, ip] = str.split(" ");
-  const zid = await this.getZoneId();
   const host = pre + "." + this.domain;
   res = await req(
-    `https://api.cloudflare.com/client/v4/zones/${zid}/dns_records?type=A&name=${host}`,
+    `https://api.cloudflare.com/client/v4/zones/${this.zid}/dns_records?type=A&name=${host}`,
     { auth: this.auth }
   );
   // console.log(res.data);
   if (res.data.result.length > 0) {
     res = await req(
-      `https://api.cloudflare.com/client/v4/zones/${zid}/dns_records/${res.data.result[0].id} put`,
+      `https://api.cloudflare.com/client/v4/zones/${this.zid}/dns_records/${res.data.result[0].id} put`,
       {
         auth: this.auth,
         json: {
@@ -59,9 +62,20 @@ async function edit(str) {
         },
       }
     );
-    console.log(`${host}`,res.data.success ? "修改成功" : res.data.errors[0].message);
+    console.log(
+      `${host}`,
+      res.data.success ? "修改成功" : res.data.errors[0].message
+    );
   } else {
-    console.log(`${host}`, "域名未找到或权限不足");
+    console.log(`${host}`, "域名未找到或权限不足,尝试添加");
+    await add.bind({
+      auth: this.auth,
+      zid: this.zid,
+    })({
+      type: "A",
+      name: host,
+      content: ip,
+    });
   }
 }
 
@@ -79,9 +93,8 @@ async function madd(arr) {
  * }
  */
 async function add(json) {
-  const zid = await this.getZoneId();
   res = await req(
-    `https://api.cloudflare.com/client/v4/zones/${zid}/dns_records post`,
+    `https://api.cloudflare.com/client/v4/zones/${this.zid}/dns_records post`,
     {
       auth: this.auth,
       json,
@@ -99,10 +112,9 @@ async function mdel(arr) {
 // 删除单个记录（需先查询 ID）
 async function del(pre) {
   // 1. 查询记录 ID（保持原逻辑）
-  const zid = await this.getZoneId();
   const host = pre + "." + this.domain;
   let res = await req(
-    `https://api.cloudflare.com/client/v4/zones/${zid}/dns_records?type=A&name=${host}`,
+    `https://api.cloudflare.com/client/v4/zones/${this.zid}/dns_records?type=A&name=${host}`,
     { auth: this.auth }
   );
   const recordId = res.data.result[0]?.id;
@@ -111,7 +123,7 @@ async function del(pre) {
     return;
   }
   res = await res.req(
-    `https://api.cloudflare.com/client/v4/zones/${zid}/dns_records/${recordId} delete`
+    `https://api.cloudflare.com/client/v4/zones/${this.zid}/dns_records/${recordId} delete`
   );
   console.log(`删除${host}: ${res.data.success ? "成功" : "失败"}`);
 }

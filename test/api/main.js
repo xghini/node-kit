@@ -4,7 +4,7 @@ import lua from "./lua.js";
 // import * as auth from "./auth.js";
 // import * as user from "./user.js";
 kit.cs(6);
-const server = await kit.h2s();
+const server = await kit.hs();
 // server._404 = 0;
 // Alpha
 server.addr("/v1/test", test);
