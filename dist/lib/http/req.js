@@ -187,7 +187,7 @@ async function h1req(...argv) {
             }
         });
         req.on("error", (error) => {
-            console.error(error.message, "目标存在可能是http:");
+            console.error(error.message, "目标存在，当前协议不通");
             resolve(resbuild.bind(reqbd)(false, "http/1.1"));
         });
         req.on("timeout", () => {

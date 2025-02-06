@@ -1,3 +1,4 @@
+// lua.js
 import { rf, xpath } from "../basic.js";
 function load(path) {
   return rf(xpath(path, import.meta.dirname))

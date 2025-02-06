@@ -50,7 +50,15 @@ async function sum(pattern, fields) {
       pattern,
       JSON.stringify(fields)
     );
-    return Object.fromEntries(result);
+    const resultObj = {};
+    for (const [key, value] of result) {
+      if (key === 'debug') {
+        console.log('Debug info:', JSON.parse(value));
+      } else {
+        resultObj[key] = value;
+      }
+    }
+    return resultObj;
   } catch (error) {
     console.error('Sum error:', error);
     throw error;

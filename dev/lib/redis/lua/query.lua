@@ -1,109 +1,121 @@
--- query.lua
+-- Get parameters
 local pattern = ARGV[1]
-local conditions = cjson.decode(ARGV[2])
-local target_type = ARGV[3]
-local keys = redis.call('KEYS', pattern)
-local result = {}
+local sort_field = ARGV[2]
+local sort_order = ARGV[3]
+local limit = tonumber(ARGV[4]) or 0
+local fields = ARGV[5]
+local filter_count = tonumber(ARGV[6])
 
-local function check_range(value, range_conditions)
-    local num_value = tonumber(value)
-    if not num_value then return false end
-    
-    for i = 1, #range_conditions, 2 do
-        local op = range_conditions[i]
-        local compare_value = tonumber(range_conditions[i + 1])
-        
-        if op == ">" and not (num_value > compare_value) then
-            return false
-        elseif op == ">=" and not (num_value >= compare_value) then
-            return false
-        elseif op == "<" and not (num_value < compare_value) then
-            return false
-        elseif op == "<=" and not (num_value <= compare_value) then
-            return false
-        end
-    end
-    return true
-end
-
-local function check_condition(value, condition)
-    if type(condition) == 'table' then
-        return check_range(value, condition)
-    elseif type(condition) == 'string' and string.find(condition, "*", 1, true) then
-        local pattern = string.gsub(condition, "*", ".*")
-        return string.match(value, pattern) ~= nil
-    else
-        local val1 = tonumber(value)
-        local val2 = tonumber(condition)
-        if val1 and val2 then
-            return val1 == val2
-        end
-        return tostring(value) == tostring(condition)
+-- Parse fields if provided
+local field_list = {}
+if fields ~= '' then
+    for field in string.gmatch(fields, '[^,]+') do
+        table.insert(field_list, field)
     end
 end
 
-local function get_key_data(key, key_type)
-    local data = {}
-    
-    if key_type == 'hash' then
-        local hash = redis.call('HGETALL', key)
-        for j = 1, #hash, 2 do
-            data[hash[j]] = hash[j + 1]
-        end
-    elseif key_type == 'string' then
-        data['value'] = redis.call('GET', key)
-    elseif key_type == 'set' then
-        data['members'] = redis.call('SMEMBERS', key)
-    elseif key_type == 'zset' then
-        data['values'] = redis.call('ZRANGE', key, 0, -1, 'WITHSCORES')
-    elseif key_type == 'list' then
-        data['values'] = redis.call('LRANGE', key, 0, -1)
-    end
-    
-    return data
+-- Parse filters
+local filters = {}
+local i = 7
+while i <= 6 + filter_count do
+    local key = ARGV[i]
+    local op = ARGV[i + 1]
+    local value = ARGV[i + 2]
+    filters[#filters + 1] = {key, op, value}
+    i = i + 3
 end
 
-for _, key in ipairs(keys) do
-    local key_type = redis.call('TYPE', key).ok
+-- Scan keys matching pattern
+local results = {}
+local cursor = "0"
+repeat
+    local res = redis.call("SCAN", cursor, "MATCH", pattern)
+    cursor = res[1]
+    local keys = res[2]
     
-    -- 如果指定了类型且不匹配，跳过该键
-    if target_type and target_type ~= '' and key_type ~= target_type then
-        -- Skip this key
-    else
-        local data = get_key_data(key, key_type)
-        local matches = true
-        
-        -- 根据类型和条件检查
-        for field, condition in pairs(conditions) do
-            local value
-            
-            if key_type == 'hash' then
-                value = data[field]
-            elseif key_type == 'string' and field == 'value' then
-                value = data['value']
-            elseif key_type == 'set' and field == 'members' then
-                value = data['members']
-            elseif key_type == 'zset' and field == 'values' then
-                value = data['values']
-            elseif key_type == 'list' and field == 'values' then
-                value = data['values']
-            end
-            
-            if value == nil then
-                matches = false
-                break
-            end
-            
-            if not check_condition(value, condition) then
-                matches = false
-                break
+    for _, key in ipairs(keys) do
+        -- Skip non-hash keys
+        if redis.call("TYPE", key).ok == "hash" then
+            if #field_list == 0 then
+                -- If no fields specified, just collect keys
+                table.insert(results, key)
+            else
+                local row = {key}
+                local match = true
+                
+                -- Get values and check filters
+                for _, field in ipairs(field_list) do
+                    local value = redis.call("HGET", key, field)
+                    table.insert(row, value or cjson.null)
+                    
+                    -- Check filters for this field
+                    for _, filter in ipairs(filters) do
+                        if filter[1] == field then
+                            local op, val = filter[2], filter[3]
+                            
+                            -- Convert to number if possible
+                            if value == nil or value == cjson.null then
+                                match = false
+                                break
+                            end
+                            
+                            if tonumber(value) then value = tonumber(value) end
+                            if tonumber(val) then val = tonumber(val) end
+                            
+                            if op == "=" and value ~= val then
+                                match = false
+                            elseif op == ">" and value <= val then
+                                match = false
+                            elseif op == "<" and value >= val then
+                                match = false
+                            elseif op == ">=" and value < val then
+                                match = false
+                            elseif op == "<=" and value > val then
+                                match = false
+                            end
+                        end
+                    end
+                    if not match then
+                        break
+                    end
+                end
+                
+                if match then
+                    table.insert(results, row)
+                end
             end
         end
-        
-        if matches then
-            table.insert(result, key)
+    end
+until cursor == "0"
+
+-- Sort results if sort field is specified and fields are selected
+if sort_field ~= '' and #field_list > 0 then
+    local sort_index = 1
+    for i, field in ipairs(field_list) do
+        if field == sort_field then
+            sort_index = i + 1  -- +1 because first element is key
+            break
         end
     end
+    
+    table.sort(results, function(a, b)
+        local a_val = tonumber(a[sort_index]) or a[sort_index]
+        local b_val = tonumber(b[sort_index]) or b[sort_index]
+        if sort_order == 'desc' then
+            return a_val > b_val
+        else
+            return a_val < b_val
+        end
+    end)
 end
 
-return result
+-- Apply limit
+if limit > 0 and #results > limit then
+    local limited = {}
+    for i = 1, limit do
+        limited[i] = results[i]
+    end
+    results = limited
+end
+
+return cjson.encode(results)

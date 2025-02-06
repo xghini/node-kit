@@ -10,6 +10,7 @@ const obj2 = {
   team3: { salary: 1500, bonus: 400 }
 };
 
+
 console.log(addTwoDimensionalObjects(obj1, obj2));
 /*
 输出:
@@ -21,7 +22,7 @@ console.log(addTwoDimensionalObjects(obj1, obj2));
 */
 
 
-
+// 
 function addobjs(...objects) {
   const keys = [...new Set(objects.flatMap((obj) => Object.keys(obj)))];
   return keys.reduce((result, key) => {

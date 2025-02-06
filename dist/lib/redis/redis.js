@@ -33,7 +33,16 @@ async function sum(pattern, fields) {
             throw new Error('Fields must be an array');
         }
         const result = await this.eval(lua.sum, 0, pattern, JSON.stringify(fields));
-        return Object.fromEntries(result);
+        const resultObj = {};
+        for (const [key, value] of result) {
+            if (key === 'debug') {
+                console.log('Debug info:', JSON.parse(value));
+            }
+            else {
+                resultObj[key] = value;
+            }
+        }
+        return resultObj;
     }
     catch (error) {
         console.error('Sum error:', error);

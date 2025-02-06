@@ -256,18 +256,18 @@ async function h1req(...argv) {
       }
     });
     req.on("error", (error) => {
-      console.error(error.message, "目标存在可能是http:");
+      if(!error.message)console.error(error.message, "目标存在，当前协议不通");
       // reject(error);
       resolve(resbuild.bind(reqbd)(false, "http/1.1"));
     });
     req.on("timeout", () => {
       // 此destroy后再触发onerror来传递错误
-      req.destroy(
-        new Error(`HTTP/1.1 req timeout >${options.timeout}ms`, urlobj.host)
-      );
-      // req.destroy();
-      // resolve(`timeout >${options.timeout}ms`);
+      // req.destroy(
+      //   new Error(`HTTP/1.1 req timeout >${options.timeout}ms`, urlobj.host)
+      // );
+      console.error(`HTTP/1.1 req timeout >${options.timeout}ms`, urlobj.host)
       resolve(resbuild.bind(reqbd)(false, "http/1.1", 408));
+      req.destroy();
     });
     // req.on("socket", (socket) => {
     //   if (socket.connecting) {
@@ -514,13 +514,12 @@ async function resbuild(ok, protocol, code, headers, body) {
 }
 
 const myip =
-  (await h1req("http://v4.ident.me")).body ||
-  (await h1req("http://ipv4.icanhazip.com")).body ||
+  (await h1req("http://ipv4.icanhazip.com",{timeout:1500})).body ||
+  (await h1req("http://v4.ident.me",{timeout:1500})).body ||
   fn_myip();
 
 // 以下的公网私网推断还不错,留供参考
 function fn_myip() {
-  console.log(111);
   const networkInterfaces = os.networkInterfaces();
   let arr = [];
   // 遍历所有网络接口

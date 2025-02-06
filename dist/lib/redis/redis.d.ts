@@ -10,7 +10,5 @@ declare function scankey(pattern: any): Promise<any>;
 declare function scankeys(pattern: any): Promise<any[]>;
 declare function sync(targetRedisList: any, pattern: any, options?: any): Promise<void>;
 declare function query(pattern: string, options?: object, type?: string): Promise<string[]>;
-declare function sum(pattern: any, fields: any): Promise<{
-    [k: string]: any;
-}>;
+declare function sum(pattern: any, fields: any): Promise<{}>;
 export {};

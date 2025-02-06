@@ -19,34 +19,37 @@ function xredis(...argv) {
     scankey,
     scankeys,
     sync,
-    query,
+    hquery,
     sum
   });
 }
-/**
- * 查询 Redis 键
- * @param {string} pattern - 键模式
- * @param {object} options - 查询条件
- * @param {string} [type] - Redis 数据类型 ('hash'|'string'|'set'|'zset'|'list')
- * @returns {Promise<string[]>} 匹配的键列表
- */
-async function query(pattern, options = {}, type = '') {
-  try {
-    if (!pattern || typeof pattern !== 'string') {
-      throw new Error('Pattern must be a string');
+async function hquery(pattern, options = {}) {
+  const {
+    _sortby,
+    _sort = 'asc',
+    _limit,
+    _fields,
+    ...filters
+  } = options;
+  const filterArray = [];
+  for (const [key, value] of Object.entries(filters)) {
+    if (Array.isArray(value)) {
+      filterArray.push(key, ...value);
+    } else {
+      filterArray.push(key, '=', value);
     }
-
-    return await this.eval(
-      lua.query,
-      0,
-      pattern,
-      JSON.stringify(options),
-      type
-    );
-  } catch (error) {
-    console.error('Query error:', error);
-    throw error;
   }
+  const params = [
+    pattern,
+    _sortby || '',
+    _sort || '',
+    _limit || 0,
+    _fields ? _fields.join(',') : '',
+    filterArray.length,
+    ...filterArray
+  ];
+  const result = await this.eval(lua.query, 0, ...params);
+  return JSON.parse(result);
 }
 
 async function sum(pattern, fields) {
@@ -63,7 +66,17 @@ async function sum(pattern, fields) {
       pattern,
       JSON.stringify(fields)
     );
-    return Object.fromEntries(result);
+    
+    // 提取并打印调试信息
+    const resultObj = {};
+    for (const [key, value] of result) {
+      if (key === 'debug') {
+        console.log('Debug info:', JSON.parse(value));
+      } else {
+        resultObj[key] = value;
+      }
+    }
+    return resultObj;
   } catch (error) {
     console.error('Sum error:', error);
     throw error;
