@@ -1,5 +1,5 @@
 export {
-  exepath,
+  exefile,
   exedir,
   exeroot,
   metaroot,
@@ -62,9 +62,10 @@ import yaml from "yaml";
 import { exec } from "child_process";
 const platform = process.platform; 
 const slice_len_file = platform == "win32" ? 8 : 7;
-const exepath = process.env.KIT_EXEPATH || process.argv[1]; 
-const exedir = dirname(exepath);
-const exeroot = findPackageJsonDir(exepath);
+const exefile =
+  process.env.KIT_EXEPATH || process.env.KIT_EXEFILE || process.argv[1]; 
+const exedir = dirname(exefile);
+const exeroot = findPackageJsonDir(exefile);
 /**
  * 当前库的rootpath
  * @returns {string} 返回当前文件所处最近nodejs项目的绝对路径
@@ -305,7 +306,7 @@ function env(filePath, cover = false) {
     else {
       filePath = join(exeroot, ".env");
       if (!isfile(filePath)) {
-        filePath = join(exepath, ".env");
+        filePath = join(exefile, ".env");
         if (!isfile(filePath)) return null;
       }
     }
@@ -649,7 +650,7 @@ function ast_jsbuild(code) {
  * @returns {object}
  */
 function xreq(path) {
-  const require = createRequire(exepath);
+  const require = createRequire(exefile);
   return require(path);
 }
 /**

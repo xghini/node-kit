@@ -1,22 +1,75 @@
 export { xredis };
 import Redis from "ioredis";
+import lua from "./lua.js";
 // import { sync } from "./sync.js";
 
+
+
+/*
+使用lua，完成联表查询的redis封装
+1.
+找到pattern='plan:*'的hash中stop字段为1的key 
+找到pattern='user:*'的hash中plans字段为mSIusSz2Ku3YUWxB85cQa1的key
+2.
+*/
 function xredis(...argv) {
   const redis = new Redis(...argv);
-  let x = 0,
-    y = 10;
-  redis.on("error", (err) => {
-    // 避免一直抱错
-    if (x % y === 0) console.error(err, y === 100 ? (y = 1000) : (y = 100));
-    x++;
-  });
+  redis.on("error", (err) => console.error(err));
   return Object.assign(redis, {
     scankey,
     scankeys,
     sync,
+    query,
+    sum
   });
 }
+/**
+ * 查询 Redis 键
+ * @param {string} pattern - 键模式
+ * @param {object} options - 查询条件
+ * @param {string} [type] - Redis 数据类型 ('hash'|'string'|'set'|'zset'|'list')
+ * @returns {Promise<string[]>} 匹配的键列表
+ */
+async function query(pattern, options = {}, type = '') {
+  try {
+    if (!pattern || typeof pattern !== 'string') {
+      throw new Error('Pattern must be a string');
+    }
+
+    return await this.eval(
+      lua.query,
+      0,
+      pattern,
+      JSON.stringify(options),
+      type
+    );
+  } catch (error) {
+    console.error('Query error:', error);
+    throw error;
+  }
+}
+
+async function sum(pattern, fields) {
+  try {
+    if (!pattern || typeof pattern !== 'string') {
+      throw new Error('Pattern must be a string');
+    }
+    if (!Array.isArray(fields)) {
+      throw new Error('Fields must be an array');
+    }
+    const result = await this.eval(
+      lua.sum,
+      0,
+      pattern,
+      JSON.stringify(fields)
+    );
+    return Object.fromEntries(result);
+  } catch (error) {
+    console.error('Sum error:', error);
+    throw error;
+  }
+}
+
 // 用scan找到首个匹配的key返回
 async function scankey(pattern) {
   let cursor = "0";

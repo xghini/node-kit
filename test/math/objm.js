@@ -1,3 +1,4 @@
+import { a0,obj2d_0,obj2d_1 } from './data.js'
 // 让我们用一个实际的例子来测试：
 const obj1 = {
   team1: { salary: 1000, bonus: 200 },

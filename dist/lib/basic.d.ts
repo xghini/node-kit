@@ -1,4 +1,4 @@
-export const exepath: string;
+export const exefile: string;
 export const exedir: string;
 export const exeroot: any;
 export const metaroot: any;

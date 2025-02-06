@@ -1,18 +1,44 @@
 export { xredis };
 import Redis from "ioredis";
+import lua from "./lua.js";
 function xredis(...argv) {
     const redis = new Redis(...argv);
-    let x = 0, y = 10;
-    redis.on("error", (err) => {
-        if (x % y === 0)
-            console.error(err, y === 100 ? (y = 1000) : (y = 100));
-        x++;
-    });
+    redis.on("error", (err) => console.error(err));
     return Object.assign(redis, {
         scankey,
         scankeys,
         sync,
+        query,
+        sum
     });
+}
+async function query(pattern, options = {}, type = '') {
+    try {
+        if (!pattern || typeof pattern !== 'string') {
+            throw new Error('Pattern must be a string');
+        }
+        return await this.eval(lua.query, 0, pattern, JSON.stringify(options), type);
+    }
+    catch (error) {
+        console.error('Query error:', error);
+        throw error;
+    }
+}
+async function sum(pattern, fields) {
+    try {
+        if (!pattern || typeof pattern !== 'string') {
+            throw new Error('Pattern must be a string');
+        }
+        if (!Array.isArray(fields)) {
+            throw new Error('Fields must be an array');
+        }
+        const result = await this.eval(lua.sum, 0, pattern, JSON.stringify(fields));
+        return Object.fromEntries(result);
+    }
+    catch (error) {
+        console.error('Sum error:', error);
+        throw error;
+    }
 }
 async function scankey(pattern) {
     let cursor = "0";

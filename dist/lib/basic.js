@@ -1,4 +1,4 @@
-export { exepath, exedir, exeroot, metaroot, xpath, fileurl2path, sleep, interval, timelog, getDate, rf, wf, mkdir, isdir, isfile, dir, exist, rm, cp, env, exe, arf, awf, amkdir, aisdir, aisfile, adir, aexist, arm, aonedir, astat, aloadyml, aloadjson, cookie_obj, cookie_str, cookie_merge, cookies_obj, cookies_str, cookies_merge, mreplace, mreplace_calc, xreq, ast_jsbuild, gcatch, uuid, rint, rside, gchar, fhash, empty, addobjs, obj2v1, addTwoDimensionalObjects, };
+export { exefile, exedir, exeroot, metaroot, xpath, fileurl2path, sleep, interval, timelog, getDate, rf, wf, mkdir, isdir, isfile, dir, exist, rm, cp, env, exe, arf, awf, amkdir, aisdir, aisfile, adir, aexist, arm, aonedir, astat, aloadyml, aloadjson, cookie_obj, cookie_str, cookie_merge, cookies_obj, cookies_str, cookies_merge, mreplace, mreplace_calc, xreq, ast_jsbuild, gcatch, uuid, rint, rside, gchar, fhash, empty, addobjs, obj2v1, addTwoDimensionalObjects, };
 import { createRequire } from "module";
 import { parse } from "acorn";
 import fs from "fs";
@@ -8,9 +8,9 @@ import yaml from "yaml";
 import { exec } from "child_process";
 const platform = process.platform;
 const slice_len_file = platform == "win32" ? 8 : 7;
-const exepath = process.env.KIT_EXEPATH || process.argv[1];
-const exedir = dirname(exepath);
-const exeroot = findPackageJsonDir(exepath);
+const exefile = process.env.KIT_EXEPATH || process.env.KIT_EXEFILE || process.argv[1];
+const exedir = dirname(exefile);
+const exeroot = findPackageJsonDir(exefile);
 const metaroot = findPackageJsonDir(import.meta.dirname);
 let globalCatchError = false;
 function exe(command) {
@@ -203,7 +203,7 @@ function env(filePath, cover = false) {
         else {
             filePath = join(exeroot, ".env");
             if (!isfile(filePath)) {
-                filePath = join(exepath, ".env");
+                filePath = join(exefile, ".env");
                 if (!isfile(filePath))
                     return null;
             }
@@ -512,7 +512,7 @@ function ast_jsbuild(code) {
     return (newContent + code.slice(cursor)).replace(/^\s*[\r\n]/gm, "");
 }
 function xreq(path) {
-    const require = createRequire(exepath);
+    const require = createRequire(exefile);
     return require(path);
 }
 function rf(filename, option = "utf8") {
