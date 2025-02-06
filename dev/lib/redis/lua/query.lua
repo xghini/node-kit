@@ -1,3 +1,4 @@
+-- query.lua
 -- Get parameters
 local pattern = ARGV[1]
 local sort_field = ARGV[2]
@@ -32,55 +33,81 @@ repeat
     local res = redis.call("SCAN", cursor, "MATCH", pattern)
     cursor = res[1]
     local keys = res[2]
-    
+
     for _, key in ipairs(keys) do
         -- Skip non-hash keys
         if redis.call("TYPE", key).ok == "hash" then
-            if #field_list == 0 then
-                -- If no fields specified, just collect keys
-                table.insert(results, key)
-            else
-                local row = {key}
-                local match = true
+            local match = true
+            
+            -- 检查所有过滤器，无论是否指定了 fields
+            for _, filter in ipairs(filters) do
+                local field = filter[1]
+                local op = filter[2]
+                local val = filter[3]
+                local value = redis.call("HGET", key, field)
                 
-                -- Get values and check filters
-                for _, field in ipairs(field_list) do
-                    local value = redis.call("HGET", key, field)
-                    table.insert(row, value or cjson.null)
-                    
-                    -- Check filters for this field
-                    for _, filter in ipairs(filters) do
-                        if filter[1] == field then
-                            local op, val = filter[2], filter[3]
-                            
-                            -- Convert to number if possible
-                            if value == nil or value == cjson.null then
-                                match = false
+                if value == nil or value == cjson.null then
+                    match = false
+                    break
+                end
+
+                if op == "IN" then
+                    local values = cjson.decode(val)
+                    local matched = false
+                    for _, test_value in ipairs(values) do
+                        if string.find(test_value, "*", 1, true) then
+                            -- 通配符匹配
+                            local pattern = string.gsub(test_value, "%*", ".*")
+                            if string.match(value, pattern) then
+                                matched = true
                                 break
                             end
-                            
-                            if tonumber(value) then value = tonumber(value) end
-                            if tonumber(val) then val = tonumber(val) end
-                            
-                            if op == "=" and value ~= val then
-                                match = false
-                            elseif op == ">" and value <= val then
-                                match = false
-                            elseif op == "<" and value >= val then
-                                match = false
-                            elseif op == ">=" and value < val then
-                                match = false
-                            elseif op == "<=" and value > val then
-                                match = false
+                        else
+                            -- 精确匹配
+                            if value == test_value then
+                                matched = true
+                                break
                             end
                         end
                     end
-                    if not match then
+                    if not matched then
+                        match = false
+                        break
+                    end
+                else
+                    if tonumber(value) then value = tonumber(value) end
+                    if tonumber(val) then val = tonumber(val) end
+
+                    if op == "=" and value ~= val then
+                        match = false
+                        break
+                    elseif op == ">" and value <= val then
+                        match = false
+                        break
+                    elseif op == "<" and value >= val then
+                        match = false
+                        break
+                    elseif op == ">=" and value < val then
+                        match = false
+                        break
+                    elseif op == "<=" and value > val then
+                        match = false
                         break
                     end
                 end
-                
-                if match then
+            end
+
+            if match then
+                if #field_list == 0 then
+                    -- 如果没有指定字段，只返回key
+                    table.insert(results, key)
+                else
+                    -- 如果指定了字段，返回key和字段值
+                    local row = {key}
+                    for _, field in ipairs(field_list) do
+                        local value = redis.call("HGET", key, field)
+                        table.insert(row, value or cjson.null)
+                    end
                     table.insert(results, row)
                 end
             end
@@ -97,7 +124,7 @@ if sort_field ~= '' and #field_list > 0 then
             break
         end
     end
-    
+
     table.sort(results, function(a, b)
         local a_val = tonumber(a[sort_index]) or a[sort_index]
         local b_val = tonumber(b[sort_index]) or b[sort_index]

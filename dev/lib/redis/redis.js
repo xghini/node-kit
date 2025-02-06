@@ -31,14 +31,26 @@ async function hquery(pattern, options = {}) {
     _fields,
     ...filters
   } = options;
+  
   const filterArray = [];
+  
   for (const [key, value] of Object.entries(filters)) {
     if (Array.isArray(value)) {
-      filterArray.push(key, ...value);
+      // 检查第一个元素是否是操作符
+      const isOperatorArray = value[0] && ['>', '<', '>=', '<=', '='].includes(value[0]);
+      
+      if (isOperatorArray) {
+        // 原有的操作符数组逻辑
+        filterArray.push(key, ...value);
+      } else {
+        // 新的多值匹配逻辑
+        filterArray.push(key, 'IN', JSON.stringify(value));
+      }
     } else {
       filterArray.push(key, '=', value);
     }
   }
+
   const params = [
     pattern,
     _sortby || '',
@@ -48,6 +60,7 @@ async function hquery(pattern, options = {}) {
     filterArray.length,
     ...filterArray
   ];
+
   const result = await this.eval(lua.query, 0, ...params);
   return JSON.parse(result);
 }
