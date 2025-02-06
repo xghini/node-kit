@@ -8,35 +8,65 @@ function xredis(...argv) {
         scankey,
         scankeys,
         sync,
-        query,
-        sum
+        hquery,
+        sum,
+        join,
     });
 }
-async function query(pattern, options = {}, type = '') {
-    try {
-        if (!pattern || typeof pattern !== 'string') {
-            throw new Error('Pattern must be a string');
+async function join(aa, bb, cc, dd) {
+    let res = await this.hquery(aa, bb);
+    let res1 = await this.hquery(cc, {
+        [dd[0]]: res.map((v) => v[0].split(":")[1]),
+        _fields: dd,
+    });
+    res.forEach((v, i) => {
+        const tmp = res1.filter((v1) => v1[1] == v[0].split(":")[1])[0];
+        res[i] = [...v, ...tmp];
+    });
+    return res;
+}
+async function hquery(pattern, options = {}) {
+    const { _sortby, _sort = "asc", _limit, _fields, ...filters } = options;
+    const filterArray = [];
+    for (const [key, value] of Object.entries(filters)) {
+        if (Array.isArray(value)) {
+            const isOperatorArray = value[0] && [">", "<", ">=", "<=", "="].includes(value[0]);
+            if (isOperatorArray) {
+                filterArray.push(key, ...value);
+            }
+            else {
+                filterArray.push(key, "IN", JSON.stringify(value));
+            }
         }
-        return await this.eval(lua.query, 0, pattern, JSON.stringify(options), type);
+        else {
+            filterArray.push(key, "=", value);
+        }
     }
-    catch (error) {
-        console.error('Query error:', error);
-        throw error;
-    }
+    const params = [
+        pattern,
+        _sortby || "",
+        _sort || "",
+        _limit || 0,
+        _fields ? _fields.join(",") : "",
+        filterArray.length,
+        ...filterArray,
+    ];
+    const result = await this.eval(lua.query, 0, ...params);
+    return JSON.parse(result);
 }
 async function sum(pattern, fields) {
     try {
-        if (!pattern || typeof pattern !== 'string') {
-            throw new Error('Pattern must be a string');
+        if (!pattern || typeof pattern !== "string") {
+            throw new Error("Pattern must be a string");
         }
         if (!Array.isArray(fields)) {
-            throw new Error('Fields must be an array');
+            throw new Error("Fields must be an array");
         }
         const result = await this.eval(lua.sum, 0, pattern, JSON.stringify(fields));
         const resultObj = {};
         for (const [key, value] of result) {
-            if (key === 'debug') {
-                console.log('Debug info:', JSON.parse(value));
+            if (key === "debug") {
+                console.log("Debug info:", JSON.parse(value));
             }
             else {
                 resultObj[key] = value;
@@ -45,7 +75,7 @@ async function sum(pattern, fields) {
         return resultObj;
     }
     catch (error) {
-        console.error('Sum error:', error);
+        console.error("Sum error:", error);
         throw error;
     }
 }

@@ -187,12 +187,14 @@ async function h1req(...argv) {
             }
         });
         req.on("error", (error) => {
-            console.error(error.message, "目标存在，当前协议不通");
+            if (!error.message)
+                console.error(error.message, "目标存在，当前协议不通");
             resolve(resbuild.bind(reqbd)(false, "http/1.1"));
         });
         req.on("timeout", () => {
-            req.destroy(new Error(`HTTP/1.1 req timeout >${options.timeout}ms`, urlobj.host));
+            console.error(`HTTP/1.1 req timeout >${options.timeout}ms`, urlobj.host);
             resolve(resbuild.bind(reqbd)(false, "http/1.1", 408));
+            req.destroy();
         });
         if (!empty(body))
             req.write(body);
@@ -412,11 +414,10 @@ async function resbuild(ok, protocol, code, headers, body) {
         reset_ops: { enumerable: false, writable: false, configurable: false },
     });
 }
-const myip = (await h1req("http://v4.ident.me")).body ||
-    (await h1req("http://ipv4.icanhazip.com")).body ||
+const myip = (await h1req("http://ipv4.icanhazip.com", { timeout: 1500 })).body ||
+    (await h1req("http://v4.ident.me", { timeout: 1500 })).body ||
     fn_myip();
 function fn_myip() {
-    console.log(111);
     const networkInterfaces = os.networkInterfaces();
     let arr = [];
     for (const interfaceName in networkInterfaces) {

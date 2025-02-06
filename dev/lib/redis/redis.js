@@ -3,8 +3,6 @@ import Redis from "ioredis";
 import lua from "./lua.js";
 // import { sync } from "./sync.js";
 
-
-
 /*
 使用lua，完成联表查询的redis封装
 1.
@@ -20,78 +18,103 @@ function xredis(...argv) {
     scankeys,
     sync,
     hquery,
-    sum
+    sum,
+    join,
   });
 }
+/**
+ * 联表查询
+ * 由query1+条件+query2构成
+ * @param {*} aa 基本都是xx:*结构,其*部分作为关联字段值
+ * @param {*} bb 标准query options
+ * @param {*} cc 基本都是xx:*结构
+ * @param {*} dd _fields,dd[0]作为联表字段
+ * 更复杂的联表后面等有需求再改进补充
+ * @returns
+ * 
+ * example:
+ t3(
+    "plan:*",
+    {
+      download: [">", 1000000],
+      _sortby: "download",
+      _sort: "desc",
+      _limit: 10,
+      _fields: ["download", "upload"],
+    },
+    "user:*",
+    ["plans", "regdate", "pwd"]
+  );
+ * 此联表现阶段能很好的将plan和user连接起来.
+ */
+async function join(aa, bb, cc, dd) {
+  let res = await this.hquery(aa, bb);
+  // 找到他们的账号
+  let res1 = await this.hquery(cc, {
+    [dd[0]]: res.map((v) => v[0].split(":")[1]),
+    _fields: dd,
+  });
+  // 完成联表
+  res.forEach((v, i) => {
+    const tmp = res1.filter((v1) => v1[1] == v[0].split(":")[1])[0];
+    // v.push(tmp[0]);
+    res[i] = [...v, ...tmp];
+  });
+  return res;
+}
 async function hquery(pattern, options = {}) {
-  const {
-    _sortby,
-    _sort = 'asc',
-    _limit,
-    _fields,
-    ...filters
-  } = options;
-  
+  const { _sortby, _sort = "asc", _limit, _fields, ...filters } = options;
   const filterArray = [];
-  
   for (const [key, value] of Object.entries(filters)) {
     if (Array.isArray(value)) {
       // 检查第一个元素是否是操作符
-      const isOperatorArray = value[0] && ['>', '<', '>=', '<=', '='].includes(value[0]);
-      
+      const isOperatorArray =
+        value[0] && [">", "<", ">=", "<=", "="].includes(value[0]);
       if (isOperatorArray) {
         // 原有的操作符数组逻辑
         filterArray.push(key, ...value);
       } else {
         // 新的多值匹配逻辑
-        filterArray.push(key, 'IN', JSON.stringify(value));
+        filterArray.push(key, "IN", JSON.stringify(value));
       }
     } else {
-      filterArray.push(key, '=', value);
+      filterArray.push(key, "=", value);
     }
   }
-
   const params = [
     pattern,
-    _sortby || '',
-    _sort || '',
+    _sortby || "",
+    _sort || "",
     _limit || 0,
-    _fields ? _fields.join(',') : '',
+    _fields ? _fields.join(",") : "",
     filterArray.length,
-    ...filterArray
+    ...filterArray,
   ];
-
   const result = await this.eval(lua.query, 0, ...params);
   return JSON.parse(result);
 }
-
 async function sum(pattern, fields) {
   try {
-    if (!pattern || typeof pattern !== 'string') {
-      throw new Error('Pattern must be a string');
+    if (!pattern || typeof pattern !== "string") {
+      throw new Error("Pattern must be a string");
     }
     if (!Array.isArray(fields)) {
-      throw new Error('Fields must be an array');
+      throw new Error("Fields must be an array");
     }
-    const result = await this.eval(
-      lua.sum,
-      0,
-      pattern,
-      JSON.stringify(fields)
-    );
-    
+    const result = await this.eval(lua.sum, 0, pattern, JSON.stringify(fields));
+
     // 提取并打印调试信息
     const resultObj = {};
     for (const [key, value] of result) {
-      if (key === 'debug') {
-        console.log('Debug info:', JSON.parse(value));
+      if (key === "debug") {
+        console.log("Debug info:", JSON.parse(value));
       } else {
         resultObj[key] = value;
       }
     }
     return resultObj;
   } catch (error) {
-    console.error('Sum error:', error);
+    console.error("Sum error:", error);
     throw error;
   }
 }

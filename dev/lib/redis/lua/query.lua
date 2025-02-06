@@ -6,7 +6,6 @@ local sort_order = ARGV[3]
 local limit = tonumber(ARGV[4]) or 0
 local fields = ARGV[5]
 local filter_count = tonumber(ARGV[6])
-
 -- Parse fields if provided
 local field_list = {}
 if fields ~= '' then
@@ -14,7 +13,6 @@ if fields ~= '' then
         table.insert(field_list, field)
     end
 end
-
 -- Parse filters
 local filters = {}
 local i = 7
@@ -25,7 +23,6 @@ while i <= 6 + filter_count do
     filters[#filters + 1] = {key, op, value}
     i = i + 3
 end
-
 -- Scan keys matching pattern
 local results = {}
 local cursor = "0"
@@ -114,7 +111,6 @@ repeat
         end
     end
 until cursor == "0"
-
 -- Sort results if sort field is specified and fields are selected
 if sort_field ~= '' and #field_list > 0 then
     local sort_index = 1
@@ -135,7 +131,6 @@ if sort_field ~= '' and #field_list > 0 then
         end
     end)
 end
-
 -- Apply limit
 if limit > 0 and #results > limit then
     local limited = {}
@@ -144,5 +139,8 @@ if limit > 0 and #results > limit then
     end
     results = limited
 end
-
+-- 确保空结果返回为数组
+if #results == 0 then
+  return "[]"
+end
 return cjson.encode(results)
