@@ -1,9 +1,9 @@
 // lua.js
-import { rf, xpath } from "../basic.js";
+import { rf, xpath, metaroot } from "../basic.js";
 function load(path) {
-  return rf(xpath(path, import.meta.dirname))
+  return rf(xpath(path, metaroot + "/store/lua"));
 }
 export default {
-  query: load("lua/query.lua"),
-  sum: load("lua/sum.lua"),
+  query: load("query.lua"),
+  sum: load("sum.lua"),
 };
