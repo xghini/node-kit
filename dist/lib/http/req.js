@@ -4,6 +4,7 @@ import https from "https";
 import http from "http";
 import { empty } from "../index.js";
 import { br_decompress, inflate, zstd_decompress, gunzip } from "../codec.js";
+import { cerror } from "../console.js";
 import os from "os";
 const h2session = new Map();
 const options_keys = ["settings", "cert", "timeout", "json", "auth", "ua"];
@@ -26,11 +27,11 @@ async function req(...argv) {
     catch (error) {
         if (error.code === "EPROTO" || error.code === "ECONNRESET") {
             if (reqbd.method.toUpperCase() === "CONNECT")
-                return console.error("CONNECT method unsupperted");
-            console.error(error.code, "maybe", reqbd.urlobj.protocol === "https:" ? "http" : "https");
+                return cerror.bind({ info: -1 })("CONNECT method unsupperted");
+            cerror.bind({ info: -1 })(error.code, "maybe", reqbd.urlobj.protocol === "https:" ? "http" : "https");
         }
         else {
-            console.error(error, "目标服务器无法连接");
+            cerror.bind({ info: -1 })(error, "目标服务器无法连接");
             return resbuild.bind(reqbd)(false);
         }
     }
@@ -97,7 +98,7 @@ async function h2req(...argv) {
         }
     }
     catch (error) {
-        console.error(error);
+        cerror.bind({ info: -1 })(error);
         return resbuild.bind(reqbd)(false, "h2");
     }
     return new Promise((resolve, reject) => {
@@ -121,7 +122,7 @@ async function h2req(...argv) {
         const timeout = options.timeout || d_timeout;
         const timeoutId = setTimeout(() => {
             req.close();
-            console.error(`H2 req timeout >${timeout}ms`, urlobj.host);
+            cerror.bind({ info: -1 })(`H2 req timeout >${timeout}ms`, urlobj.host);
             resolve(resbuild.bind(reqbd)(false, "h2", 408));
         }, timeout);
         req.on("error", (err) => {
@@ -131,11 +132,11 @@ async function h2req(...argv) {
                     return resolve(h1req(reqbd));
                 }
                 catch (error) {
-                    console.error(error);
+                    cerror.bind({ info: -1 })(error);
                     return resolve(resbuild.bind(reqbd)(false));
                 }
             }
-            console.error(err);
+            cerror.bind({ info: -1 })(err);
             resolve(resbuild.bind(reqbd)(false, "h2"));
         });
     });
@@ -182,17 +183,17 @@ async function h1req(...argv) {
                 resolve(resbuild.bind(reqbd)(true, "http/1.1", res.statusCode, res.headers, body));
             }
             catch (error) {
-                console.error(error);
+                cerror.bind({ info: -1 })(error);
                 resolve(resbuild.bind(reqbd)(false, "http/1.1"));
             }
         });
         req.on("error", (error) => {
             if (!error.message)
-                console.error(error.message, "目标存在，当前协议不通");
+                cerror.bind({ info: -1 })(error.message, "目标存在，当前协议不通");
             resolve(resbuild.bind(reqbd)(false, "http/1.1"));
         });
         req.on("timeout", () => {
-            console.error(`HTTP/1.1 req timeout >${options.timeout}ms`, urlobj.host);
+            cerror.bind({ info: -1 })(`HTTP/1.1 req timeout >${options.timeout}ms`, urlobj.host);
             resolve(resbuild.bind(reqbd)(false, "http/1.1", 408));
             req.destroy();
         });
@@ -240,7 +241,7 @@ async function autoDecompressBody(body, ce) {
             body = await gunzip(body);
     }
     catch (err) {
-        console.error("返回数据解压失败", err);
+        cerror.bind({ info: -1 })("返回数据解压失败", err);
     }
     return body.toString();
 }
@@ -373,7 +374,7 @@ function reqbuild(...argv) {
         });
     }
     catch (err) {
-        console.error(err);
+        cerror.bind({ info: -1 })(err);
     }
 }
 async function resbuild(ok, protocol, code, headers, body) {
@@ -414,9 +415,13 @@ async function resbuild(ok, protocol, code, headers, body) {
         reset_ops: { enumerable: false, writable: false, configurable: false },
     });
 }
-const myip = (await h1req("http://ipv4.icanhazip.com", { timeout: 1500 })).body ||
-    (await h1req("http://v4.ident.me", { timeout: 1500 })).body ||
-    fn_myip();
+async function myip() {
+    let res = (await h1req("http://api.ipify.org", { timeout: 1500 })).body ||
+        (await h1req("http://ipv4.icanhazip.com", { timeout: 1500 })).body ||
+        (await h1req("http://v4.ident.me", { timeout: 1500 })).body ||
+        fn_myip();
+    return res.replace(/[^\d.]/g, "");
+}
 function fn_myip() {
     const networkInterfaces = os.networkInterfaces();
     let arr = [];

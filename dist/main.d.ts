@@ -15,7 +15,7 @@ declare const kit: {
     req: typeof http.req;
     h2req: typeof http.h2req;
     h1req: typeof http.h1req;
-    myip: string | Buffer<ArrayBufferLike>;
+    myip: typeof http.myip;
     exefile: string;
     exedir: string;
     exeroot: any;

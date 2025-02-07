@@ -4,6 +4,7 @@ import https from "https";
 import http from "http";
 import { empty } from "../index.js";
 import { br_decompress, inflate, zstd_decompress, gunzip } from "../codec.js";
+import { cerror } from "../console.js";
 import os from "os";
 
 // 缓存 HTTP/2 连接
@@ -50,16 +51,16 @@ async function req(...argv) {
   } catch (error) {
     if (error.code === "EPROTO" || error.code === "ECONNRESET") {
       if (reqbd.method.toUpperCase() === "CONNECT")
-        return console.error("CONNECT method unsupperted");
-      console.error(
+        return cerror.bind({ info: -1 })("CONNECT method unsupperted");
+      cerror.bind({ info: -1 })(
         error.code,
         "maybe",
         reqbd.urlobj.protocol === "https:" ? "http" : "https"
       );
     } else {
       // const stack = error.stack.split("\n");
-      // console.error(stack[0], stack[1]);
-      console.error(error, "目标服务器无法连接");
+      // cerror.bind({info:-1})(stack[0], stack[1]);
+      cerror.bind({ info: -1 })(error, "目标服务器无法连接");
       return resbuild.bind(reqbd)(false);
     }
   }
@@ -117,7 +118,10 @@ async function h2connect(obj) {
     // session.once("close", fn.bind('close')); //第三
   });
 }
-/** @returns {Promise<ReturnType<typeof resbuild>>} */
+/** 
+ * 使用h2为线路复用,会默认保持连接池,所以进程不会自动退出,可用process.exit()主动退出
+ * @returns {Promise<ReturnType<typeof resbuild>>} 
+ */
 async function h2req(...argv) {
   const reqbd = reqbuild(...argv);
   let { urlobj, method, headers, body, options } = reqbd;
@@ -145,7 +149,7 @@ async function h2req(...argv) {
       req.end(body);
     }
   } catch (error) {
-    console.error(error);
+    cerror.bind({ info: -1 })(error);
     return resbuild.bind(reqbd)(false, "h2");
   }
   return new Promise((resolve, reject) => {
@@ -170,7 +174,7 @@ async function h2req(...argv) {
     const timeout = options.timeout || d_timeout;
     const timeoutId = setTimeout(() => {
       req.close();
-      console.error(`H2 req timeout >${timeout}ms`, urlobj.host);
+      cerror.bind({ info: -1 })(`H2 req timeout >${timeout}ms`, urlobj.host);
       resolve(resbuild.bind(reqbd)(false, "h2", 408));
       // throw new Error(`H2 req timeout >${timeout}ms`);
       // return resolve(`timeout >${timeout}ms`);
@@ -183,11 +187,11 @@ async function h2req(...argv) {
         try {
           return resolve(h1req(reqbd));
         } catch (error) {
-          console.error(error);
+          cerror.bind({ info: -1 })(error);
           return resolve(resbuild.bind(reqbd)(false));
         }
       }
-      console.error(err);
+      cerror.bind({ info: -1 })(err);
       resolve(resbuild.bind(reqbd)(false, "h2"));
     });
   });
@@ -250,13 +254,14 @@ async function h1req(...argv) {
           )
         );
       } catch (error) {
-        console.error(error);
+        cerror.bind({ info: -1 })(error);
         // reject(error);
         resolve(resbuild.bind(reqbd)(false, "http/1.1"));
       }
     });
     req.on("error", (error) => {
-      if(!error.message)console.error(error.message, "目标存在，当前协议不通");
+      if (!error.message)
+        cerror.bind({ info: -1 })(error.message, "目标存在，当前协议不通");
       // reject(error);
       resolve(resbuild.bind(reqbd)(false, "http/1.1"));
     });
@@ -265,7 +270,10 @@ async function h1req(...argv) {
       // req.destroy(
       //   new Error(`HTTP/1.1 req timeout >${options.timeout}ms`, urlobj.host)
       // );
-      console.error(`HTTP/1.1 req timeout >${options.timeout}ms`, urlobj.host)
+      cerror.bind({ info: -1 })(
+        `HTTP/1.1 req timeout >${options.timeout}ms`,
+        urlobj.host
+      );
       resolve(resbuild.bind(reqbd)(false, "http/1.1", 408));
       req.destroy();
     });
@@ -314,7 +322,7 @@ async function autoDecompressBody(body, ce) {
     else if (ce === "zstd") body = await zstd_decompress(body);
     else if (ce === "gzip") body = await gunzip(body);
   } catch (err) {
-    console.error("返回数据解压失败", err);
+    cerror.bind({ info: -1 })("返回数据解压失败", err);
   }
   return body.toString();
 }
@@ -471,7 +479,7 @@ function reqbuild(...argv) {
       options,
     });
   } catch (err) {
-    console.error(err);
+    cerror.bind({ info: -1 })(err);
   }
 }
 
@@ -513,10 +521,14 @@ async function resbuild(ok, protocol, code, headers, body) {
   });
 }
 
-const myip =
-  (await h1req("http://ipv4.icanhazip.com",{timeout:1500})).body ||
-  (await h1req("http://v4.ident.me",{timeout:1500})).body ||
-  fn_myip();
+async function myip() {
+  let res =
+    (await h1req("http://api.ipify.org", { timeout: 1500 })).body ||
+    (await h1req("http://ipv4.icanhazip.com", { timeout: 1500 })).body ||
+    (await h1req("http://v4.ident.me", { timeout: 1500 })).body ||
+    fn_myip();
+  return res.replace(/[^\d.]/g, ""); // 只保留数字和点
+}
 
 // 以下的公网私网推断还不错,留供参考
 function fn_myip() {

@@ -1,7 +1,6 @@
 export { h2s, hs, hss };
 
 import { gcatch, rf, xpath, style, metaroot } from "../index.js";
-import { myip } from "./req.js";
 import kit from "../../main.js";
 import http2 from "http2";
 import https from "https";
@@ -103,7 +102,6 @@ async function hs(...argv) {
     );
     // 虽然不赋值server也进行了修改,但ide跟踪不到,所以这里赋值一下
     server = Object.assign(server, {
-      ip: myip,
       open, //开放级别 0本地 1局域网 2公网
       routes: [],
       addr,
@@ -111,10 +109,6 @@ async function hs(...argv) {
       _404,
       router_begin: (server, gold) => {},
       cnn: 0,
-      cluster_config: {},
-      cluster,
-      master,
-      ismaster: false,
     });
     Object.defineProperties(server, {
       routes: { writable: false, configurable: false },
@@ -361,62 +355,4 @@ function getContentType(ext) {
   return mimeTypes[ext] || "application/octet-stream";
 }
 
-/* 集群间通讯,多主多从协同 
-从将统计数据发给所有主,主1统一通知所有,主1->主2->...主n保持ping,顺位顶替
-每个master也是worker,多份管理职责的worker
-1.在当前节点端口+10000创建h2状态服务器,状态变化时由所有主均衡告知当前服务器和所有其它cluster
-2.master之间顺位ping和替补
-*/
 
-// const cluster_config = {
-//   master: ["146.190.127.168", "138.68.85.226", "209.38.84.122"],
-//   worker: ["5.180.78.100"],
-// };
-async function master(fn) {
-  // 检查自身是主执行,可以是定时器,也可以单次执行
-  if (this.ismaster) {
-    fn();
-  }
-}
-async function cluster() {
-  const config = this.cluster_config;
-  if (kit.empty(config)) return;
-  let leader;
-  console.log(this.port, config);
-  const app = await h2s(13000);
-  app.addr("/build", (g) => {
-    if (config.master.includes(myip)) {
-      if (config.master[0] === myip) {
-        leader = true;
-      }
-    }
-  });
-  // 有配置文件,按部就班;没有配置文件,等待通知接收配置文件.
-  if (config) {
-    // 检查自己职责
-    if (config.master.includes(myip)) {
-      if (config.master[0] === myip) {
-        console.dev("leader,去通知");
-        leader = true;
-        let all = [...config.master.slice(1), ...config.worker];
-        // all = all.filter(async (ip) => {
-        //   const res = await kit.req(`https://${ip}:13000/build`, {
-        //     json: config,
-        //   });
-        //   if (res.ok) return false;
-        //   return true;
-        // });
-        // console.log(all);
-      }
-      // 收ping
-      app.addr("/ping", "get", (g) => {
-        // g.ip
-        if (g.body === ".") {
-          g.raw(".");
-        }
-      });
-      // 发ping
-    } else {
-    }
-  }
-}

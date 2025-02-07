@@ -1,6 +1,5 @@
 export { h2s, hs, hss };
 import { gcatch, rf, xpath, style, metaroot } from "../index.js";
-import { myip } from "./req.js";
 import kit from "../../main.js";
 import http2 from "http2";
 import https from "https";
@@ -62,7 +61,6 @@ async function hs(...argv) {
         });
         console.info.bind({ xinfo: 2 })(`🚀 Start [${protocol}] ${scheme} server...`);
         server = Object.assign(server, {
-            ip: myip,
             open,
             routes: [],
             addr,
@@ -70,10 +68,6 @@ async function hs(...argv) {
             _404,
             router_begin: (server, gold) => { },
             cnn: 0,
-            cluster_config: {},
-            cluster,
-            master,
-            ismaster: false,
         });
         Object.defineProperties(server, {
             routes: { writable: false, configurable: false },
@@ -268,40 +262,4 @@ function getContentType(ext) {
         ".pptx": "application/vnd.openxmlformats-officedocument.presentationml.presentation",
     };
     return mimeTypes[ext] || "application/octet-stream";
-}
-async function master(fn) {
-    if (this.ismaster) {
-        fn();
-    }
-}
-async function cluster() {
-    const config = this.cluster_config;
-    if (kit.empty(config))
-        return;
-    let leader;
-    console.log(this.port, config);
-    const app = await h2s(13000);
-    app.addr("/build", (g) => {
-        if (config.master.includes(myip)) {
-            if (config.master[0] === myip) {
-                leader = true;
-            }
-        }
-    });
-    if (config) {
-        if (config.master.includes(myip)) {
-            if (config.master[0] === myip) {
-                console.dev("leader,去通知");
-                leader = true;
-                let all = [...config.master.slice(1), ...config.worker];
-            }
-            app.addr("/ping", "get", (g) => {
-                if (g.body === ".") {
-                    g.raw(".");
-                }
-            });
-        }
-        else {
-        }
-    }
 }
