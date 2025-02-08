@@ -1,4 +1,4 @@
-export { req, h2req, h1req, myip };
+export { req, h2req, h1req, myip,obj2furl };
 import http2 from "http2";
 import https from "https";
 import http from "http";
@@ -10,7 +10,7 @@ import os from "os";
 // 缓存 HTTP/2 连接
 const h2session = new Map();
 // 可能性拓展 maxSockets:256 maxSessionMemory:64 maxConcurrentStreams:100 minVersion:'TLSv1.2' ciphers ca cert key
-const options_keys = ["settings", "cert", "timeout", "json", "auth", "ua"];
+const options_keys = ["settings", "cert", "timeout", "json", "auth", "ua",'furl'];
 const d_headers = {
   "user-agent":
     "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/119.0.0.0 Safari/537.36",
@@ -457,12 +457,12 @@ function reqbuild(...argv) {
         body = JSON.stringify(options.json);
         delete options.json;
       }
-      if ("param" in options) {
+      if ("furl" in options) {
         headers["content-type"] = "application/x-www-form-urlencoded";
         body =
           typeof options.param === "string"
             ? options.param
-            : new URLSearchParams(options.param).toString();
+            : obj2furl(options.furl);
         delete options.param;
       }
       if ("auth" in options) headers["authorization"] = options.auth;
@@ -556,4 +556,117 @@ function fn_myip() {
     }
   }
   return arr.length > 0 ? arr[0] : "127.0.0.1";
+}
+/**
+ * 对象转form-urlencode 支持url/utf8编码 common/php/java风格(可拓展)
+ * 一维都一样,二维以上处理各有不同,默认common风格
+ * @param {*} obj 
+ * @param {*} encoding 
+ * @param {*} standard 
+ * @returns 
+ */
+function obj2furl(obj, encoding = "url", standard = "common") {
+  const encodeMap = {
+    url: function (str) {
+      return encodeURIComponent(str);
+    },    
+    utf8: function (str) {
+      return str;
+    },
+  };
+  const standardMap = {
+    // 通用规范：user[name]=xxx&hobbies[0]=xxx
+    common: {
+      handleKey: function (parentKey, key) {
+        return parentKey ? parentKey + "[" + key + "]" : key;
+      },
+      handleArray: function (key, value, encode) {
+        return value
+          .map((item, index) => {
+            if (typeof item === "object" && item !== null) {
+              return serialize(item, `${key}[${index}]`);
+            }
+            return `${key}[${index}]=${encode(String(item))}`;
+          })
+          .join("&");
+      },
+    },
+    // PHP规范：user[name]=xxx&user[hobbies][]=xxx
+    php: {
+      handleKey: function (parentKey, key, value) {
+        const isArray = Array.isArray(value);
+        if (!parentKey) return key;
+        // 如果父级已经是数组，直接用key
+        if (parentKey.endsWith("[]")) {
+          return parentKey + "[" + key + "]";
+        }
+        // 处理数组
+        if (isArray) {
+          return parentKey + "[" + key + "][]";
+        }
+        return parentKey + "[" + key + "]";
+      },
+      handleArray: function (key, value, encode) {
+        return value
+          .map((item) => {
+            if (typeof item === "object" && item !== null) {
+              return serialize(item, key);
+            }
+            return `${key}=${encode(String(item))}`;
+          })
+          .join("&");
+      },
+    },
+    // Java规范：user.name=xxx&hobbies=xxx
+    java: {
+      handleKey: function (parentKey, key, value) {
+        if (!parentKey) return key;
+
+        // 处理数组对象的情况
+        if (parentKey.includes("[")) {
+          return parentKey + "." + key;
+        }
+        return parentKey + "." + key;
+      },
+      handleArray: function (key, value, encode) {
+        return value
+          .map((item, index) => {
+            if (typeof item === "object" && item !== null) {
+              // 对象数组使用索引
+              return serialize(item, `${key}[${index}]`);
+            }
+            // 简单数组使用重复键名
+            return `${key}=${encode(String(item))}`;
+          })
+          .join("&");
+      },
+    },
+  };
+  const encode = encodeMap[encoding] || encodeMap.url;
+  const formatter = standardMap[standard] || standardMap.common;
+  function serialize(obj, parentKey) {
+    const pairs = [];
+    for (const key in obj) {
+      if (!obj.hasOwnProperty(key)) {
+        continue;
+      }
+      const value = obj[key];
+      const currentKey = formatter.handleKey(parentKey, key, value);
+      if (value == null) {
+        pairs.push(currentKey + "=");
+        continue;
+      }
+      if (typeof value === "object") {
+        if (Array.isArray(value)) {
+          pairs.push(formatter.handleArray(currentKey, value, encode));
+          continue;
+        }
+        pairs.push(serialize(value, currentKey));
+        continue;
+      }
+      pairs.push(currentKey + "=" + encode(String(value)));
+    }
+    return pairs.join("&");
+  }
+  return serialize(obj, "");
 }

@@ -170,8 +170,8 @@ function hd_stream(server, stream, headers) {
 }
 
 function info() {
-  console.log(this.headers);
-  console.log(this.query);
-  console.log(this.body);
-  console.log(this.data);
+  console.log.bind({xinfo:2})(this.headers);
+  console.log.bind({xinfo:2})(this.query);
+  console.log.bind({xinfo:2})(this.body);
+  console.log.bind({xinfo:2})(this.data);
 }
