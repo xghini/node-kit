@@ -1,4 +1,4 @@
-export { req, h2req, h1req, myip,obj2furl };
+export { req, h2req, h1req, myip, obj2furl };
 import http2 from "http2";
 import https from "https";
 import http from "http";
@@ -10,7 +10,15 @@ import os from "os";
 // 缓存 HTTP/2 连接
 const h2session = new Map();
 // 可能性拓展 maxSockets:256 maxSessionMemory:64 maxConcurrentStreams:100 minVersion:'TLSv1.2' ciphers ca cert key
-const options_keys = ["settings", "cert", "timeout", "json", "auth", "ua",'furl'];
+const options_keys = [
+  "settings",
+  "cert",
+  "timeout",
+  "json",
+  "auth",
+  "ua",
+  "furl",
+];
 const d_headers = {
   "user-agent":
     "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/119.0.0.0 Safari/537.36",
@@ -118,9 +126,9 @@ async function h2connect(obj) {
     // session.once("close", fn.bind('close')); //第三
   });
 }
-/** 
+/**
  * 使用h2为线路复用,会默认保持连接池,所以进程不会自动退出,可用process.exit()主动退出
- * @returns {Promise<ReturnType<typeof resbuild>>} 
+ * @returns {Promise<ReturnType<typeof resbuild>>}
  */
 async function h2req(...argv) {
   const reqbd = reqbuild(...argv);
@@ -288,23 +296,34 @@ async function h1req(...argv) {
     req.end();
   });
 }
-
+// 有些不标准的返回,内容可能是json,但没ct或ct是text/plain,新方案是直接不管ct
+// 目前就支持json和furl,可能还有yaml
 function body2data(body, ct) {
   // console.dev(body);
   let data;
-  if (ct.startsWith("application/json")) {
-    try {
-      data = JSON.parse(body);
-    } catch {
-      data = {};
-    }
-  } else if (ct === "application/x-www-form-urlencoded") {
+  // if (!ct||ct.startsWith("application/json")) {
+  //   try {
+  //     data = JSON.parse(body);
+  //   } catch {
+  //     data = {};
+  //   }
+  // } else if (ct === "application/x-www-form-urlencoded") {
+  //   data = {};
+  //   const params = new URLSearchParams(body);
+  //   for (const [key, value] of params) {
+  //     data[key] = value;
+  //   }
+  // }
+  try {
+    data = JSON.parse(body);
+  } catch {
     data = {};
     const params = new URLSearchParams(body);
     for (const [key, value] of params) {
       data[key] = value;
     }
   }
+  if (empty(data)) data = body;
   return data;
 }
 
@@ -491,9 +510,7 @@ async function resbuild(ok, protocol, code, headers, body) {
   let data;
   if (body) {
     body = await autoDecompressBody(body, headers["content-encoding"]);
-    data = headers["content-type"]
-      ? body2data(body, headers["content-type"])
-      : {};
+    data = body2data(body, headers["content-type"]);
   }
   const res = new Resbd({
     ok,
@@ -560,16 +577,16 @@ function fn_myip() {
 /**
  * 对象转form-urlencode 支持url/utf8编码 common/php/java风格(可拓展)
  * 一维都一样,二维以上处理各有不同,默认common风格
- * @param {*} obj 
- * @param {*} encoding 
- * @param {*} standard 
- * @returns 
+ * @param {*} obj
+ * @param {*} encoding
+ * @param {*} standard
+ * @returns
  */
 function obj2furl(obj, encoding = "url", standard = "common") {
   const encodeMap = {
     url: function (str) {
       return encodeURIComponent(str);
-    },    
+    },
     utf8: function (str) {
       return str;
     },

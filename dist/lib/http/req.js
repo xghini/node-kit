@@ -7,7 +7,15 @@ import { br_decompress, inflate, zstd_decompress, gunzip } from "../codec.js";
 import { cerror } from "../console.js";
 import os from "os";
 const h2session = new Map();
-const options_keys = ["settings", "cert", "timeout", "json", "auth", "ua", 'furl'];
+const options_keys = [
+    "settings",
+    "cert",
+    "timeout",
+    "json",
+    "auth",
+    "ua",
+    "furl",
+];
 const d_headers = {
     "user-agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/119.0.0.0 Safari/537.36",
 };
@@ -204,21 +212,18 @@ async function h1req(...argv) {
 }
 function body2data(body, ct) {
     let data;
-    if (ct.startsWith("application/json")) {
-        try {
-            data = JSON.parse(body);
-        }
-        catch {
-            data = {};
-        }
+    try {
+        data = JSON.parse(body);
     }
-    else if (ct === "application/x-www-form-urlencoded") {
+    catch {
         data = {};
         const params = new URLSearchParams(body);
         for (const [key, value] of params) {
             data[key] = value;
         }
     }
+    if (empty(data))
+        data = body;
     return data;
 }
 function setcookie(arr, str) {
@@ -386,9 +391,7 @@ async function resbuild(ok, protocol, code, headers, body) {
     let data;
     if (body) {
         body = await autoDecompressBody(body, headers["content-encoding"]);
-        data = headers["content-type"]
-            ? body2data(body, headers["content-type"])
-            : {};
+        data = body2data(body, headers["content-type"]);
     }
     const res = new Resbd({
         ok,
