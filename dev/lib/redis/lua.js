@@ -4,6 +4,6 @@ function load(path) {
   return rf(xpath(path, metaroot + "/store/lua"));
 }
 export default {
-  query: load("query.lua"),
+  hquery: load("hquery.lua"),
   sum: load("sum.lua"),
 };

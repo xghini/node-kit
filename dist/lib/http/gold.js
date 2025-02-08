@@ -17,7 +17,7 @@ function hd_stream(server, stream, headers) {
         }.call(stream.ip || stream.session.socket.remoteAddress);
         let url;
         try {
-            url = new URL(`${headers[":scheme"]}://${headers[":authority"] || '_'}${headers[":path"]}`);
+            url = new URL(`${headers[":scheme"]}://${headers[":authority"] || "_"}${headers[":path"]}`);
         }
         catch (error) {
             console.error(error, headers);
@@ -27,9 +27,9 @@ function hd_stream(server, stream, headers) {
         return {
             headers: headers,
             method: headers[":method"].toUpperCase(),
-            ua: headers["user-agent"] || '',
-            ct: headers["content-type"] || '',
-            auth: headers["authorization"] || '',
+            ua: headers["user-agent"] || "",
+            ct: headers["content-type"] || "",
+            auth: headers["authorization"] || "",
             protocol: stream.protocol,
             cookie: cookies_obj(headers["cookie"]),
             pathname,
@@ -49,6 +49,7 @@ function hd_stream(server, stream, headers) {
             config: {
                 MAX_BODY: 4 * 1024 * 1024,
             },
+            info,
             server: server,
             end: stream.end.bind(stream),
             write: stream.write.bind(stream),
@@ -140,4 +141,10 @@ function hd_stream(server, stream, headers) {
     catch (error) {
         console.error(error);
     }
+}
+function info() {
+    console.log(this.headers);
+    console.log(this.query);
+    console.log(this.body);
+    console.log(this.data);
 }

@@ -1,8 +1,17 @@
-export { xredis };
+export { xredis, redis };
 import Redis from "ioredis";
 import lua from "./lua.js";
 // import { sync } from "./sync.js";
-
+/**
+ * 返回普通的ioredis实例,就不用再额外写ioredis的导入
+ * @param  {...any} argv
+ * @returns
+ */
+function redis(...argv) {
+  const redis = new Redis(...argv);
+  redis.on("error", (err) => console.error(err));
+  return redis;
+}
 /*
 使用lua，完成联表查询的redis封装
 1.
@@ -13,6 +22,10 @@ import lua from "./lua.js";
 function xredis(...argv) {
   const redis = new Redis(...argv);
   redis.on("error", (err) => console.error(err));
+  // 把lua的每个值先加载进去,换成hash [算了 微小提升 还要吧函数变为async]
+  // for (const [type, script] of Object.entries(lua)) {
+  //   scriptShas[type] = await this.script("LOAD", script);
+  // }
   return Object.assign(redis, {
     scankey,
     scankeys,
@@ -20,7 +33,16 @@ function xredis(...argv) {
     hquery,
     sum,
     join,
+    num,
   });
+}
+/**
+ * 返回键数量
+ * @param {*} pattern "user:*"
+ * @returns {Promise<number>}
+ */
+async function num(pattern) {
+  return this.eval(`return #redis.call('keys', ARGV[1])`, 0, pattern);
 }
 /**
  * 联表查询
@@ -90,9 +112,15 @@ async function hquery(pattern, options = {}) {
     filterArray.length,
     ...filterArray,
   ];
-  const result = await this.eval(lua.query, 0, ...params);
+  const result = await this.eval(lua.hquery, 0, ...params);
   return JSON.parse(result);
 }
+/**
+ *
+ * @param {*} pattern
+ * @param {*} fields
+ * @returns
+ */
 async function sum(pattern, fields) {
   try {
     if (!pattern || typeof pattern !== "string") {
@@ -177,7 +205,6 @@ const FILTER_SCRIPTS = {
     end
     return nil
   `,
-
   // hash 类型的过滤脚本
   hash: `
     local key = KEYS[1]

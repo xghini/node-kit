@@ -1,6 +1,16 @@
-export { xredis };
+export { xredis, redis };
 import Redis from "ioredis";
 import lua from "./lua.js";
+/**
+ * 返回普通的ioredis实例,就不用再额外写ioredis的导入
+ * @param  {...any} argv
+ * @returns
+ */
+function redis(...argv) {
+  const redis = new Redis(...argv);
+  redis.on("error", (err) => console.error(err));
+  return redis;
+}
 function xredis(...argv) {
   const redis = new Redis(...argv);
   redis.on("error", (err) => console.error(err));
@@ -11,7 +21,16 @@ function xredis(...argv) {
     hquery,
     sum,
     join,
+    num,
   });
+}
+/**
+ * 返回键数量
+ * @param {*} pattern "user:*"
+ * @returns {Promise<number>}
+ */
+async function num(pattern) {
+  return this.eval(`return #redis.call('keys', ARGV[1])`, 0, pattern);
 }
 /**
  * 联表查询
@@ -75,9 +94,15 @@ async function hquery(pattern, options = {}) {
     filterArray.length,
     ...filterArray,
   ];
-  const result = await this.eval(lua.query, 0, ...params);
+  const result = await this.eval(lua.hquery, 0, ...params);
   return JSON.parse(result);
 }
+/**
+ *
+ * @param {*} pattern
+ * @param {*} fields
+ * @returns
+ */
 async function sum(pattern, fields) {
   try {
     if (!pattern || typeof pattern !== "string") {

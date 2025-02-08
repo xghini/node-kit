@@ -1,6 +1,11 @@
-export { xredis };
+export { xredis, redis };
 import Redis from "ioredis";
 import lua from "./lua.js";
+function redis(...argv) {
+    const redis = new Redis(...argv);
+    redis.on("error", (err) => console.error(err));
+    return redis;
+}
 function xredis(...argv) {
     const redis = new Redis(...argv);
     redis.on("error", (err) => console.error(err));
@@ -11,7 +16,11 @@ function xredis(...argv) {
         hquery,
         sum,
         join,
+        num,
     });
+}
+async function num(pattern) {
+    return this.eval(`return #redis.call('keys', ARGV[1])`, 0, pattern);
 }
 async function join(aa, bb, cc, dd) {
     let res = await this.hquery(aa, bb);
@@ -51,7 +60,7 @@ async function hquery(pattern, options = {}) {
         filterArray.length,
         ...filterArray,
     ];
-    const result = await this.eval(lua.query, 0, ...params);
+    const result = await this.eval(lua.hquery, 0, ...params);
     return JSON.parse(result);
 }
 async function sum(pattern, fields) {

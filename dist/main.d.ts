@@ -7,6 +7,7 @@ export * from "./lib/captcha/captcha.js";
 declare const kit: {
     captcha: typeof captcha.captcha;
     xredis: typeof redis.xredis;
+    redis: typeof redis.redis;
     Xdb: typeof xdb.Xdb;
     h2s: typeof http.h2s;
     hs: typeof http.hs;
