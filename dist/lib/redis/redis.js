@@ -41,14 +41,18 @@ async function hquery(pattern, options = {}) {
         if (Array.isArray(value)) {
             const isOperatorArray = value[0] && [">", "<", ">=", "<=", "="].includes(value[0]);
             if (isOperatorArray) {
-                filterArray.push(key, ...value);
+                filterArray.push(key, value[0], value[1].toString());
             }
             else {
-                filterArray.push(key, "IN", JSON.stringify(value));
+                const safeValues = value.map(v => v.toString());
+                filterArray.push(key, "IN", JSON.stringify(safeValues));
             }
         }
         else {
-            filterArray.push(key, "=", value);
+            const safeValue = typeof value === 'number' && value > Number.MAX_SAFE_INTEGER
+                ? value.toString()
+                : value;
+            filterArray.push(key, "=", safeValue);
         }
     }
     const params = [

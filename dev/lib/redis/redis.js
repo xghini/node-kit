@@ -89,20 +89,25 @@ async function hquery(pattern, options = {}) {
   const filterArray = [];
   for (const [key, value] of Object.entries(filters)) {
     if (Array.isArray(value)) {
-      // 检查第一个元素是否是操作符
       const isOperatorArray =
         value[0] && [">", "<", ">=", "<=", "="].includes(value[0]);
       if (isOperatorArray) {
-        // 原有的操作符数组逻辑
-        filterArray.push(key, ...value);
+        // 对于长数字，确保使用字符串形式
+        filterArray.push(key, value[0], value[1].toString());
       } else {
-        // 新的多值匹配逻辑
-        filterArray.push(key, "IN", JSON.stringify(value));
+        // 确保数组中的长数字也转换为字符串
+        const safeValues = value.map(v => v.toString());
+        filterArray.push(key, "IN", JSON.stringify(safeValues));
       }
     } else {
-      filterArray.push(key, "=", value);
+      // 对普通值进行处理，确保长数字转换为字符串
+      const safeValue = typeof value === 'number' && value > Number.MAX_SAFE_INTEGER 
+        ? value.toString() 
+        : value;
+      filterArray.push(key, "=", safeValue);
     }
   }
+  
   const params = [
     pattern,
     _sortby || "",
@@ -112,6 +117,7 @@ async function hquery(pattern, options = {}) {
     filterArray.length,
     ...filterArray,
   ];
+  
   const result = await this.eval(lua.hquery, 0, ...params);
   return JSON.parse(result);
 }

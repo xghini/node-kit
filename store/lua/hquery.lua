@@ -72,9 +72,6 @@ repeat
                         break
                     end
                 else
-                    if tonumber(value) then value = tonumber(value) end
-                    if tonumber(val) then val = tonumber(val) end
-
                     if op == "=" and value ~= val then
                         match = false
                         break
