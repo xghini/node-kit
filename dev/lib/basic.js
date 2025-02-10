@@ -265,14 +265,6 @@ function rint(a, b = 0) {
     return Math.floor(Math.random() * (b + 1 - a)) + a;
   }
 }
-// 随机例如-3到10 10到-3的整数,可单写5:0-5
-function randint(a, b = 0) {
-  if (a > b) {
-    return Math.floor(Math.random() * (a + 1 - b)) + b;
-  } else {
-    return Math.floor(Math.random() * (b + 1 - a)) + a;
-  }
-}
 /*
 Date.now() msstamp
 */

@@ -146,14 +146,6 @@ function rint(a, b = 0) {
         return Math.floor(Math.random() * (b + 1 - a)) + a;
     }
 }
-function randint(a, b = 0) {
-    if (a > b) {
-        return Math.floor(Math.random() * (a + 1 - b)) + b;
-    }
-    else {
-        return Math.floor(Math.random() * (b + 1 - a)) + a;
-    }
-}
 function getDate(offset = 8) {
     return new Date(Date.now() + offset * 3600000)
         .toISOString()

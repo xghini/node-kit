@@ -222,94 +222,90 @@ function router_find_resolve(server, stream, gold) {
 }
 function body2data(gold) {
   let data;
-  if (gold.ct === "application/json") {
-    try {
-      data = JSON.parse(gold.body);
-    } catch {
-      data = {};
-    }
-  }
-  // 已经过测试
-  else if (gold.ct === "application/x-www-form-urlencoded") {
+  // 有些不讲武德的不传ct,默认json尝试
+  try {
+    data = JSON.parse(gold.body);
+  } catch {
     data = {};
-    const params = new URLSearchParams(gold.body);
-    for (const [key, value] of params) {
-      data[key] = value;
-    }
-  } else if (gold.ct?.startsWith("multipart/form-data")) {
-    data = {};
-    const boundaryMatch = gold.ct.match(/boundary=(.+)$/);
-    if (!boundaryMatch) {
-      throw new Error("Boundary not found in Content-Type");
-    }
-    const boundary = boundaryMatch[1];
-    const parts = gold.body.split(`--${boundary}`);
+    // 已经过测试
+    if (gold.ct === "application/x-www-form-urlencoded") {
+      const params = new URLSearchParams(gold.body);
+      for (const [key, value] of params) {
+        data[key] = value;
+      }
+    } else if (gold.ct?.startsWith("multipart/form-data")) {
+      const boundaryMatch = gold.ct.match(/boundary=(.+)$/);
+      if (!boundaryMatch) {
+        throw new Error("Boundary not found in Content-Type");
+      }
+      const boundary = boundaryMatch[1];
+      const parts = gold.body.split(`--${boundary}`);
 
-    for (let part of parts) {
-      part = part.trim();
-      if (!part || part === "--") continue; // Skip empty parts and closing boundary
+      for (let part of parts) {
+        part = part.trim();
+        if (!part || part === "--") continue; // Skip empty parts and closing boundary
 
-      const [rawHeaders, ...rest] = part.split("\r\n\r\n");
-      const content = rest.join("\r\n\r\n").replace(/\r\n$/, "");
-      const headers = rawHeaders.split("\r\n");
+        const [rawHeaders, ...rest] = part.split("\r\n\r\n");
+        const content = rest.join("\r\n\r\n").replace(/\r\n$/, "");
+        const headers = rawHeaders.split("\r\n");
 
-      let name = null;
-      let filename = null;
-      let contentType = null;
+        let name = null;
+        let filename = null;
+        let contentType = null;
 
-      // Extract headers
-      headers.forEach((header) => {
-        const nameMatch = header.match(/name="([^"]+)"/);
-        if (nameMatch) {
-          name = nameMatch[1];
-        }
-        const filenameMatch = header.match(/filename="([^"]+)"/);
-        if (filenameMatch) {
-          filename = filenameMatch[1];
-        }
-        const ctMatch = header.match(/Content-Type:\s*(.+)/i);
-        if (ctMatch) {
-          contentType = ctMatch[1];
-        }
-      });
+        // Extract headers
+        headers.forEach((header) => {
+          const nameMatch = header.match(/name="([^"]+)"/);
+          if (nameMatch) {
+            name = nameMatch[1];
+          }
+          const filenameMatch = header.match(/filename="([^"]+)"/);
+          if (filenameMatch) {
+            filename = filenameMatch[1];
+          }
+          const ctMatch = header.match(/Content-Type:\s*(.+)/i);
+          if (ctMatch) {
+            contentType = ctMatch[1];
+          }
+        });
 
-      if (!name) continue; // Skip if no field name is found
+        if (!name) continue; // Skip if no field name is found
 
-      if (filename) {
-        // Handle file fields
-        const fileObj = {
-          filename: filename,
-          content: content,
-          contentType: contentType || "application/octet-stream", // Default if not provided
-        };
+        if (filename) {
+          // Handle file fields
+          const fileObj = {
+            filename: filename,
+            content: content,
+            contentType: contentType || "application/octet-stream", // Default if not provided
+          };
 
-        if (data[name]) {
-          if (Array.isArray(data[name])) {
-            data[name].push(fileObj);
+          if (data[name]) {
+            if (Array.isArray(data[name])) {
+              data[name].push(fileObj);
+            } else {
+              data[name] = [data[name], fileObj];
+            }
           } else {
-            data[name] = [data[name], fileObj];
+            data[name] = fileObj;
           }
         } else {
-          data[name] = fileObj;
-        }
-      } else {
-        // Handle regular text fields
-        if (data[name] !== undefined) {
-          if (Array.isArray(data[name])) {
-            data[name].push(content);
+          // Handle regular text fields
+          if (data[name] !== undefined) {
+            if (Array.isArray(data[name])) {
+              data[name].push(content);
+            } else {
+              data[name] = [data[name], content];
+            }
           } else {
-            data[name] = [data[name], content];
+            data[name] = content;
           }
-        } else {
-          data[name] = content;
         }
       }
-    }
-
-    // Convert single-item arrays back to single values if desired
-    for (const key in data) {
-      if (Array.isArray(data[key]) && data[key].length === 1) {
-        data[key] = data[key][0];
+      // Convert single-item arrays back to single values if desired
+      for (const key in data) {
+        if (Array.isArray(data[key]) && data[key].length === 1) {
+          data[key] = data[key][0];
+        }
       }
     }
   }

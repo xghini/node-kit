@@ -194,90 +194,88 @@ function router_find_resolve(server, stream, gold) {
 }
 function body2data(gold) {
     let data;
-    if (gold.ct === "application/json") {
-        try {
-            data = JSON.parse(gold.body);
-        }
-        catch {
+    try {
+        data = JSON.parse(gold.body);
+    }
+    catch {
+        data = {};
+        if (gold.ct === "application/x-www-form-urlencoded") {
             data = {};
+            const params = new URLSearchParams(gold.body);
+            for (const [key, value] of params) {
+                data[key] = value;
+            }
         }
-    }
-    else if (gold.ct === "application/x-www-form-urlencoded") {
-        data = {};
-        const params = new URLSearchParams(gold.body);
-        for (const [key, value] of params) {
-            data[key] = value;
-        }
-    }
-    else if (gold.ct?.startsWith("multipart/form-data")) {
-        data = {};
-        const boundaryMatch = gold.ct.match(/boundary=(.+)$/);
-        if (!boundaryMatch) {
-            throw new Error("Boundary not found in Content-Type");
-        }
-        const boundary = boundaryMatch[1];
-        const parts = gold.body.split(`--${boundary}`);
-        for (let part of parts) {
-            part = part.trim();
-            if (!part || part === "--")
-                continue;
-            const [rawHeaders, ...rest] = part.split("\r\n\r\n");
-            const content = rest.join("\r\n\r\n").replace(/\r\n$/, "");
-            const headers = rawHeaders.split("\r\n");
-            let name = null;
-            let filename = null;
-            let contentType = null;
-            headers.forEach((header) => {
-                const nameMatch = header.match(/name="([^"]+)"/);
-                if (nameMatch) {
-                    name = nameMatch[1];
-                }
-                const filenameMatch = header.match(/filename="([^"]+)"/);
-                if (filenameMatch) {
-                    filename = filenameMatch[1];
-                }
-                const ctMatch = header.match(/Content-Type:\s*(.+)/i);
-                if (ctMatch) {
-                    contentType = ctMatch[1];
-                }
-            });
-            if (!name)
-                continue;
-            if (filename) {
-                const fileObj = {
-                    filename: filename,
-                    content: content,
-                    contentType: contentType || "application/octet-stream",
-                };
-                if (data[name]) {
-                    if (Array.isArray(data[name])) {
-                        data[name].push(fileObj);
+        else if (gold.ct?.startsWith("multipart/form-data")) {
+            data = {};
+            const boundaryMatch = gold.ct.match(/boundary=(.+)$/);
+            if (!boundaryMatch) {
+                throw new Error("Boundary not found in Content-Type");
+            }
+            const boundary = boundaryMatch[1];
+            const parts = gold.body.split(`--${boundary}`);
+            for (let part of parts) {
+                part = part.trim();
+                if (!part || part === "--")
+                    continue;
+                const [rawHeaders, ...rest] = part.split("\r\n\r\n");
+                const content = rest.join("\r\n\r\n").replace(/\r\n$/, "");
+                const headers = rawHeaders.split("\r\n");
+                let name = null;
+                let filename = null;
+                let contentType = null;
+                headers.forEach((header) => {
+                    const nameMatch = header.match(/name="([^"]+)"/);
+                    if (nameMatch) {
+                        name = nameMatch[1];
+                    }
+                    const filenameMatch = header.match(/filename="([^"]+)"/);
+                    if (filenameMatch) {
+                        filename = filenameMatch[1];
+                    }
+                    const ctMatch = header.match(/Content-Type:\s*(.+)/i);
+                    if (ctMatch) {
+                        contentType = ctMatch[1];
+                    }
+                });
+                if (!name)
+                    continue;
+                if (filename) {
+                    const fileObj = {
+                        filename: filename,
+                        content: content,
+                        contentType: contentType || "application/octet-stream",
+                    };
+                    if (data[name]) {
+                        if (Array.isArray(data[name])) {
+                            data[name].push(fileObj);
+                        }
+                        else {
+                            data[name] = [data[name], fileObj];
+                        }
                     }
                     else {
-                        data[name] = [data[name], fileObj];
+                        data[name] = fileObj;
                     }
                 }
                 else {
-                    data[name] = fileObj;
-                }
-            }
-            else {
-                if (data[name] !== undefined) {
-                    if (Array.isArray(data[name])) {
-                        data[name].push(content);
+                    if (data[name] !== undefined) {
+                        if (Array.isArray(data[name])) {
+                            data[name].push(content);
+                        }
+                        else {
+                            data[name] = [data[name], content];
+                        }
                     }
                     else {
-                        data[name] = [data[name], content];
+                        data[name] = content;
                     }
                 }
-                else {
-                    data[name] = content;
-                }
             }
-        }
-        for (const key in data) {
-            if (Array.isArray(data[key]) && data[key].length === 1) {
-                data[key] = data[key][0];
+            for (const key in data) {
+                if (Array.isArray(data[key]) && data[key].length === 1) {
+                    data[key] = data[key][0];
+                }
             }
         }
     }

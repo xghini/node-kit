@@ -323,7 +323,8 @@ function body2data(body, ct) {
       data[key] = value;
     }
   }
-  if (empty(data)) data = body;
+  // 不能让data为body,确保要是对象
+  // if (empty(data)) data = {};
   return data;
 }
 
