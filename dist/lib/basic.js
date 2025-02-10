@@ -1,4 +1,4 @@
-export { exefile, exedir, exeroot, metaroot, xpath, fileurl2path, sleep, interval, timelog, getDate, rf, wf, mkdir, isdir, isfile, dir, exist, rm, cp, env, exe, arf, awf, amkdir, aisdir, aisfile, adir, aexist, arm, aonedir, astat, aloadyml, aloadjson, cookie_obj, cookie_str, cookie_merge, cookies_obj, cookies_str, cookies_merge, mreplace, mreplace_calc, xreq, ast_jsbuild, gcatch, uuid, rint, rside, gchar, fhash, empty, addobjs, obj2v1, addTwoDimensionalObjects, };
+export { exefile, exedir, exeroot, metaroot, xpath, fileurl2path, now, sleep, interval, timelog, getDate, rf, wf, mkdir, isdir, isfile, dir, exist, rm, cp, env, exe, arf, awf, amkdir, aisdir, aisfile, adir, aexist, arm, aonedir, astat, aloadyml, aloadjson, cookie_obj, cookie_str, cookie_merge, cookies_obj, cookies_str, cookies_merge, mreplace, mreplace_calc, xreq, ast_jsbuild, gcatch, uuid, rint, rside, gchar, fhash, empty, addobjs, obj2v1, addTwoDimensionalObjects, };
 import { createRequire } from "module";
 import { parse } from "acorn";
 import fs from "fs";
@@ -13,7 +13,10 @@ const exedir = dirname(exefile);
 const exeroot = findPackageJsonDir(exefile);
 const metaroot = findPackageJsonDir(import.meta.dirname);
 let globalCatchError = false;
-function exe(command) {
+function now() {
+    return Math.floor(Date.now() / 1000);
+}
+function exe(command, log = true) {
     return new Promise((resolve) => {
         exec(command, (error, stdout, stderr) => {
             if (error) {
@@ -23,7 +26,8 @@ function exe(command) {
             if (stderr) {
                 console.warn("Warning:", stderr);
             }
-            console.log(stdout);
+            if (log)
+                console.log(stdout);
             resolve(stdout);
         });
     });

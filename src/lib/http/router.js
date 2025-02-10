@@ -192,13 +192,11 @@ function body2data(gold) {
   } catch {
     data = {};
     if (gold.ct === "application/x-www-form-urlencoded") {
-      data = {};
       const params = new URLSearchParams(gold.body);
       for (const [key, value] of params) {
         data[key] = value;
       }
     } else if (gold.ct?.startsWith("multipart/form-data")) {
-      data = {};
       const boundaryMatch = gold.ct.match(/boundary=(.+)$/);
       if (!boundaryMatch) {
         throw new Error("Boundary not found in Content-Type");

@@ -24,6 +24,7 @@ declare const kit: {
     metaroot: any;
     xpath: typeof index.xpath;
     fileurl2path: typeof index.fileurl2path;
+    now: typeof index.now;
     sleep: typeof index.sleep;
     interval: typeof index.interval;
     timelog: typeof index.timelog;
@@ -132,6 +133,11 @@ declare const kit: {
     zstd_compress: typeof index.zstd_compress;
     zstd_decompress: typeof index.zstd_decompress;
     cf: typeof index.cf;
+    pb: 1125899906842624;
+    tb: 1099511627776;
+    gb: 1073741824;
+    mb: 1048576;
+    maxnumber: number;
 };
 import * as captcha from "./lib/captcha/captcha.js";
 import * as redis from "./lib/redis/redis.js";

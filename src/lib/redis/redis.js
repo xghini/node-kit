@@ -184,13 +184,30 @@ const FILTER_SCRIPTS = {
     if #fields == 0 then
       return redis.call('HGETALL', key)
     end
-    -- 否则只返回指定字段
+    -- 否则处理指定字段
     local result = {}
+    local allFields = redis.call('HKEYS', key)
     for _, field in ipairs(fields) do
-      local value = redis.call('HGET', key, field)
-      if value ~= false then
-        table.insert(result, field)
-        table.insert(result, value)
+      -- 检查是否包含通配符
+      local isPattern = string.find(field, '[%*%?]') ~= nil
+      if isPattern then
+        -- 对于包含通配符的情况，使用模式匹配
+        for _, existingField in ipairs(allFields) do
+          if string.match(existingField, field) then
+            local value = redis.call('HGET', key, existingField)
+            if value ~= false then
+              table.insert(result, existingField)
+              table.insert(result, value)
+            end
+          end
+        end
+      else
+        -- 对于不包含通配符的情况，使用精确匹配
+        local value = redis.call('HGET', key, field)
+        if value ~= false then
+          table.insert(result, field)
+          table.insert(result, value)
+        end
       end
     end
     return result

@@ -7,6 +7,7 @@ export {
   xpath,
   fileurl2path,
   // 时间相关
+  now,
   sleep,
   interval,
   timelog,
@@ -80,7 +81,12 @@ const metaroot = findPackageJsonDir(import.meta.dirname);
 
 let globalCatchError = false;
 /*XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX*/
-function exe(command) {
+/** 获取秒时间戳 */
+function now() {
+  return Math.floor(Date.now() / 1000);
+}
+/** 执行命令行指令 默认打印日志,返回输出 */
+function exe(command, log = true) {
   return new Promise((resolve) => {
     exec(command, (error, stdout, stderr) => {
       if (error) {
@@ -90,7 +96,7 @@ function exe(command) {
       if (stderr) {
         console.warn("Warning:", stderr);
       }
-      console.log(stdout);
+      if (log) console.log(stdout);
       resolve(stdout);
     });
   });
