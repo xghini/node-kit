@@ -29,6 +29,8 @@ declare const kit: {
     interval: typeof index.interval;
     timelog: typeof index.timelog;
     getDate: typeof index.getDate;
+    ttl: index.TTLMap;
+    TTLMap: typeof index.TTLMap;
     rf: typeof index.rf;
     wf: typeof index.wf;
     mkdir: typeof index.mkdir;

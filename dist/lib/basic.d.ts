@@ -9,6 +9,21 @@ export function sleep(ms: number): Promise<void>;
 export function interval(fn: Function, ms: number, PX?: number): Promise<void>;
 export function timelog(fn: any): Promise<void>;
 export function getDate(offset?: number): string;
+export const ttl: TTLMap;
+export class TTLMap {
+    storage: Map<any, any>;
+    expiry_map: Map<any, any>;
+    expiry_arr: any[];
+    lastCleanup: number;
+    cleanupInterval: number;
+    set(key: any, value: any, ttl: any): this;
+    get(key: any): any;
+    delete(key: any): boolean;
+    _lazyCleanup(): void;
+    _siftDown(index: any): void;
+    _siftUp(index: any): void;
+    _removeFromHeap(): void;
+}
 export function rf(filename: string, option?: string): string | null;
 export function wf(filename: string, data: string | Buffer, append?: boolean, option?: string): boolean;
 export function mkdir(dir: any): undefined;

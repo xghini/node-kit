@@ -10,6 +10,8 @@ export {
   interval,
   timelog,
   getDate,
+  ttl,
+  TTLMap,
   rf,
   wf,
   mkdir,
@@ -823,3 +825,92 @@ function cookie_merge(str1, str2) {
   };
   return cookie_str(merged);
 }
+class TTLMap {
+  constructor() {
+    this.storage = new Map();
+    this.expiry_map = new Map();
+    this.expiry_arr = [];
+    this.lastCleanup = Date.now();
+    this.cleanupInterval = 100;
+  }
+  set(key, value, ttl) {
+    const expiryTime = Date.now() + ttl;
+    this.storage.set(key, value);
+    this.expiry_map.set(key, expiryTime);
+    this.expiry_arr.push({ key, expiryTime });
+    this._siftUp(this.expiry_arr.length - 1);
+    this._lazyCleanup();
+    return this;
+  }
+  get(key) {
+    const expiryTime = this.expiry_map.get(key);
+    if (!expiryTime || expiryTime <= Date.now()) {
+      this.delete(key);
+      return undefined;
+    }
+    return this.storage.get(key);
+  }
+  delete(key) {
+    this.storage.delete(key);
+    this.expiry_map.delete(key);
+    return true;
+  }
+  _lazyCleanup() {
+    const now = Date.now();
+    if (now - this.lastCleanup < this.cleanupInterval) {
+      return;
+    }
+    while (this.expiry_arr.length > 0) {
+      const top = this.expiry_arr[0];
+      if (top.expiryTime > now) {
+        break;
+      }
+      this.delete(top.key);
+      this._removeFromHeap();
+    }
+    this.lastCleanup = now;
+  }
+  _siftDown(index) {
+    const element = this.expiry_arr[index];
+    const halfLength = this.expiry_arr.length >>> 1; 
+    while (index < halfLength) {
+      let minIndex = (index << 1) + 1; 
+      let minChild = this.expiry_arr[minIndex];
+      const rightIndex = minIndex + 1;
+      if (rightIndex < this.expiry_arr.length) {
+        const rightChild = this.expiry_arr[rightIndex];
+        if (rightChild.expiryTime < minChild.expiryTime) {
+          minIndex = rightIndex;
+          minChild = rightChild;
+        }
+      }
+      if (element.expiryTime <= minChild.expiryTime) {
+        break;
+      }
+      this.expiry_arr[index] = minChild;
+      index = minIndex;
+    }
+    this.expiry_arr[index] = element;
+  }
+  _siftUp(index) {
+    const element = this.expiry_arr[index];
+    while (index > 0) {
+      const parentIndex = (index - 1) >>> 1;
+      const parent = this.expiry_arr[parentIndex];
+      if (element.expiryTime >= parent.expiryTime) {
+        break;
+      }
+      this.expiry_arr[index] = parent;
+      index = parentIndex;
+    }
+    this.expiry_arr[index] = element;
+  }
+  _removeFromHeap() {
+    const lastElement = this.expiry_arr.pop();
+    if (this.expiry_arr.length > 0) {
+      this.expiry_arr[0] = lastElement;
+      this._siftDown(0);
+    }
+  }
+}
+const ttl = new TTLMap();
