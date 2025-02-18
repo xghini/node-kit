@@ -7,17 +7,24 @@ function redis(...argv) {
     return redis;
 }
 function xredis(...argv) {
+    const host = argv[0].host || "127.0.0.1";
     const redis = new Redis(...argv);
-    redis.on("error", (err) => console.error(err));
+    redis.on("error", (err) => console.error("Redis错误:", host, err));
     return Object.assign(redis, {
+        host,
         scankey,
         scankeys,
         sync,
+        avatar,
         hquery,
         sum,
         join,
         num,
     });
+}
+async function avatar(rearr, fn) {
+    const tmparr = [...rearr, this];
+    return Promise.all(tmparr.map(fn));
 }
 async function num(pattern) {
     return this.eval(`return #redis.call('keys', ARGV[1])`, 0, pattern);
@@ -44,12 +51,12 @@ async function hquery(pattern, options = {}) {
                 filterArray.push(key, value[0], value[1].toString());
             }
             else {
-                const safeValues = value.map(v => v.toString());
+                const safeValues = value.map((v) => v.toString());
                 filterArray.push(key, "IN", JSON.stringify(safeValues));
             }
         }
         else {
-            const safeValue = typeof value === 'number' && value > Number.MAX_SAFE_INTEGER
+            const safeValue = typeof value === "number" && value > Number.MAX_SAFE_INTEGER
                 ? value.toString()
                 : value;
             filterArray.push(key, "=", safeValue);

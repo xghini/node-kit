@@ -8,7 +8,7 @@ export function now(): number;
 export function sleep(ms: number): Promise<void>;
 export function interval(fn: Function, ms: number, PX?: number): Promise<void>;
 export function timelog(fn: any): Promise<void>;
-export function getDate(offset?: number): string;
+export function getDate(timestamp: any, offset?: number): string;
 export const ttl: TTLMap;
 export class TTLMap {
     storage: Map<any, any>;
@@ -61,15 +61,4 @@ export function mreplace_calc(str: string, replacements: Array<[string | RegExp,
 export function xreq(path: string): object;
 export function ast_jsbuild(code: string): string;
 export function gcatch(open?: boolean): void;
-export function uuid(len?: number): string;
-export function rint(a: any, b?: number): any;
-export function rside(): 1 | -1;
-export function gchar(n?: number, characters?: number): string;
-export function fhash(cx: string | Buffer | TypedArray | DataView, encode?: string, type?: string): string;
-export function empty(x: any, recursive?: any): bool;
-export function addobjs(...objects: any[]): {};
-export function obj2v1(obj2v: any): {
-    [k: string]: any;
-};
-export function addTwoDimensionalObjects(...objects: any[]): {};
 import fs from "fs";

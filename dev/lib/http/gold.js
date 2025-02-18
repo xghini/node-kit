@@ -65,7 +65,7 @@ function hd_stream(server, stream, headers) {
         typeof arr === "string" ? (arr = [arr]) : 0;
         respond_headers["set-cookie"] = arr.map((ck) =>
           cookie_merge(
-            "HttpOnly; Path=/; Secure; SameSite=Strict;Max-Age=300",
+            "HttpOnly; Path=/; Secure; SameSite=Lax; Max-Age=900",
             ck
           )
         );
@@ -74,7 +74,7 @@ function hd_stream(server, stream, headers) {
         // 只需要传键名 ['ck1','ck2']
         typeof arr === "string" ? (arr = [arr]) : 0;
         respond_headers["set-cookie"] = arr.map(
-          (ck) => ck + "=;HttpOnly; Path=/; Secure; SameSite=Strict;Max-Age=0"
+          (ck) => ck + "=; Path=/; Max-Age=0"
         );
       },
       respond: (obj) => {
@@ -170,8 +170,8 @@ function hd_stream(server, stream, headers) {
 }
 
 function info() {
-  console.log.bind({xinfo:2})(this.headers);
-  console.log.bind({xinfo:2})(this.query);
-  console.log.bind({xinfo:2})(this.body);
-  console.log.bind({xinfo:2})(this.data);
+  console.log.bind({ xinfo: 2 })(this.headers);
+  console.log.bind({ xinfo: 2 })(this.query);
+  console.log.bind({ xinfo: 2 })(this.body);
+  console.log.bind({ xinfo: 2 })(this.data);
 }

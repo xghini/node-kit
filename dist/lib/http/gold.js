@@ -56,11 +56,11 @@ function hd_stream(server, stream, headers) {
             pushStream: stream.pushStream?.bind(stream),
             setcookie: (arr) => {
                 typeof arr === "string" ? (arr = [arr]) : 0;
-                respond_headers["set-cookie"] = arr.map((ck) => cookie_merge("HttpOnly; Path=/; Secure; SameSite=Strict;Max-Age=300", ck));
+                respond_headers["set-cookie"] = arr.map((ck) => cookie_merge("HttpOnly; Path=/; Secure; SameSite=Lax; Max-Age=900", ck));
             },
             delcookie: (arr) => {
                 typeof arr === "string" ? (arr = [arr]) : 0;
-                respond_headers["set-cookie"] = arr.map((ck) => ck + "=;HttpOnly; Path=/; Secure; SameSite=Strict;Max-Age=0");
+                respond_headers["set-cookie"] = arr.map((ck) => ck + "=; Path=/; Max-Age=0");
             },
             respond: (obj) => {
                 if (notresponded) {

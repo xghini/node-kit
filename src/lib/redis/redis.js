@@ -12,17 +12,30 @@ function redis(...argv) {
   return redis;
 }
 function xredis(...argv) {
+  const host = argv[0].host || "127.0.0.1";
   const redis = new Redis(...argv);
-  redis.on("error", (err) => console.error(err));
+  redis.on("error", (err) => console.error("Redis错误:", host, err));
   return Object.assign(redis, {
+    host,
     scankey,
     scankeys,
     sync,
+    avatar,
     hquery,
     sum,
     join,
     num,
   });
+}
+/**
+ * 化身,全部做相同操作,包括自身(内部tmparr操作新数组避免了引用对外部rearr的影响)
+ * @param {Redis[]} rearr
+ * @param {*} fn 参数re进行操作
+ * @returns {Promise<any[]>}
+ */
+async function avatar(rearr, fn) {
+  const tmparr=[...rearr,this];
+  return Promise.all(tmparr.map(fn));
 }
 /**
  * 返回键数量
@@ -79,13 +92,14 @@ async function hquery(pattern, options = {}) {
       if (isOperatorArray) {
         filterArray.push(key, value[0], value[1].toString());
       } else {
-        const safeValues = value.map(v => v.toString());
+        const safeValues = value.map((v) => v.toString());
         filterArray.push(key, "IN", JSON.stringify(safeValues));
       }
     } else {
-      const safeValue = typeof value === 'number' && value > Number.MAX_SAFE_INTEGER 
-        ? value.toString() 
-        : value;
+      const safeValue =
+        typeof value === "number" && value > Number.MAX_SAFE_INTEGER
+          ? value.toString()
+          : value;
       filterArray.push(key, "=", safeValue);
     }
   }

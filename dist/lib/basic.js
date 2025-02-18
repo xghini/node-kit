@@ -1,4 +1,4 @@
-export { exefile, exedir, exeroot, metaroot, xpath, fileurl2path, now, sleep, interval, timelog, getDate, ttl, TTLMap, rf, wf, mkdir, isdir, isfile, dir, exist, rm, cp, env, exe, arf, awf, amkdir, aisdir, aisfile, adir, aexist, arm, aonedir, astat, aloadyml, aloadjson, cookie_obj, cookie_str, cookie_merge, cookies_obj, cookies_str, cookies_merge, mreplace, mreplace_calc, xreq, ast_jsbuild, gcatch, uuid, rint, rside, gchar, fhash, empty, addobjs, obj2v1, addTwoDimensionalObjects, };
+export { exefile, exedir, exeroot, metaroot, xpath, fileurl2path, now, sleep, interval, timelog, getDate, ttl, TTLMap, rf, wf, mkdir, isdir, isfile, dir, exist, rm, cp, env, exe, arf, awf, amkdir, aisdir, aisfile, adir, aexist, arm, aonedir, astat, aloadyml, aloadjson, cookie_obj, cookie_str, cookie_merge, cookies_obj, cookies_str, cookies_merge, mreplace, mreplace_calc, xreq, ast_jsbuild, gcatch, };
 import { createRequire } from "module";
 import { parse } from "acorn";
 import fs from "fs";
@@ -32,44 +32,6 @@ function exe(command, log = true) {
         });
     });
 }
-function addTwoDimensionalObjects(...objects) {
-    const level1Keys = [...new Set(objects.flatMap((obj) => Object.keys(obj)))];
-    const level2Keys = [
-        ...new Set(objects.flatMap((obj) => Object.values(obj).flatMap((innerObj) => Object.keys(innerObj)))),
-    ];
-    const result = {};
-    level1Keys.forEach((key1) => {
-        result[key1] = {};
-        level2Keys.forEach((key2) => {
-            result[key1][key2] = objects.reduce((sum, obj) => {
-                if (!obj[key1])
-                    return sum;
-                return sum + (obj[key1][key2] || 0);
-            }, 0);
-        });
-    });
-    return result;
-}
-function obj2v1(obj2v) {
-    return Object.fromEntries(Object.entries(obj2v).map(([key, value]) => {
-        if (typeof value === "object" &&
-            value !== null &&
-            !Array.isArray(value)) {
-            return [
-                key,
-                Object.values(value).reduce((sum, val) => sum + (typeof val === "number" ? val / 1048576 : 0), 0),
-            ];
-        }
-        return [key, value];
-    }));
-}
-function addobjs(...objects) {
-    const keys = [...new Set(objects.flatMap((obj) => Object.keys(obj)))];
-    return keys.reduce((result, key) => {
-        result[key] = objects.reduce((sum, obj) => sum + (obj[key] || 0), 0);
-        return result;
-    }, {});
-}
 function gcatch(open = true) {
     if (open) {
         if (!globalCatchError) {
@@ -91,75 +53,20 @@ function gcatch(open = true) {
         console.error("gcatch主线程未捕获错误:", err);
     }
 }
-function empty(x, recursive = false) {
-    if (recursive) {
-        if (!x)
-            return true;
-        if (Array.isArray(x)) {
-            return x.length === 0 || x.every((item) => empty(item, true));
-        }
-        if (typeof x === "object") {
-            return (Object.keys(x).length === 0 ||
-                Object.values(x).every((value) => empty(value, true)));
-        }
-        return false;
+function getDate(timestamp, offset = 8) {
+    if (timestamp) {
+        timestamp = timestamp.toString();
+        if (timestamp.length < 12)
+            timestamp = timestamp * 1000;
+        else
+            timestamp = timestamp * 1;
     }
-    return !x || (typeof x === "object" && Object.keys(x).length === 0);
-}
-function fhash(cx, encode = "base64url", type = "sha256") {
-    return crypto.createHash(type).update(cx).digest(encode);
-}
-function gchar(n = 6, characters = 0) {
-    if (typeof characters === "number") {
-        switch (characters) {
-            case 0:
-                characters = "0123456789";
-                break;
-            case 1:
-                characters = "23457ACDFGHJKLPQRSTUVWXY23457";
-                break;
-            case 2:
-                characters =
-                    "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz012345678901234567890123456789";
-                break;
-            case 2:
-                characters =
-                    "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789-_";
-                break;
-            case 3:
-                characters =
-                    "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/";
-                break;
-        }
-    }
-    let result = "";
-    for (let i = 0; i < n; i++) {
-        const idx = Math.floor(Math.random() * characters.length);
-        result += characters[idx];
-    }
-    return result;
-}
-function rside() {
-    return Math.random() > 0.5 ? 1 : -1;
-}
-function rint(a, b = 0) {
-    if (a > b) {
-        return Math.floor(Math.random() * (a + 1 - b)) + b;
-    }
-    else {
-        return Math.floor(Math.random() * (b + 1 - a)) + a;
-    }
-}
-function getDate(offset = 8) {
-    return new Date(Date.now() + offset * 3600000)
+    else
+        timestamp = Date.now();
+    return new Date(timestamp + offset * 3600000)
         .toISOString()
         .slice(0, 19)
         .replace("T", " ");
-}
-function uuid(len = 21) {
-    const byteLength = Math.ceil((len * 3) / 4);
-    const randomString = crypto.randomBytes(byteLength).toString("base64url");
-    return randomString.substring(0, len);
 }
 async function aloadyml(filePath) {
     try {

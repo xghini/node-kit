@@ -20,21 +20,37 @@ function redis(...argv) {
 2.
 */
 function xredis(...argv) {
+  const host = argv[0].host || "127.0.0.1";
   const redis = new Redis(...argv);
-  redis.on("error", (err) => console.error(err));
+  redis.on("error", (err) => console.error("Redis错误:", host, err));
+  // redis.on("connect", () => console.log(`Redis ${argv[0].host} 已连接`));
+  // redis.on("ready", () => console.log(`Redis ${argv[0].host} 已就绪`));
+  // redis.on("close", () => console.log(`Redis ${argv[0].host} 连接关闭`));
   // 把lua的每个值先加载进去,换成hash [算了 微小提升 还要吧函数变为async]
   // for (const [type, script] of Object.entries(lua)) {
   //   scriptShas[type] = await this.script("LOAD", script);
   // }
   return Object.assign(redis, {
+    host,
     scankey,
     scankeys,
     sync,
+    avatar,
     hquery,
     sum,
     join,
     num,
   });
+}
+/**
+ * 化身,全部做相同操作,包括自身(内部tmparr操作新数组避免了引用对外部rearr的影响)
+ * @param {Redis[]} rearr
+ * @param {*} fn 参数re进行操作
+ * @returns {Promise<any[]>}
+ */
+async function avatar(rearr, fn) {
+  const tmparr=[...rearr,this];
+  return Promise.all(tmparr.map(fn));
 }
 /**
  * 返回键数量
@@ -97,18 +113,19 @@ async function hquery(pattern, options = {}) {
         filterArray.push(key, value[0], value[1].toString());
       } else {
         // 确保数组中的长数字也转换为字符串
-        const safeValues = value.map(v => v.toString());
+        const safeValues = value.map((v) => v.toString());
         filterArray.push(key, "IN", JSON.stringify(safeValues));
       }
     } else {
       // 对普通值进行处理，确保长数字转换为字符串
-      const safeValue = typeof value === 'number' && value > Number.MAX_SAFE_INTEGER 
-        ? value.toString() 
-        : value;
+      const safeValue =
+        typeof value === "number" && value > Number.MAX_SAFE_INTEGER
+          ? value.toString()
+          : value;
       filterArray.push(key, "=", safeValue);
     }
   }
-  
+
   const params = [
     pattern,
     _sortby || "",
@@ -118,7 +135,7 @@ async function hquery(pattern, options = {}) {
     filterArray.length,
     ...filterArray,
   ];
-  
+
   const result = await this.eval(lua.hquery, 0, ...params);
   return JSON.parse(result);
 }
