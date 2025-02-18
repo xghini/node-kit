@@ -4,6 +4,7 @@ export const exeroot: any;
 export const metaroot: any;
 export function xpath(targetPath: any, basePath?: string, separator?: string): string;
 export function fileurl2path(url: string): string;
+export function stamps(date: any): number;
 export function now(): number;
 export function sleep(ms: number): Promise<void>;
 export function interval(fn: Function, ms: number, PX?: number): Promise<void>;

@@ -24,6 +24,7 @@ declare const kit: {
     metaroot: any;
     xpath: typeof index.xpath;
     fileurl2path: typeof index.fileurl2path;
+    stamps: typeof index.stamps;
     now: typeof index.now;
     sleep: typeof index.sleep;
     interval: typeof index.interval;
@@ -130,6 +131,10 @@ declare const kit: {
     tb: 1099511627776;
     gb: 1073741824;
     mb: 1048576;
+    d1: 86400;
+    d7: 604800;
+    d30: 2592000;
+    d365: 31536000;
     maxnumber: number;
     uuid: typeof index.uuid;
     rint: typeof index.rint;

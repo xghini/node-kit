@@ -7,6 +7,7 @@ export {
   xpath,
   fileurl2path,
   // 时间相关
+  stamps,
   now,
   sleep,
   interval,
@@ -73,6 +74,10 @@ const metaroot = findPackageJsonDir(import.meta.dirname);
 
 let globalCatchError = false;
 /*XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX*/
+/** 根据日期获取秒时间戳,不传参数则获取当前秒时间戳 */
+function stamps(date) {
+  return Math.floor((Date.parse(date) || Date.now()) / 1000);
+}
 /** 获取秒时间戳 */
 function now() {
   return Math.floor(Date.now() / 1000);
@@ -129,12 +134,12 @@ Date.now() msstamp
 */
 // 生成各时区时间,默认北京时间
 function getDate(timestamp, offset = 8) {
-  if(timestamp){
+  if (timestamp) {
     timestamp = timestamp.toString();
     if (timestamp.length < 12) timestamp = timestamp * 1000;
     else timestamp = timestamp * 1;
-  }else timestamp=Date.now()
-  return new Date( timestamp + offset * 3600000)
+  } else timestamp = Date.now();
+  return new Date(timestamp + offset * 3600000)
     .toISOString()
     .slice(0, 19)
     .replace("T", " ");
