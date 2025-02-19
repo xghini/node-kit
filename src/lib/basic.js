@@ -6,11 +6,11 @@ export {
   xpath,
   fileurl2path,
   stamps,
+  date,  
   now,
   sleep,
   interval,
   timelog,
-  getDate,
   ttl,
   TTLMap,
   rf,
@@ -51,7 +51,6 @@ export {
 import { createRequire } from "module";
 import { parse } from "acorn";
 import fs from "fs";
-import crypto from "crypto";
 import { dirname, resolve, join, normalize, isAbsolute, sep } from "path";
 import yaml from "yaml";
 import { exec } from "child_process";
@@ -115,7 +114,7 @@ function gcatch(open = true) {
     console.error("gcatch主线程未捕获错误:", err);
   }
 }
-function getDate(timestamp, offset = 8) {
+function date(timestamp, offset = 8) {
   if (timestamp) {
     timestamp = timestamp.toString();
     if (timestamp.length < 12) timestamp = timestamp * 1000;

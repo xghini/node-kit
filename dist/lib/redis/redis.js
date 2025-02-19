@@ -24,7 +24,16 @@ function xredis(...argv) {
 }
 async function avatar(rearr, fn) {
     const tmparr = [...rearr, this];
-    return Promise.all(tmparr.map(fn));
+    const availableRedis = tmparr.filter((redis) => {
+        return redis.status === "ready";
+    });
+    if (availableRedis.length < tmparr.length) {
+        const filteredHosts = tmparr
+            .filter((redis) => redis.status !== "ready")
+            .map((redis) => redis.host);
+        console.warn(`avatar 跳过(避免阻塞): ${filteredHosts.join(", ")}`);
+    }
+    return Promise.all(availableRedis.map(fn));
 }
 async function num(pattern) {
     return this.eval(`return #redis.call('keys', ARGV[1])`, 0, pattern);

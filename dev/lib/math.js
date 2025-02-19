@@ -13,6 +13,7 @@ export {
   obj2v1,
   addTwoDimensionalObjects,
 }
+import crypto from "crypto";
 /** 数组去重 */
 function arr_uniq(arr) {
   return [...new Set(arr)];

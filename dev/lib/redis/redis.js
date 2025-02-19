@@ -26,10 +26,6 @@ function xredis(...argv) {
   // redis.on("connect", () => console.log(`Redis ${argv[0].host} 已连接`));
   // redis.on("ready", () => console.log(`Redis ${argv[0].host} 已就绪`));
   // redis.on("close", () => console.log(`Redis ${argv[0].host} 连接关闭`));
-  // 把lua的每个值先加载进去,换成hash [算了 微小提升 还要吧函数变为async]
-  // for (const [type, script] of Object.entries(lua)) {
-  //   scriptShas[type] = await this.script("LOAD", script);
-  // }
   return Object.assign(redis, {
     host,
     scankey,
@@ -49,8 +45,31 @@ function xredis(...argv) {
  * @returns {Promise<any[]>}
  */
 async function avatar(rearr, fn) {
-  const tmparr=[...rearr,this];
-  return Promise.all(tmparr.map(fn));
+  const tmparr = [...rearr, this];
+  // 过滤掉未就绪的 Redis 实例
+  const availableRedis = tmparr.filter((redis) => {
+    return redis.status === "ready";
+  });
+  // 如果有实例被过滤掉，打印日志
+  if (availableRedis.length < tmparr.length) {
+    const filteredHosts = tmparr
+      .filter((redis) => redis.status !== "ready")
+      .map((redis) => redis.host);
+    console.warn(
+      `avatar 跳过(避免阻塞): ${filteredHosts.join(", ")}`
+    );
+  }
+  return Promise.all(availableRedis.map(fn));
+  // return Promise.all(
+  //   tmparr.map(async (re) => {
+  //     try{
+  //       return await fn(re);
+  //     }catch(err){
+  //       console.error(`avatar ${re.host} ${err}`);
+  //       return null;
+  //     }
+  //   })
+  // );
 }
 /**
  * 返回键数量

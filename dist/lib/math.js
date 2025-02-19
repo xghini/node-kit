@@ -1,4 +1,5 @@
 export { uuid, rint, rside, gchar, fhash, empty, arr_uniq, arr_diff, addobjs, obj2v1, addTwoDimensionalObjects, };
+import crypto from "crypto";
 function arr_uniq(arr) {
     return [...new Set(arr)];
 }

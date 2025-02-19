@@ -1,4 +1,4 @@
-export function uuid(len?: number): any;
+export function uuid(len?: number): string;
 export function rint(a: any, b?: number): any;
 export function rside(): 1 | -1;
 export function gchar(n?: number, characters?: number): string;

@@ -1,8 +1,7 @@
-export { exefile, exedir, exeroot, metaroot, xpath, fileurl2path, stamps, now, sleep, interval, timelog, getDate, ttl, TTLMap, rf, wf, mkdir, isdir, isfile, dir, exist, rm, cp, env, exe, arf, awf, amkdir, aisdir, aisfile, adir, aexist, arm, aonedir, astat, aloadyml, aloadjson, cookie_obj, cookie_str, cookie_merge, cookies_obj, cookies_str, cookies_merge, mreplace, mreplace_calc, xreq, ast_jsbuild, gcatch, };
+export { exefile, exedir, exeroot, metaroot, xpath, fileurl2path, stamps, date, now, sleep, interval, timelog, ttl, TTLMap, rf, wf, mkdir, isdir, isfile, dir, exist, rm, cp, env, exe, arf, awf, amkdir, aisdir, aisfile, adir, aexist, arm, aonedir, astat, aloadyml, aloadjson, cookie_obj, cookie_str, cookie_merge, cookies_obj, cookies_str, cookies_merge, mreplace, mreplace_calc, xreq, ast_jsbuild, gcatch, };
 import { createRequire } from "module";
 import { parse } from "acorn";
 import fs from "fs";
-import crypto from "crypto";
 import { dirname, resolve, join, normalize, isAbsolute, sep } from "path";
 import yaml from "yaml";
 import { exec } from "child_process";
@@ -56,7 +55,7 @@ function gcatch(open = true) {
         console.error("gcatch主线程未捕获错误:", err);
     }
 }
-function getDate(timestamp, offset = 8) {
+function date(timestamp, offset = 8) {
     if (timestamp) {
         timestamp = timestamp.toString();
         if (timestamp.length < 12)

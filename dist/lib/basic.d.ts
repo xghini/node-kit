@@ -5,11 +5,11 @@ export const metaroot: any;
 export function xpath(targetPath: any, basePath?: string, separator?: string): string;
 export function fileurl2path(url: string): string;
 export function stamps(date: any): number;
+export function date(timestamp: any, offset?: number): string;
 export function now(): number;
 export function sleep(ms: number): Promise<void>;
 export function interval(fn: Function, ms: number, PX?: number): Promise<void>;
 export function timelog(fn: any): Promise<void>;
-export function getDate(timestamp: any, offset?: number): string;
 export const ttl: TTLMap;
 export class TTLMap {
     storage: Map<any, any>;

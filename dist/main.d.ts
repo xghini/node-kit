@@ -25,11 +25,11 @@ declare const kit: {
     xpath: typeof index.xpath;
     fileurl2path: typeof index.fileurl2path;
     stamps: typeof index.stamps;
+    date: typeof index.date;
     now: typeof index.now;
     sleep: typeof index.sleep;
     interval: typeof index.interval;
     timelog: typeof index.timelog;
-    getDate: typeof index.getDate;
     ttl: index.TTLMap;
     TTLMap: typeof index.TTLMap;
     rf: typeof index.rf;
