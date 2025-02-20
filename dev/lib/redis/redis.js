@@ -123,7 +123,7 @@ async function join(aa, bb, cc, dd) {
  * 
  * @param {*} pattern 
  * @param {*} options { _sort, _limit, _fields }为预设查询字段,js只负责传参,在lua中实现功能;其它为匹配字段
- * @_fields :["download","upload"] 指定返回字段 最终[key,download,upload]
+ * @_fields :["download","upload"] 指定返回字段 最终返回二维数组[[key,download,upload]];不指定则返回key的一维数组
  * @_sort :"createDate desc" "createDate" "desc", 当_sort没设置时不排序;使用split(' ')得到的数组长1时,检测字符是否为desc或asc,是则对key排序;否则认为是指定的sortby默认asc排序;得到的数组长2时,第一个sortby(无效则对key排序) 第二个sort(desc|asc,其它无效字符为asc)
  * @_limit 限制返回条数
  * @returns 
