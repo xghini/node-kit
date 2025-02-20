@@ -1,11 +1,38 @@
 -- query.lua
 -- Get parameters
 local pattern = ARGV[1]
-local sort_field = ARGV[2]
-local sort_order = ARGV[3]
-local limit = tonumber(ARGV[4]) or 0
-local fields = ARGV[5]
-local filter_count = tonumber(ARGV[6])
+local sort_spec = ARGV[2] or ''
+local limit = tonumber(ARGV[3]) or 0
+local fields = ARGV[4]
+local filter_count = tonumber(ARGV[5])
+
+-- Parse sort specification
+local sort_field = ''
+local sort_order = 'asc'
+
+if sort_spec ~= '' then
+    local parts = {}
+    for part in string.gmatch(sort_spec, "%S+") do
+        table.insert(parts, part)
+    end
+    
+    if #parts == 1 then
+        -- 如果只有一个部分
+        if parts[1] == 'asc' or parts[1] == 'desc' then
+            -- 如果是排序方向，对key排序
+            sort_order = parts[1]
+        else
+            -- 否则作为排序字段，默认asc
+            sort_field = parts[1]
+        end
+    elseif #parts == 2 then
+        -- 如果有两个部分
+        sort_field = parts[1]
+        if parts[2] == 'desc' then
+            sort_order = 'desc'
+        end
+    end
+end
 
 -- 辅助函数：安全的数值转换
 local function safe_tonumber(str)
@@ -61,16 +88,16 @@ end
 
 -- Parse filters with validation
 local filters = {}
-local i = 7
-while i <= 6 + filter_count * 3 do
-    local key = ARGV[i]
-    local op = ARGV[i + 1]
-    local value = ARGV[i + 2]
-    
+local i = 6
+while i <= 5 + filter_count * 3 do
     -- 确保在索引范围内
     if i > #ARGV or i + 1 > #ARGV or i + 2 > #ARGV then
         break
     end
+
+    local key = ARGV[i]
+    local op = ARGV[i + 1]
+    local value = ARGV[i + 2]
     
     -- 验证操作符是否合法
     if op ~= "=" and op ~= ">" and op ~= "<" and op ~= ">=" and op ~= "<=" and op ~= "IN" then
@@ -157,25 +184,39 @@ repeat
     end
 until cursor == "0"
 
--- Sort results if sort field is specified and fields are selected
-if sort_field ~= '' and #field_list > 0 then
-    local sort_index = 1
-    for i, field in ipairs(field_list) do
-        if field == sort_field then
-            sort_index = i + 1  -- +1 because first element is key
-            break
+-- Sort results based on sort specification
+if sort_spec ~= '' then
+    if sort_field == '' then
+        -- 如果没有指定排序字段但指定了排序方向，按key排序
+        table.sort(results, function(a, b)
+            local a_val = type(a) == "table" and a[1] or a
+            local b_val = type(b) == "table" and b[1] or b
+            if sort_order == 'desc' then
+                return a_val > b_val
+            else
+                return a_val < b_val
+            end
+        end)
+    elseif #field_list > 0 then
+        -- 如果指定了排序字段且有返回字段，寻找排序字段索引
+        local sort_index = 1
+        for i, field in ipairs(field_list) do
+            if field == sort_field then
+                sort_index = i + 1  -- +1 because first element is key
+                break
+            end
         end
-    end
 
-    table.sort(results, function(a, b)
-        local a_val = safe_tonumber(a[sort_index]) or a[sort_index]
-        local b_val = safe_tonumber(b[sort_index]) or b[sort_index]
-        if sort_order == 'desc' then
-            return a_val > b_val
-        else
-            return a_val < b_val
-        end
-    end)
+        table.sort(results, function(a, b)
+            local a_val = safe_tonumber(a[sort_index]) or a[sort_index]
+            local b_val = safe_tonumber(b[sort_index]) or b[sort_index]
+            if sort_order == 'desc' then
+                return a_val > b_val
+            else
+                return a_val < b_val
+            end
+        end)
+    end
 end
 
 -- Apply limit with validation
@@ -189,7 +230,7 @@ end
 
 -- 确保空结果返回为数组
 if #results == 0 then
-  return "[]"
+    return "[]"
 end
 
 return cjson.encode(results)

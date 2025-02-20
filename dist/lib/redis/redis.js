@@ -51,7 +51,14 @@ async function join(aa, bb, cc, dd) {
     return res;
 }
 async function hquery(pattern, options = {}) {
-    const { _sortby, _sort = "asc", _limit, _fields, ...filters } = options;
+    const { _sort, _limit, _fields, ...filters } = options;
+    let sort = "";
+    if (typeof _sort === "string") {
+        sort = _sort.trim();
+    }
+    else if (options._sortby) {
+        sort = `${options._sortby} ${options._sort || "asc"}`.trim();
+    }
     const filterArray = [];
     for (const [key, value] of Object.entries(filters)) {
         if (Array.isArray(value)) {
@@ -73,8 +80,7 @@ async function hquery(pattern, options = {}) {
     }
     const params = [
         pattern,
-        _sortby || "",
-        _sort || "",
+        sort,
         _limit || 0,
         _fields ? _fields.join(",") : "",
         filterArray.length,

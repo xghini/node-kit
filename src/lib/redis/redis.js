@@ -93,8 +93,23 @@ async function join(aa, bb, cc, dd) {
   });
   return res;
 }
+/**
+ * 
+ * @param {*} pattern 
+ * @param {*} options { _sort, _limit, _fields }为预设查询字段,js只负责传参,在lua中实现功能;其它为匹配字段
+ * @_fields :["download","upload"] 指定返回字段 最终[key,download,upload]
+ * @_sort :"createDate desc" "createDate" "desc", 当_sort没设置时不排序;使用split(' ')得到的数组长1时,检测字符是否为desc或asc,是则对key排序;否则认为是指定的sortby默认asc排序;得到的数组长2时,第一个sortby(无效则对key排序) 第二个sort(desc|asc,其它无效字符为asc)
+ * @_limit 限制返回条数
+ * @returns 
+ */
 async function hquery(pattern, options = {}) {
-  const { _sortby, _sort = "asc", _limit, _fields, ...filters } = options;
+  const { _sort, _limit, _fields, ...filters } = options;
+  let sort = "";
+  if (typeof _sort === "string") {
+    sort = _sort.trim();
+  } else if (options._sortby) {
+    sort = `${options._sortby} ${options._sort || "asc"}`.trim();
+  }
   const filterArray = [];
   for (const [key, value] of Object.entries(filters)) {
     if (Array.isArray(value)) {
@@ -116,12 +131,11 @@ async function hquery(pattern, options = {}) {
   }
   const params = [
     pattern,
-    _sortby || "",
-    _sort || "",
-    _limit || 0,
-    _fields ? _fields.join(",") : "",
-    filterArray.length,
-    ...filterArray,
+    sort,                            
+    _limit || 0,                     
+    _fields ? _fields.join(",") : "", 
+    filterArray.length,              
+    ...filterArray,                  
   ];
   const result = await this.eval(lua.hquery, 0, ...params);
   return JSON.parse(result);
