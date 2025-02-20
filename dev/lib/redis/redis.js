@@ -144,7 +144,6 @@ async function hquery(pattern, options = {}) {
       filterArray.push(key, "=", safeValue);
     }
   }
-
   const params = [
     pattern,
     _sortby || "",
@@ -154,7 +153,6 @@ async function hquery(pattern, options = {}) {
     filterArray.length,
     ...filterArray,
   ];
-
   const result = await this.eval(lua.hquery, 0, ...params);
   return JSON.parse(result);
 }
