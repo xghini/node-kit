@@ -55,6 +55,14 @@ end
 
 -- 辅助函数：安全的比较
 local function safe_compare(value, val, op)
+    if value == nil then return false end
+    if val == nil then return false end
+    
+    -- 确保都是字符串类型
+    value = tostring(value)
+    val = tostring(val)
+    
+    -- 尝试数值转换
     local num_value = safe_tonumber(value)
     local num_val = safe_tonumber(val)
     
@@ -128,10 +136,14 @@ repeat
                 local val = filter[3]
                 local value = redis.call("HGET", key, field)
                 
+                -- 如果字段不存在，就跳过这个key
                 if value == nil or value == cjson.null then
                     match = false
                     break
                 end
+
+                -- 确保value是字符串类型
+                value = tostring(value)
 
                 if op == "IN" then
                     local success, values = pcall(cjson.decode, val)
@@ -208,8 +220,16 @@ if sort_spec ~= '' then
         end
 
         table.sort(results, function(a, b)
-            local a_val = safe_tonumber(a[sort_index]) or a[sort_index]
-            local b_val = safe_tonumber(b[sort_index]) or b[sort_index]
+            local a_raw = a[sort_index]
+            local b_raw = b[sort_index]
+            
+            -- 处理nil或null值
+            if a_raw == nil or a_raw == cjson.null then a_raw = "" end
+            if b_raw == nil or b_raw == cjson.null then b_raw = "" end
+            
+            -- 转换为字符串后再尝试转为数字
+            local a_val = safe_tonumber(tostring(a_raw)) or tostring(a_raw)
+            local b_val = safe_tonumber(tostring(b_raw)) or tostring(b_raw)
             if sort_order == 'desc' then
                 return a_val > b_val
             else
