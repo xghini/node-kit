@@ -5,7 +5,7 @@ export { cf };
 async function cf(obj) {
   const auth = "Bearer " + obj.key;
   const domain = obj.domain;
-  const zid = await getZoneId.bind({auth, domain})();
+  const zid = await getZoneId.bind({ auth, domain })();
   return {
     auth,
     domain,
@@ -42,7 +42,9 @@ async function mset(arr) {
 }
 // 查询ID+修改(没有批量)
 async function set(str) {
-  const [pre, ip] = str.split(" ");
+  const [pre, content, type, priority] = Array.isArray(str)
+    ? str
+    : str.split(" ");
   const host = pre + "." + this.domain;
   res = await req(
     `https://api.cloudflare.com/client/v4/zones/${this.zid}/dns_records?type=A&name=${host}`,
@@ -55,10 +57,11 @@ async function set(str) {
       {
         auth: this.auth,
         json: {
-          type: "A",
+          type: type || "A",
           name: host,
-          content: ip,
+          content,
           proxied: false,
+          priority: priority * 1 || 10,
         },
       }
     );
@@ -72,9 +75,11 @@ async function set(str) {
       auth: this.auth,
       zid: this.zid,
     })({
-      type: "A",
+      type: type || "A",
       name: host,
-      content: ip,
+      content,
+      proxied: false,
+      priority: priority * 1 || 10,
     });
   }
 }

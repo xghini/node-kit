@@ -12,7 +12,7 @@ function redis(...argv) {
   return redis;
 }
 function xredis(...argv) {
-  const host = argv[0].host || "127.0.0.1";
+  const host = argv[0]?.host || "127.0.0.1";
   const redis = new Redis(...argv);
   redis.on("error", (err) => console.error("Redis错误:", host, err));
   return Object.assign(redis, {

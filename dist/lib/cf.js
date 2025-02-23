@@ -38,17 +38,20 @@ async function mset(arr) {
     return Promise.all(arr.map((item) => this.set(item)));
 }
 async function set(str) {
-    const [pre, ip] = str.split(" ");
+    const [pre, content, type, priority] = Array.isArray(str)
+        ? str
+        : str.split(" ");
     const host = pre + "." + this.domain;
     res = await req(`https://api.cloudflare.com/client/v4/zones/${this.zid}/dns_records?type=A&name=${host}`, { auth: this.auth });
     if (res.data.result.length > 0) {
         res = await req(`https://api.cloudflare.com/client/v4/zones/${this.zid}/dns_records/${res.data.result[0].id} put`, {
             auth: this.auth,
             json: {
-                type: "A",
+                type: type || "A",
                 name: host,
-                content: ip,
+                content,
                 proxied: false,
+                priority: priority * 1 || 10,
             },
         });
         console.log(`${host}`, res.data.success ? "修改成功" : res.data.errors[0].message);
@@ -59,9 +62,11 @@ async function set(str) {
             auth: this.auth,
             zid: this.zid,
         })({
-            type: "A",
+            type: type || "A",
             name: host,
-            content: ip,
+            content,
+            proxied: false,
+            priority: priority * 1 || 10,
         });
     }
 }
