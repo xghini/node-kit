@@ -567,7 +567,7 @@ class TTLMap {
         this.expiry_map = new Map();
         this.expiry_arr = [];
         this.lastCleanup = Date.now();
-        this.cleanupInterval = 100;
+        this.cleanupInterval = 0;
     }
     set(key, value, ttl) {
         const expiryTime = Date.now() + ttl;

@@ -959,5 +959,4 @@ class TTLMap {
     }
   }
 }
-// 使用示例
 const ttl = new TTLMap();
