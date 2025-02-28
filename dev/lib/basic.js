@@ -853,110 +853,395 @@ function cookie_merge(str1, str2) {
 }
 
 // Class ======================================================================
+/**
+ * An optimized time-to-live (TTL) map implementation with efficient memory management.
+ * Provides automatic expiration of entries based on specified TTL values.
+ */
 class TTLMap {
-  constructor() {
-    // 主存储 过期时间存储;set时对整体惰性清理(通过最小堆优化性能),get时对目标单独检测,这样确保了ttl的正确执行和get性能
+  /**
+   * Creates a new TTLMap instance
+   * @param {Object} options - Configuration options
+   * @param {number} [options.defaultTTL=Infinity] - Default TTL in milliseconds
+   * @param {number} [options.cleanupInterval=1000] - Minimum time between cleanup operations in milliseconds
+   */
+  constructor(options = {}) {
+    // Main storage for values
     this.storage = new Map();
-    this.expiry_map = new Map();
-    // 存入{key,ttl}对象,最小的往上冒泡;使用最小堆结构,定义_siftUp,_siftDown代替unshift牺牲了部分排序换取更高性能
-    // 为何选最小堆而不是最大堆?最小堆的优势在于:清理时可以"早停"- 一旦发现未过期就可以安全退出,而最大堆必须检查所有可能过期的项,虽然都是 O(k * log n)，但最小堆的 k 往往更小
-    this.expiry_arr = [];
-    // 上次清理时间
+    // Map that stores expiry timestamps
+    this.expiryMap = new Map();
+    // Min-heap for tracking expirations (stores indices for fast lookup)
+    this.expiryHeap = [];
+    // Index map to quickly find items in the heap
+    this.heapIndices = new Map();
+    // Cleanup tracking
     this.lastCleanup = Date.now();
-    // 清理阈值(100ms)
-    this.cleanupInterval = 100;
+    // Configuration
+    this.cleanupInterval = options.cleanupInterval || 1000;
+    this.defaultTTL = options.defaultTTL || Infinity;
   }
-  // 设置键值对和过期时间
+
+  /**
+   * Sets a key-value pair with an optional TTL
+   * @param {any} key - The key
+   * @param {any} value - The value to store
+   * @param {number} [ttl] - The TTL in milliseconds (uses defaultTTL if not provided)
+   * @returns {TTLMap} - Returns this instance for chaining
+   */
   set(key, value, ttl) {
-    const expiryTime = Date.now() + ttl;
-    // 存储数据 添加到过期时间堆
+    // Validate TTL
+    if (ttl !== undefined && (!Number.isFinite(ttl) || ttl < 0)) {
+      throw new Error('TTL must be a non-negative finite number');
+    }
+
+    const finalTTL = ttl === undefined ? this.defaultTTL : ttl;
+    const expiryTime = finalTTL === Infinity ? Infinity : Date.now() + finalTTL;
+    
+    // Store the value and expiry time
     this.storage.set(key, value);
-    this.expiry_map.set(key, expiryTime);
-    this.expiry_arr.push({ key, expiryTime });
-    this._siftUp(this.expiry_arr.length - 1);
-    // 惰性清理
+    this.expiryMap.set(key, expiryTime);
+    
+    // Remove existing entry from heap if present
+    if (this.heapIndices.has(key)) {
+      this._removeFromHeap(key);
+    }
+    
+    // Add to heap if it has a finite expiry time
+    if (expiryTime !== Infinity) {
+      const heapItem = { key, expiryTime };
+      this.expiryHeap.push(heapItem);
+      this.heapIndices.set(key, this.expiryHeap.length - 1);
+      this._siftUp(this.expiryHeap.length - 1);
+    }
+    
+    // Clean up expired items if needed
     this._lazyCleanup();
+    
     return this;
   }
-  // 获取值
-  get(key) {
-    // 检查是否过期
-    const expiryTime = this.expiry_map.get(key);
-    if (!expiryTime || expiryTime <= Date.now()) {
+
+  /**
+   * Updates the TTL for an existing key without changing its value
+   * @param {any} key - The key to update
+   * @param {number} ttl - The new TTL in milliseconds
+   * @returns {boolean} - True if the key was found and updated, false otherwise
+   */
+  updateTTL(key, ttl) {
+    if (!this.storage.has(key)) {
+      return false;
+    }
+    
+    // Validate TTL
+    if (!Number.isFinite(ttl) || ttl < 0) {
+      throw new Error('TTL must be a non-negative finite number');
+    }
+    
+    const value = this.storage.get(key);
+    this.set(key, value, ttl);
+    return true;
+  }
+
+  /**
+   * Gets the remaining TTL for a key in milliseconds
+   * @param {any} key - The key to check
+   * @returns {number|undefined} - The remaining TTL or undefined if the key doesn't exist
+   */
+  getTTL(key) {
+    const expiryTime = this.expiryMap.get(key);
+    if (expiryTime === undefined) {
+      return undefined;
+    }
+    
+    if (expiryTime === Infinity) {
+      return Infinity;
+    }
+    
+    const remaining = expiryTime - Date.now();
+    if (remaining <= 0) {
       this.delete(key);
       return undefined;
     }
+    
+    return remaining;
+  }
+
+  /**
+   * Gets a value by key, returning undefined if expired or not found
+   * @param {any} key - The key to retrieve
+   * @returns {any} - The stored value or undefined
+   */
+  get(key) {
+    // Check if key exists
+    if (!this.storage.has(key)) {
+      return undefined;
+    }
+    
+    // Check if expired
+    const expiryTime = this.expiryMap.get(key);
+    if (expiryTime !== Infinity && expiryTime <= Date.now()) {
+      this.delete(key);
+      return undefined;
+    }
+    
     return this.storage.get(key);
   }
-  // 删除键
-  delete(key) {
-    this.storage.delete(key);
-    this.expiry_map.delete(key);
+
+  /**
+   * Checks if a key exists and is not expired
+   * @param {any} key - The key to check
+   * @returns {boolean} - True if the key exists and is not expired
+   */
+  has(key) {
+    if (!this.storage.has(key)) {
+      return false;
+    }
+    
+    const expiryTime = this.expiryMap.get(key);
+    if (expiryTime !== Infinity && expiryTime <= Date.now()) {
+      this.delete(key);
+      return false;
+    }
+    
     return true;
   }
-  // 惰性清理过期项
-  _lazyCleanup() {
-    const now = Date.now();
-    // 控制清理频率 100ms最多触发一次
-    if (now - this.lastCleanup < this.cleanupInterval) {
-      return;
-    }
-    // 从堆顶开始清理过期项
-    while (this.expiry_arr.length > 0) {
-      const top = this.expiry_arr[0];
-      if (top.expiryTime > now) {
-        break;
-      }
-      // 移除过期项
-      this.delete(top.key);
-      this._removeFromHeap();
-    }
-    this.lastCleanup = now;
+
+  /**
+   * Gets all unexpired keys
+   * @returns {Array} - Array of keys
+   */
+  keys() {
+    this._lazyCleanup();
+    return [...this.storage.keys()];
   }
-  // ttl大的往下沉
-  _siftDown(index) {
-    const element = this.expiry_arr[index];
-    const halfLength = this.expiry_arr.length >>> 1; // >>> 1 代替 Math.floor(x/2)
-    while (index < halfLength) {
-      let minIndex = (index << 1) + 1; // << 1 代替 x * 2
-      let minChild = this.expiry_arr[minIndex];
-      const rightIndex = minIndex + 1;
-      if (rightIndex < this.expiry_arr.length) {
-        const rightChild = this.expiry_arr[rightIndex];
-        if (rightChild.expiryTime < minChild.expiryTime) {
-          minIndex = rightIndex;
-          minChild = rightChild;
-        }
-      }
-      if (element.expiryTime <= minChild.expiryTime) {
-        break;
-      }
-      this.expiry_arr[index] = minChild;
-      index = minIndex;
-    }
-    this.expiry_arr[index] = element;
+
+  /**
+   * Gets all unexpired values
+   * @returns {Array} - Array of values
+   */
+  values() {
+    this._lazyCleanup();
+    return [...this.storage.values()];
   }
-  // ttl小的往上冒
+
+  /**
+   * Gets all unexpired entries as [key, value] pairs
+   * @returns {Array} - Array of [key, value] pairs
+   */
+  entries() {
+    this._lazyCleanup();
+    return [...this.storage.entries()];
+  }
+
+  /**
+   * Deletes a key and all its associated data
+   * @param {any} key - The key to delete
+   * @returns {boolean} - True if the key was found and deleted
+   */
+  delete(key) {
+    const existed = this.storage.delete(key);
+    if (!existed) {
+      return false;
+    }
+    
+    this.expiryMap.delete(key);
+    
+    // Remove from heap if present
+    if (this.heapIndices.has(key)) {
+      this._removeFromHeap(key);
+    }
+    
+    return true;
+  }
+
+  /**
+   * Clears all data from the TTLMap
+   */
+  clear() {
+    this.storage.clear();
+    this.expiryMap.clear();
+    this.expiryHeap = [];
+    this.heapIndices.clear();
+  }
+
+  /**
+   * Gets the number of unexpired items
+   * @returns {number} - The count of unexpired items
+   */
+  get size() {
+    this._lazyCleanup();
+    return this.storage.size;
+  }
+
+  /**
+   * Sift up operation for min-heap maintenance
+   * @private
+   * @param {number} index - The index to sift up from
+   */
   _siftUp(index) {
-    const element = this.expiry_arr[index];
+    if (index === 0) return;
+    
+    const element = this.expiryHeap[index];
+    
     while (index > 0) {
-      const parentIndex = (index - 1) >>> 1;
-      const parent = this.expiry_arr[parentIndex];
+      const parentIndex = Math.floor((index - 1) / 2);
+      const parent = this.expiryHeap[parentIndex];
+      
       if (element.expiryTime >= parent.expiryTime) {
         break;
       }
-      this.expiry_arr[index] = parent;
+      
+      // Swap with parent
+      this.expiryHeap[index] = parent;
+      this.expiryHeap[parentIndex] = element;
+      
+      // Update indices map
+      this.heapIndices.set(parent.key, index);
+      this.heapIndices.set(element.key, parentIndex);
+      
+      // Move up
       index = parentIndex;
     }
-    this.expiry_arr[index] = element;
   }
-  // 移除堆顶元素
-  _removeFromHeap() {
-    const lastElement = this.expiry_arr.pop();
-    if (this.expiry_arr.length > 0) {
-      this.expiry_arr[0] = lastElement;
-      this._siftDown(0);
+
+  /**
+   * Sift down operation for min-heap maintenance
+   * @private
+   * @param {number} index - The index to sift down from
+   */
+  _siftDown(index) {
+    const heapLength = this.expiryHeap.length;
+    const element = this.expiryHeap[index];
+    const halfLength = Math.floor(heapLength / 2);
+    
+    while (index < halfLength) {
+      let childIndex = 2 * index + 1;
+      let child = this.expiryHeap[childIndex];
+      
+      // Find the smaller child
+      const rightChildIndex = childIndex + 1;
+      if (rightChildIndex < heapLength) {
+        const rightChild = this.expiryHeap[rightChildIndex];
+        if (rightChild.expiryTime < child.expiryTime) {
+          childIndex = rightChildIndex;
+          child = rightChild;
+        }
+      }
+      
+      if (element.expiryTime <= child.expiryTime) {
+        break;
+      }
+      
+      // Swap with child
+      this.expiryHeap[index] = child;
+      this.expiryHeap[childIndex] = element;
+      
+      // Update indices map
+      this.heapIndices.set(child.key, index);
+      this.heapIndices.set(element.key, childIndex);
+      
+      // Move down
+      index = childIndex;
     }
+  }
+
+  /**
+   * Removes an item from the heap by key
+   * @private
+   * @param {any} key - The key to remove
+   */
+  _removeFromHeap(key) {
+    const index = this.heapIndices.get(key);
+    if (index === undefined) return;
+    
+    const lastIndex = this.expiryHeap.length - 1;
+    
+    // If it's the last element, simple removal
+    if (index === lastIndex) {
+      this.expiryHeap.pop();
+      this.heapIndices.delete(key);
+      return;
+    }
+    
+    // Replace with the last element and reheapify
+    const lastElement = this.expiryHeap.pop();
+    this.expiryHeap[index] = lastElement;
+    this.heapIndices.set(lastElement.key, index);
+    this.heapIndices.delete(key);
+    
+    // Fix heap property
+    const parentIndex = index > 0 ? Math.floor((index - 1) / 2) : 0;
+    if (index > 0 && this.expiryHeap[index].expiryTime < this.expiryHeap[parentIndex].expiryTime) {
+      this._siftUp(index);
+    } else {
+      this._siftDown(index);
+    }
+  }
+
+  /**
+   * Performs lazy cleanup of expired items
+   * @private
+   */
+  _lazyCleanup() {
+    const now = Date.now();
+    
+    // Control cleanup frequency
+    if (now - this.lastCleanup < this.cleanupInterval) {
+      return;
+    }
+    
+    // Clean up expired items from the top of the heap
+    while (this.expiryHeap.length > 0) {
+      const top = this.expiryHeap[0];
+      if (top.expiryTime > now) {
+        break;
+      }
+      
+      // Remove expired item from all data structures
+      this.storage.delete(top.key);
+      this.expiryMap.delete(top.key);
+      
+      // Remove from heap and update indices
+      const lastElement = this.expiryHeap.pop();
+      this.heapIndices.delete(top.key);
+      
+      if (this.expiryHeap.length > 0 && top !== lastElement) {
+        this.expiryHeap[0] = lastElement;
+        this.heapIndices.set(lastElement.key, 0);
+        this._siftDown(0);
+      }
+    }
+    
+    this.lastCleanup = now;
+  }
+
+  /**
+   * Manually triggers a cleanup of all expired items
+   * @returns {number} - Number of items removed
+   */
+  cleanup() {
+    const sizeBefore = this.storage.size;
+    const now = Date.now();
+    
+    // Clean up expired items from the top of the heap
+    while (this.expiryHeap.length > 0) {
+      const top = this.expiryHeap[0];
+      if (top.expiryTime > now) {
+        break;
+      }
+      
+      // Remove expired item
+      this.delete(top.key);
+    }
+    
+    this.lastCleanup = now;
+    return sizeBefore - this.storage.size;
+  }
+
+  /**
+   * Iterator implementation to allow for...of loops
+   */
+  [Symbol.iterator]() {
+    this._lazyCleanup();
+    return this.storage.entries();
   }
 }
 const ttl = new TTLMap();

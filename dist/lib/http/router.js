@@ -1,5 +1,6 @@
 export { router_find_resolve, addr, _404 };
 import { rf } from "../index.js";
+import { hd_default } from "./routes.js";
 function addr(...argv) {
     let path, method, ct, fn_end, fn_data, config = {};
     if (typeof argv[0] === "string") {

@@ -4,7 +4,7 @@ import lua from "./lua.js";
 // import * as auth from "./auth.js";
 // import * as user from "./user.js";
 kit.cs(6);
-const server = await kit.hs();
+const server = await kit.hs(2999);
 // server._404 = 0;
 // Alpha
 server.addr("/v1/test", test);
@@ -12,6 +12,7 @@ server.addr("/v1/test/br", br);
 server.addr("/test/timeout", (gold) => console.log(gold));
 server.open = 1;
 server.static("/static", "..");
+server.static("/static2", "C:/Code");
 // Beta
 server.addr("/v1/subscribe", "get", subscribe);
 server.addr("/v1/user/orderplan", orderplan);

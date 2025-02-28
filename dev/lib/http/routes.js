@@ -1,5 +1,5 @@
-export {default_routes}
-
+export {default_routes,hd_default}
+// 预设的一些路由处理
 function default_routes() {
   return [
     ["/", "*", "*", hd_hello.bind("Ghini"), undefined, {}],

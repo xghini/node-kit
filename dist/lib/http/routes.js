@@ -1,4 +1,4 @@
-export { default_routes };
+export { default_routes, hd_default };
 function default_routes() {
     return [
         ["/", "*", "*", hd_hello.bind("Ghini"), undefined, {}],

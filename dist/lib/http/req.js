@@ -279,7 +279,7 @@ function reqbuild(...argv) {
         }
         let new_headers, new_options;
         if (typeof argv[0] === "string") {
-            const arr = argv[0].split(" ");
+            const arr = argv[0].replace(/ +/, ' ').split(" ");
             if (arr[0].startsWith("http")) {
                 url = arr[0];
                 method = arr[1] || method || "GET";

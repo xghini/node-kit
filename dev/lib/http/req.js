@@ -388,12 +388,10 @@ function reqbuild(...argv) {
       body = "",
       options = {},
     } = props;
-
     if (argv.length === 0) {
       if (empty(this)) throw new Error("首次构建,至少传入url");
       else return this;
     }
-
     if (typeof argv[0] === "object") {
       const {
         h2session: newSession,
@@ -413,7 +411,7 @@ function reqbuild(...argv) {
     }
     let new_headers, new_options;
     if (typeof argv[0] === "string") {
-      const arr = argv[0].split(" ");
+      const arr = argv[0].replace(/ +/,' ').split(" ");
       if (arr[0].startsWith("http")) {
         url = arr[0];
         method = arr[1] || method || "GET";

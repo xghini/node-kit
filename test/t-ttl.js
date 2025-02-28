@@ -1,19 +1,9 @@
-import kit from "@ghini/kit";
-// ttt();
-// ttt();
-// await kit.sleep(3000);
-// ttt();
-// async function ttt() {
-//   const res = kit.ttl.get("gold.cookie.user");
-//   if (res) {
-//     return console.log("请求频繁", res);
-//   }
-//   kit.ttl.set("gold.cookie.user", 1, 3000);
-//   console.log("请求成功");
-// }
-const server = await kit.hs(3001);
-
+import kit from "@ghini/kit/dev";
+kit.cs(6);
+const server = await kit.hs(3000);
 server.addr("/", (gg) => {
-  console.log(23123);
+  const a = kit.ttl.get("a");
+  if(!a)kit.ttl.set("a", 1, 1000);
+  console.log(23123, a);
   gg.raw("ok");
 });

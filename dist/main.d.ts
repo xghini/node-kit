@@ -15,6 +15,7 @@ declare const kit: {
     hs: typeof http.hs;
     hss: typeof http.hss;
     default_routes: typeof http.default_routes;
+    hd_default: typeof http.hd_default;
     req: typeof http.req;
     h2req: typeof http.h2req;
     h1req: typeof http.h1req;

@@ -562,91 +562,218 @@ function cookie_merge(str1, str2) {
     return cookie_str(merged);
 }
 class TTLMap {
-    constructor() {
+    constructor(options = {}) {
         this.storage = new Map();
-        this.expiry_map = new Map();
-        this.expiry_arr = [];
+        this.expiryMap = new Map();
+        this.expiryHeap = [];
+        this.heapIndices = new Map();
         this.lastCleanup = Date.now();
-        this.cleanupInterval = 0;
+        this.cleanupInterval = options.cleanupInterval || 1000;
+        this.defaultTTL = options.defaultTTL || Infinity;
     }
     set(key, value, ttl) {
-        const expiryTime = Date.now() + ttl;
+        if (ttl !== undefined && (!Number.isFinite(ttl) || ttl < 0)) {
+            throw new Error('TTL must be a non-negative finite number');
+        }
+        const finalTTL = ttl === undefined ? this.defaultTTL : ttl;
+        const expiryTime = finalTTL === Infinity ? Infinity : Date.now() + finalTTL;
         this.storage.set(key, value);
-        this.expiry_map.set(key, expiryTime);
-        this.expiry_arr.push({ key, expiryTime });
-        this._siftUp(this.expiry_arr.length - 1);
+        this.expiryMap.set(key, expiryTime);
+        if (this.heapIndices.has(key)) {
+            this._removeFromHeap(key);
+        }
+        if (expiryTime !== Infinity) {
+            const heapItem = { key, expiryTime };
+            this.expiryHeap.push(heapItem);
+            this.heapIndices.set(key, this.expiryHeap.length - 1);
+            this._siftUp(this.expiryHeap.length - 1);
+        }
         this._lazyCleanup();
         return this;
     }
+    updateTTL(key, ttl) {
+        if (!this.storage.has(key)) {
+            return false;
+        }
+        if (!Number.isFinite(ttl) || ttl < 0) {
+            throw new Error('TTL must be a non-negative finite number');
+        }
+        const value = this.storage.get(key);
+        this.set(key, value, ttl);
+        return true;
+    }
+    getTTL(key) {
+        const expiryTime = this.expiryMap.get(key);
+        if (expiryTime === undefined) {
+            return undefined;
+        }
+        if (expiryTime === Infinity) {
+            return Infinity;
+        }
+        const remaining = expiryTime - Date.now();
+        if (remaining <= 0) {
+            this.delete(key);
+            return undefined;
+        }
+        return remaining;
+    }
     get(key) {
-        const expiryTime = this.expiry_map.get(key);
-        if (!expiryTime || expiryTime <= Date.now()) {
+        if (!this.storage.has(key)) {
+            return undefined;
+        }
+        const expiryTime = this.expiryMap.get(key);
+        if (expiryTime !== Infinity && expiryTime <= Date.now()) {
             this.delete(key);
             return undefined;
         }
         return this.storage.get(key);
     }
-    delete(key) {
-        this.storage.delete(key);
-        this.expiry_map.delete(key);
+    has(key) {
+        if (!this.storage.has(key)) {
+            return false;
+        }
+        const expiryTime = this.expiryMap.get(key);
+        if (expiryTime !== Infinity && expiryTime <= Date.now()) {
+            this.delete(key);
+            return false;
+        }
         return true;
+    }
+    keys() {
+        this._lazyCleanup();
+        return [...this.storage.keys()];
+    }
+    values() {
+        this._lazyCleanup();
+        return [...this.storage.values()];
+    }
+    entries() {
+        this._lazyCleanup();
+        return [...this.storage.entries()];
+    }
+    delete(key) {
+        const existed = this.storage.delete(key);
+        if (!existed) {
+            return false;
+        }
+        this.expiryMap.delete(key);
+        if (this.heapIndices.has(key)) {
+            this._removeFromHeap(key);
+        }
+        return true;
+    }
+    clear() {
+        this.storage.clear();
+        this.expiryMap.clear();
+        this.expiryHeap = [];
+        this.heapIndices.clear();
+    }
+    get size() {
+        this._lazyCleanup();
+        return this.storage.size;
+    }
+    _siftUp(index) {
+        if (index === 0)
+            return;
+        const element = this.expiryHeap[index];
+        while (index > 0) {
+            const parentIndex = Math.floor((index - 1) / 2);
+            const parent = this.expiryHeap[parentIndex];
+            if (element.expiryTime >= parent.expiryTime) {
+                break;
+            }
+            this.expiryHeap[index] = parent;
+            this.expiryHeap[parentIndex] = element;
+            this.heapIndices.set(parent.key, index);
+            this.heapIndices.set(element.key, parentIndex);
+            index = parentIndex;
+        }
+    }
+    _siftDown(index) {
+        const heapLength = this.expiryHeap.length;
+        const element = this.expiryHeap[index];
+        const halfLength = Math.floor(heapLength / 2);
+        while (index < halfLength) {
+            let childIndex = 2 * index + 1;
+            let child = this.expiryHeap[childIndex];
+            const rightChildIndex = childIndex + 1;
+            if (rightChildIndex < heapLength) {
+                const rightChild = this.expiryHeap[rightChildIndex];
+                if (rightChild.expiryTime < child.expiryTime) {
+                    childIndex = rightChildIndex;
+                    child = rightChild;
+                }
+            }
+            if (element.expiryTime <= child.expiryTime) {
+                break;
+            }
+            this.expiryHeap[index] = child;
+            this.expiryHeap[childIndex] = element;
+            this.heapIndices.set(child.key, index);
+            this.heapIndices.set(element.key, childIndex);
+            index = childIndex;
+        }
+    }
+    _removeFromHeap(key) {
+        const index = this.heapIndices.get(key);
+        if (index === undefined)
+            return;
+        const lastIndex = this.expiryHeap.length - 1;
+        if (index === lastIndex) {
+            this.expiryHeap.pop();
+            this.heapIndices.delete(key);
+            return;
+        }
+        const lastElement = this.expiryHeap.pop();
+        this.expiryHeap[index] = lastElement;
+        this.heapIndices.set(lastElement.key, index);
+        this.heapIndices.delete(key);
+        const parentIndex = index > 0 ? Math.floor((index - 1) / 2) : 0;
+        if (index > 0 && this.expiryHeap[index].expiryTime < this.expiryHeap[parentIndex].expiryTime) {
+            this._siftUp(index);
+        }
+        else {
+            this._siftDown(index);
+        }
     }
     _lazyCleanup() {
         const now = Date.now();
         if (now - this.lastCleanup < this.cleanupInterval) {
             return;
         }
-        while (this.expiry_arr.length > 0) {
-            const top = this.expiry_arr[0];
+        while (this.expiryHeap.length > 0) {
+            const top = this.expiryHeap[0];
+            if (top.expiryTime > now) {
+                break;
+            }
+            this.storage.delete(top.key);
+            this.expiryMap.delete(top.key);
+            const lastElement = this.expiryHeap.pop();
+            this.heapIndices.delete(top.key);
+            if (this.expiryHeap.length > 0 && top !== lastElement) {
+                this.expiryHeap[0] = lastElement;
+                this.heapIndices.set(lastElement.key, 0);
+                this._siftDown(0);
+            }
+        }
+        this.lastCleanup = now;
+    }
+    cleanup() {
+        const sizeBefore = this.storage.size;
+        const now = Date.now();
+        while (this.expiryHeap.length > 0) {
+            const top = this.expiryHeap[0];
             if (top.expiryTime > now) {
                 break;
             }
             this.delete(top.key);
-            this._removeFromHeap();
         }
         this.lastCleanup = now;
+        return sizeBefore - this.storage.size;
     }
-    _siftDown(index) {
-        const element = this.expiry_arr[index];
-        const halfLength = this.expiry_arr.length >>> 1;
-        while (index < halfLength) {
-            let minIndex = (index << 1) + 1;
-            let minChild = this.expiry_arr[minIndex];
-            const rightIndex = minIndex + 1;
-            if (rightIndex < this.expiry_arr.length) {
-                const rightChild = this.expiry_arr[rightIndex];
-                if (rightChild.expiryTime < minChild.expiryTime) {
-                    minIndex = rightIndex;
-                    minChild = rightChild;
-                }
-            }
-            if (element.expiryTime <= minChild.expiryTime) {
-                break;
-            }
-            this.expiry_arr[index] = minChild;
-            index = minIndex;
-        }
-        this.expiry_arr[index] = element;
-    }
-    _siftUp(index) {
-        const element = this.expiry_arr[index];
-        while (index > 0) {
-            const parentIndex = (index - 1) >>> 1;
-            const parent = this.expiry_arr[parentIndex];
-            if (element.expiryTime >= parent.expiryTime) {
-                break;
-            }
-            this.expiry_arr[index] = parent;
-            index = parentIndex;
-        }
-        this.expiry_arr[index] = element;
-    }
-    _removeFromHeap() {
-        const lastElement = this.expiry_arr.pop();
-        if (this.expiry_arr.length > 0) {
-            this.expiry_arr[0] = lastElement;
-            this._siftDown(0);
-        }
+    [Symbol.iterator]() {
+        this._lazyCleanup();
+        return this.storage.entries();
     }
 }
 const ttl = new TTLMap();

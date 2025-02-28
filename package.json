@@ -1,6 +1,6 @@
 {
   "name": "@ghini/kit",
-  "version": "3.5.11",
+  "version": "3.5.12",
   "scripts": {
     "build": "node ./build.js && tsc",
     "pub": "npm run build && npm publish"
@@ -31,6 +31,7 @@
     "acorn": "8.14.0",
     "ioredis": "5.4.2",
     "pg": "8.13.1",
+    "ws": "^8.18.1",
     "yaml": "2.7.0"
   },
   "devDependencies": {
