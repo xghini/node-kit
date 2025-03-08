@@ -30,7 +30,7 @@ async function getZoneId() {
     if (res.data.success && res.data.result.length > 0) {
       return res.data.result[0].id;
     } else {
-      throw new Error("域名未找到或权限不足");
+      throw new Error("记录未找到或权限不足");
     }
   } catch (error) {
     console.error("获取 Zone ID 失败:", error.message);
@@ -124,7 +124,7 @@ async function set(str) {
       );
     } else {
       // 添加新记录
-      console.log(`${host}`, "域名未找到或权限不足,尝试添加");
+      console.log(`${host}`, "记录未找到或权限不足,尝试添加");
       await add.bind({
         auth: this.auth,
         zid: this.zid,

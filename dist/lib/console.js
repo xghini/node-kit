@@ -250,6 +250,7 @@ function cs(config, n) {
     console.log = clog;
     console.error = cerror;
 }
+cs(8);
 async function prompt(promptText = "ENTER continue , CTRL+C exit: ", validator = () => true, option) {
     option = {
         ...{ loop: true, show: true },

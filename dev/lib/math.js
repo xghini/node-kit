@@ -134,15 +134,15 @@ function gchar(n = 6, characters = 0) {
       case 1: //用于生成易识别的验证码,去掉了混淆字符
         characters = "23457ACDFGHJKLPQRSTUVWXY23457";
         break;
-      case 2: //英文字母大小写+数字
+      case 2: //英文字母大小写
         characters =
-          "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz012345678901234567890123456789";
+          "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz";
         break;
-      case 2: //base64url
+      case 3: //base64url
         characters =
           "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789-_";
         break;
-      case 3: //base64
+      case 4: //base64
         characters =
           "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/";
         break;

@@ -308,6 +308,7 @@ function cs(config, n) {
   console.log = clog;
   console.error = cerror;
 }
+cs(8); //几乎必备 直接默认运行吧 cs(88)才会显示dev
 
 async function prompt(
   promptText = "ENTER continue , CTRL+C exit: ",
