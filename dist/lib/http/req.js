@@ -6,7 +6,7 @@ import { empty } from "../index.js";
 import { br_decompress, inflate, zstd_decompress, gunzip } from "../codec.js";
 import { cerror } from "../console.js";
 import os from "os";
-async function reqdata() {
+async function reqdata(...argv) {
     return (await req(...argv)).data;
 }
 const h2session = new Map();

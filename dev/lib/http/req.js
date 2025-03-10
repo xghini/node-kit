@@ -10,7 +10,7 @@ import os from "os";
 /**
  * 只要data数据的req
  */
-async function reqdata() {
+async function reqdata(...argv) {
   return (await req(...argv)).data;
 }
 // 缓存 HTTP/2 连接
