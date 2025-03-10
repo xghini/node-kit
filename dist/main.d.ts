@@ -21,6 +21,7 @@ declare const kit: {
     h1req: typeof http.h1req;
     myip: typeof http.myip;
     obj2furl: typeof http.obj2furl;
+    reqdata: typeof http.reqdata;
     exefile: string;
     exedir: string;
     exeroot: any;

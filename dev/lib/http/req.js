@@ -1,4 +1,4 @@
-export { req, h2req, h1req, myip, obj2furl };
+export { req, h2req, h1req, myip, obj2furl, reqdata };
 import http2 from "http2";
 import https from "https";
 import http from "http";
@@ -7,6 +7,12 @@ import { br_decompress, inflate, zstd_decompress, gunzip } from "../codec.js";
 import { cerror } from "../console.js";
 import os from "os";
 
+/**
+ * 只要data数据的req
+ */
+async function reqdata() {
+  return (await req(...argv)).data;
+}
 // 缓存 HTTP/2 连接
 const h2session = new Map();
 // 可能性拓展 maxSockets:256 maxSessionMemory:64 maxConcurrentStreams:100 minVersion:'TLSv1.2' ciphers ca cert key
@@ -411,7 +417,7 @@ function reqbuild(...argv) {
     }
     let new_headers, new_options;
     if (typeof argv[0] === "string") {
-      const arr = argv[0].replace(/ +/,' ').split(" ");
+      const arr = argv[0].replace(/ +/, " ").split(" ");
       if (arr[0].startsWith("http")) {
         url = arr[0];
         method = arr[1] || method || "GET";

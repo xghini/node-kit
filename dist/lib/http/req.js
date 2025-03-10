@@ -1,4 +1,4 @@
-export { req, h2req, h1req, myip, obj2furl };
+export { req, h2req, h1req, myip, obj2furl, reqdata };
 import http2 from "http2";
 import https from "https";
 import http from "http";
@@ -6,6 +6,9 @@ import { empty } from "../index.js";
 import { br_decompress, inflate, zstd_decompress, gunzip } from "../codec.js";
 import { cerror } from "../console.js";
 import os from "os";
+async function reqdata() {
+    return (await req(...argv)).data;
+}
 const h2session = new Map();
 const options_keys = [
     "settings",
@@ -279,7 +282,7 @@ function reqbuild(...argv) {
         }
         let new_headers, new_options;
         if (typeof argv[0] === "string") {
-            const arr = argv[0].replace(/ +/, ' ').split(" ");
+            const arr = argv[0].replace(/ +/, " ").split(" ");
             if (arr[0].startsWith("http")) {
                 url = arr[0];
                 method = arr[1] || method || "GET";
