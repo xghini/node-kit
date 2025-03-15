@@ -40,12 +40,13 @@ async function mset(arr) {
 }
 /**
  * 强大的set能力 能够处理如'em962 "test test test" txt'
+ * 默认ttl = 1
  * @param {*} str 
  */
 async function set(str) {
-  let pre, content, type, priority;
+  let pre, content, type, priority, ttl;
   if (Array.isArray(str)) {
-    [pre, content, type, priority] = str;
+    [pre, content, type, priority, ttl] = str;
   } else {
     let processedStr = '';
     let inQuotes = false;
@@ -76,10 +77,12 @@ async function set(str) {
       content = '"'+quoteContent.substring(1, quoteContent.length - 1).replace(/\{\+\}/g, ' ')+'"';
       type = parts[contentEndIndex + 1] || 'A';
       priority = parts[contentEndIndex + 2] || 10;
+      ttl = parts[contentEndIndex + 3] || 60; 
     } else {
       content = parts[1] || '';
       type = parts[2] || 'A';
       priority = parts[3] || 10;
+      ttl = parts[4] || 60; 
     }
   }
   const host = pre + "." + this.domain;
@@ -100,6 +103,7 @@ async function set(str) {
             content,
             proxied: false,
             priority: priority * 1 || 10,
+            ttl: ttl * 1 || 60, 
           },
         }
       );
@@ -118,6 +122,7 @@ async function set(str) {
         content,
         proxied: false,
         priority: priority * 1 || 10,
+        ttl: ttl * 1 || 60, 
       });
     }
   } catch (error) {

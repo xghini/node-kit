@@ -38,9 +38,9 @@ async function mset(arr) {
     return Promise.all(arr.map((item) => this.set(item)));
 }
 async function set(str) {
-    let pre, content, type, priority;
+    let pre, content, type, priority, ttl;
     if (Array.isArray(str)) {
-        [pre, content, type, priority] = str;
+        [pre, content, type, priority, ttl] = str;
     }
     else {
         let processedStr = '';
@@ -75,11 +75,13 @@ async function set(str) {
             content = '"' + quoteContent.substring(1, quoteContent.length - 1).replace(/\{\+\}/g, ' ') + '"';
             type = parts[contentEndIndex + 1] || 'A';
             priority = parts[contentEndIndex + 2] || 10;
+            ttl = parts[contentEndIndex + 3] || 60;
         }
         else {
             content = parts[1] || '';
             type = parts[2] || 'A';
             priority = parts[3] || 10;
+            ttl = parts[4] || 60;
         }
     }
     const host = pre + "." + this.domain;
@@ -95,6 +97,7 @@ async function set(str) {
                     content,
                     proxied: false,
                     priority: priority * 1 || 10,
+                    ttl: ttl * 1 || 60,
                 },
             });
             console.log(`${host}`, res.data.success ? "修改成功" : res.data.errors[0].message);
@@ -110,6 +113,7 @@ async function set(str) {
                 content,
                 proxied: false,
                 priority: priority * 1 || 10,
+                ttl: ttl * 1 || 60,
             });
         }
     }
