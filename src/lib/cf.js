@@ -92,7 +92,9 @@ async function set(str) {
       { auth: this.auth }
     );
     if (res.data.result.length > 0) {
-      const recordId = res.data.result[0].id;
+      const record = res.data.result[0];
+      const recordId = record.id;
+      const recordTtl = (ttl === 'auto' || isNaN(parseInt(ttl))) ? 60 : (parseInt(ttl) || 60);
       res = await req(
         `https://api.cloudflare.com/client/v4/zones/${this.zid}/dns_records/${recordId} put`,
         {
@@ -102,8 +104,8 @@ async function set(str) {
             name: host,
             content,
             proxied: false,
-            priority: priority * 1 || 10,
-            ttl: ttl * 1 || 60, 
+            priority: parseInt(priority) || 10,
+            ttl: recordTtl,  
           },
         }
       );
@@ -112,7 +114,7 @@ async function set(str) {
         res.data.success ? "修改成功" : res.data.errors[0].message
       );
     } else {
-      console.log(`${host}`, "记录未找到或权限不足,尝试添加");
+      const recordTtl = (ttl === 'auto' || isNaN(parseInt(ttl))) ? 60 : (parseInt(ttl) || 60);
       await add.bind({
         auth: this.auth,
         zid: this.zid,
@@ -121,8 +123,8 @@ async function set(str) {
         name: host,
         content,
         proxied: false,
-        priority: priority * 1 || 10,
-        ttl: ttl * 1 || 60, 
+        priority: parseInt(priority) || 10,
+        ttl: recordTtl, 
       });
     }
   } catch (error) {

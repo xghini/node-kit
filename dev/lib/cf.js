@@ -106,8 +106,14 @@ async function set(str) {
       { auth: this.auth }
     );
     if (res.data.result.length > 0) {
-      // 保持原始URL和HTTP方法分开的写法
-      const recordId = res.data.result[0].id;
+      // 保存原始记录
+      const record = res.data.result[0];
+      const recordId = record.id;
+      
+      // 处理ttl，如果是auto或其他非数字值，强制设为60
+      const recordTtl = (ttl === 'auto' || isNaN(parseInt(ttl))) ? 60 : (parseInt(ttl) || 60);
+      
+      // 正确分离URL和HTTP方法
       res = await req(
         `https://api.cloudflare.com/client/v4/zones/${this.zid}/dns_records/${recordId} put`,
         {
@@ -117,8 +123,8 @@ async function set(str) {
             name: host,
             content,
             proxied: false,
-            priority: priority * 1 || 10,
-            ttl: ttl * 1 || 60, // 添加TTL字段，默认为60秒
+            priority: parseInt(priority) || 10,
+            ttl: recordTtl,  // 使用处理后的ttl值
           },
         }
       );
@@ -128,7 +134,10 @@ async function set(str) {
       );
     } else {
       // 添加新记录
-      console.log(`${host}`, "记录未找到或权限不足,尝试添加");
+      // console.log(`${host}`, "记录未找到或权限不足,尝试添加");
+      // 处理ttl，确保新添加的记录也使用正确的ttl值
+      const recordTtl = (ttl === 'auto' || isNaN(parseInt(ttl))) ? 60 : (parseInt(ttl) || 60);
+      
       await add.bind({
         auth: this.auth,
         zid: this.zid,
@@ -137,16 +146,14 @@ async function set(str) {
         name: host,
         content,
         proxied: false,
-        priority: priority * 1 || 10,
-        ttl: ttl * 1 || 60, // 添加TTL字段，默认为60秒
+        priority: parseInt(priority) || 10,
+        ttl: recordTtl, // 使用处理后的ttl值
       });
     }
   } catch (error) {
     console.error(`操作 ${host} 时出错:`, error.message);
   }
 }
-
-
 async function madd(arr) {
   return Promise.all(arr.map((item) => this.add(item)));
 }

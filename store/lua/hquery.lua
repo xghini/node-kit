@@ -86,6 +86,23 @@ local function safe_compare(value, val, op)
     return false
 end
 
+-- 通配符匹配辅助函数
+local function pattern_match(str, pattern)
+    if not str or not pattern then return false end
+    
+    -- 转义特殊字符
+    local lua_pattern = string.gsub(pattern, "([%%%^%$%(%)%.%[%]%*%+%-%?])", function(c)
+        if c == "*" then
+            return ".*"  -- 将*转换为Lua的通配符.*
+        else
+            return "%" .. c  -- 转义其他特殊字符
+        end
+    end)
+    
+    -- 使用Lua模式匹配
+    return string.match(str, "^" .. lua_pattern .. "$") ~= nil
+end
+
 -- Parse fields if provided
 local field_list = {}
 if fields ~= '' then
@@ -108,7 +125,7 @@ while i <= 5 + filter_count * 3 do
     local value = ARGV[i + 2]
     
     -- 验证操作符是否合法
-    if op ~= "=" and op ~= ">" and op ~= "<" and op ~= ">=" and op ~= "<=" and op ~= "IN" then
+    if op ~= "=" and op ~= ">" and op ~= "<" and op ~= ">=" and op ~= "<=" and op ~= "IN" and op ~= "LIKE" then
         -- 非法操作符时跳过此过滤器
         break
     end
@@ -155,8 +172,7 @@ repeat
                     for _, test_value in ipairs(values) do
                         if type(test_value) == "string" and string.find(test_value, "*", 1, true) then
                             -- 通配符匹配
-                            local pattern = string.gsub(test_value, "%*", ".*")
-                            if string.match(value, "^" .. pattern .. "$") then
+                            if pattern_match(value, test_value) then
                                 matched = true
                                 break
                             end
@@ -169,6 +185,12 @@ repeat
                         end
                     end
                     if not matched then
+                        match = false
+                        break
+                    end
+                elseif op == "LIKE" then
+                    -- 使用新添加的LIKE操作符进行通配符匹配
+                    if not pattern_match(value, val) then
                         match = false
                         break
                     end

@@ -152,6 +152,9 @@ async function hquery(pattern, options = {}) {
         const safeValues = value.map((v) => v.toString());
         filterArray.push(key, "IN", JSON.stringify(safeValues));
       }
+    } else if (typeof value === "string" && value.includes("*")) {
+      // 添加对字符串通配符的支持
+      filterArray.push(key, "LIKE", value);
     } else {
       // 对普通值进行处理，确保长数字转换为字符串
       const safeValue =

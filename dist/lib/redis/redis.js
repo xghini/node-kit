@@ -71,6 +71,9 @@ async function hquery(pattern, options = {}) {
                 filterArray.push(key, "IN", JSON.stringify(safeValues));
             }
         }
+        else if (typeof value === "string" && value.includes("*")) {
+            filterArray.push(key, "LIKE", value);
+        }
         else {
             const safeValue = typeof value === "number" && value > Number.MAX_SAFE_INTEGER
                 ? value.toString()
