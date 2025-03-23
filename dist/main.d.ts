@@ -146,6 +146,7 @@ declare const kit: {
     gchar: typeof index.gchar;
     fhash: typeof index.fhash;
     empty: typeof index.empty;
+    idhash: typeof index.idhash;
     arr_uniq: typeof index.arr_uniq;
     arr_diff: typeof index.arr_diff;
     addobjs: typeof index.addobjs;

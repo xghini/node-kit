@@ -5,6 +5,7 @@ export {
   gchar,
   fhash,
   empty,
+  idhash,
   arr_uniq,
   arr_diff,
   addobjs,
@@ -12,6 +13,24 @@ export {
   addTwoDimensionalObjects,
 }
 import crypto from "crypto";
+/**
+ * 将用户ID转换为高度随机化的唯一推广码
+ * @param {number} userId - 用户ID (1-10000000000)
+ * @returns {string} - 唯一推广码 (保证7位及以上)
+ */
+function idhash(userId) {
+  const base62 = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789";
+  const m = BigInt(62) ** BigInt(7);
+  const a = BigInt(12345678901);
+  let code_num = (a * BigInt(userId)) % m;
+  let digits = [];
+  for (let i = 0; i < 7; i++) {
+      let digit = code_num % BigInt(62);
+      digits.push(base62[Number(digit)]);
+      code_num = code_num / BigInt(62);
+  }
+  return digits.reverse().join('');
+}
 /** 数组去重 */
 function arr_uniq(arr) {
   return [...new Set(arr)];

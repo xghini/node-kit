@@ -1,5 +1,18 @@
-export { uuid, rint, rside, gchar, fhash, empty, arr_uniq, arr_diff, addobjs, obj2v1, addTwoDimensionalObjects, };
+export { uuid, rint, rside, gchar, fhash, empty, idhash, arr_uniq, arr_diff, addobjs, obj2v1, addTwoDimensionalObjects, };
 import crypto from "crypto";
+function idhash(userId) {
+    const base62 = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789";
+    const m = BigInt(62) ** BigInt(7);
+    const a = BigInt(12345678901);
+    let code_num = (a * BigInt(userId)) % m;
+    let digits = [];
+    for (let i = 0; i < 7; i++) {
+        let digit = code_num % BigInt(62);
+        digits.push(base62[Number(digit)]);
+        code_num = code_num / BigInt(62);
+    }
+    return digits.reverse().join('');
+}
 function arr_uniq(arr) {
     return [...new Set(arr)];
 }
