@@ -225,6 +225,8 @@ function body2data(body, ct) {
             data[key] = value;
         }
     }
+    if (empty(data))
+        data = body;
     return data;
 }
 function setcookie(arr, str) {
