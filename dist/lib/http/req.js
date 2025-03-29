@@ -224,9 +224,9 @@ function body2data(body, ct) {
         for (const [key, value] of params) {
             data[key] = value;
         }
+        if ((empty(data), 1))
+            data = body;
     }
-    if (empty(data))
-        data = body;
     return data;
 }
 function setcookie(arr, str) {
