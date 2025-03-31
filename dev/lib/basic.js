@@ -215,7 +215,7 @@ function env(filePath, cover = false) {
     const content = parseENV(rf(filePath));
     if (cover) process.env = { ...process.env, ...content };
     else process.env = { ...content, ...process.env };
-    return content;
+    return content||{};
   } catch (error) {
     console.error(error);
   }
