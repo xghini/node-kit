@@ -53,7 +53,7 @@ function generateVersionFromDate() {
   const now = new Date();
   const year = now.getFullYear().toString().slice(-2); // 获取年份后两位
   const month = (now.getMonth() + 1).toString() // 月份(1-12)
-  const day = now.getDate().toString().padStart(2, '0'); // 日(01-31)
+  const day = now.getDate().toString(); // 日(1-31)
   const hours = now.getHours().toString().padStart(2, '0'); // 小时(00-23)
   const minutes = now.getMinutes().toString().padStart(2, '0'); // 分钟(00-59)
   const seconds = now.getSeconds().toString().padStart(2, '0'); // 秒(00-59)
