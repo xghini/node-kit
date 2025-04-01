@@ -1,4 +1,5 @@
 -- query.lua
+-- 确保不影响原功能的情况下改进,非要求不必生成测试用例和调试信息
 -- Get parameters
 local pattern = ARGV[1]
 local sort_spec = ARGV[2] or ''
@@ -55,7 +56,21 @@ end
 
 -- 辅助函数：安全的比较
 local function safe_compare(value, val, op)
-    if value == nil then return false end
+    -- 处理字段不存在的情况 (value == nil)
+    if op == "IS" and val == "NULL" then
+        return value == nil or value == cjson.null
+    elseif op == "IS NOT" and val == "NULL" then
+        return value ~= nil and value ~= cjson.null
+    elseif value == nil or value == cjson.null then
+        if op == "=" and val == "NULL" then
+            return true
+        elseif op == "<>" and val == "NULL" then
+            return false
+        else
+            return false -- 其他操作符对于NULL值返回false
+        end
+    end
+    
     if val == nil then return false end
     
     -- 确保都是字符串类型
@@ -73,6 +88,7 @@ local function safe_compare(value, val, op)
         elseif op == "<" then return num_value < num_val
         elseif op == ">=" then return num_value >= num_val
         elseif op == "<=" then return num_value <= num_val
+        elseif op == "<>" then return num_value ~= num_val -- 添加不等于操作符
         end
     else
         -- 如果有任何一个值不能转为数字，进行字符串比较
@@ -81,6 +97,7 @@ local function safe_compare(value, val, op)
         elseif op == "<" then return value < val
         elseif op == ">=" then return value >= val
         elseif op == "<=" then return value <= val
+        elseif op == "<>" then return value ~= val -- 添加不等于操作符
         end
     end
     return false
@@ -124,14 +141,21 @@ while i <= 5 + filter_count * 3 do
     local op = ARGV[i + 1]
     local value = ARGV[i + 2]
     
-    -- 验证操作符是否合法
-    if op ~= "=" and op ~= ">" and op ~= "<" and op ~= ">=" and op ~= "<=" and op ~= "IN" and op ~= "LIKE" then
+    -- 验证操作符是否合法 (添加 <> 和 IS NULL, IS NOT NULL 操作符)
+    if op ~= "=" and op ~= ">" and op ~= "<" and op ~= ">=" and op ~= "<=" and 
+       op ~= "IN" and op ~= "LIKE" and op ~= "<>" and 
+       op ~= "IS" and op ~= "IS NOT" then
         -- 非法操作符时跳过此过滤器
         break
     end
     
     filters[#filters + 1] = {key, op, value}
     i = i + 3
+end
+
+-- 检查字段是否包含通配符
+local function has_wildcard(field)
+    return string.find(field, '*', 1, true) ~= nil or string.find(field, '?', 1, true) ~= nil
 end
 
 -- Scan keys matching pattern
@@ -147,57 +171,189 @@ repeat
         if redis.call("TYPE", key).ok == "hash" then
             local match = true
             
-            for _, filter in ipairs(filters) do
+            for f_idx, filter in ipairs(filters) do
                 local field = filter[1]
                 local op = filter[2]
                 local val = filter[3]
-                local value = redis.call("HGET", key, field)
                 
-                -- 如果字段不存在，就跳过这个key
-                if value == nil or value == cjson.null then
-                    match = false
-                    break
-                end
-
-                -- 确保value是字符串类型
-                value = tostring(value)
-
-                if op == "IN" then
-                    local success, values = pcall(cjson.decode, val)
-                    if not success then
-                        return redis.error_reply("Invalid JSON in IN operator")
-                    end
+                -- 检查字段是否包含通配符
+                if has_wildcard(field) then
+                    -- 获取所有hash字段
+                    local all_fields = redis.call("HKEYS", key)
+                    local field_matched = false
                     
-                    local matched = false
-                    for _, test_value in ipairs(values) do
-                        if type(test_value) == "string" and string.find(test_value, "*", 1, true) then
-                            -- 通配符匹配
-                            if pattern_match(value, test_value) then
-                                matched = true
-                                break
+                    -- 遍历所有字段，查找匹配的字段
+                    for _, hash_field in ipairs(all_fields) do
+                        if pattern_match(hash_field, field) then
+                            -- 对于每个匹配的字段，获取其值并进行条件判断
+                            local value = redis.call("HGET", key, hash_field)
+                            
+                            -- 使用与非通配符相同的逻辑进行条件判断
+                            if op == "IN" then
+                                local success, values = pcall(cjson.decode, val)
+                                if not success then
+                                    return redis.error_reply("Invalid JSON in IN operator")
+                                end
+                                
+                                for _, test_value in ipairs(values) do
+                                    if tostring(value) == tostring(test_value) then
+                                        field_matched = true
+                                        break
+                                    end
+                                end
+                            elseif op == "LIKE" then
+                                if pattern_match(tostring(value), val) then
+                                    field_matched = true
+                                    break
+                                end
+                            else
+                                if safe_compare(value, val, op) then
+                                    field_matched = true
+                                    break
+                                end
                             end
-                        else
-                            -- 精确匹配
-                            if value == tostring(test_value) then
-                                matched = true
+                            
+                            -- 如果找到一个匹配的字段且条件也匹配，可以提前退出循环
+                            if field_matched then
                                 break
                             end
                         end
                     end
-                    if not matched then
-                        match = false
-                        break
-                    end
-                elseif op == "LIKE" then
-                    -- 使用新添加的LIKE操作符进行通配符匹配
-                    if not pattern_match(value, val) then
+                    
+                    -- 如果没有一个字段匹配，则整个记录不匹配
+                    if not field_matched then
                         match = false
                         break
                     end
                 else
-                    if not safe_compare(value, val, op) then
-                        match = false
-                        break
+                    -- 原有的非通配符字段逻辑
+                    -- 判断字段是否存在
+                    local exists = redis.call("HEXISTS", key, field) == 1
+                    
+                    -- 特别处理 <> 操作符，如果字段不存在也算匹配
+                    if op == "<>" and not exists and val ~= "NULL" then
+                        -- 字段不存在也满足不等于条件，跳过此过滤器
+                        -- (使用 continue 的替代方案)
+                    else
+                        -- 检查是否满足 IS NULL 条件
+                        if op == "IS" and val == "NULL" then
+                            -- 如果要求字段不存在，但实际存在，则不匹配
+                            if exists then
+                                -- 检查值是否为 null
+                                local value = redis.call("HGET", key, field)
+                                if value ~= cjson.null then
+                                    match = false
+                                    break
+                                end
+                            end
+                            -- 如果字段不存在或值为 null，则继续下一个过滤器
+                        elseif op == "IS NOT" and val == "NULL" then
+                            -- 如果要求字段存在，但实际不存在，则不匹配
+                            if not exists then
+                                match = false
+                                break
+                            else
+                                -- 检查值是否为 null
+                                local value = redis.call("HGET", key, field)
+                                if value == cjson.null then
+                                    match = false
+                                    break
+                                end
+                            end
+                        elseif op == "=" and val == "NULL" then
+                            -- 如果要求字段值为 NULL，但字段存在且值不为 null，则不匹配
+                            if exists then
+                                local value = redis.call("HGET", key, field)
+                                if value ~= cjson.null then
+                                    match = false
+                                    break
+                                end
+                            end
+                            -- 如果字段不存在或值为 null，则继续下一个过滤器
+                        elseif op == "<>" and val == "NULL" then
+                            -- 如果要求字段值不为 NULL，但字段不存在或值为 null，则不匹配
+                            if not exists then
+                                match = false
+                                break
+                            else
+                                local value = redis.call("HGET", key, field)
+                                if value == cjson.null then
+                                    match = false
+                                    break
+                                end
+                            end
+                        else
+                            -- 对于其他操作，字段必须存在
+                            if not exists then
+                                match = false
+                                break
+                            end
+                            
+                            -- 获取字段值
+                            local value = redis.call("HGET", key, field)
+                            
+                            -- 修复不等于操作符：单独处理不等于操作
+                            if op == "<>" then
+                                -- 确保value和val是字符串形式比较
+                                local str_value = tostring(value)
+                                local str_val = tostring(val)
+                                
+                                -- 尝试数值转换
+                                local num_value = safe_tonumber(str_value)
+                                local num_val = safe_tonumber(str_val)
+                                
+                                -- 两个值都能转为数字时进行数值比较，否则进行字符串比较
+                                if num_value and num_val then
+                                    if num_value == num_val then
+                                        match = false
+                                        break
+                                    end
+                                else
+                                    if str_value == str_val then
+                                        match = false
+                                        break
+                                    end
+                                end
+                            elseif op == "IN" then
+                                local success, values = pcall(cjson.decode, val)
+                                if not success then
+                                    return redis.error_reply("Invalid JSON in IN operator")
+                                end
+                                
+                                local found = false
+                                for _, test_value in ipairs(values) do
+                                    if type(test_value) == "string" and string.find(test_value, "*", 1, true) then
+                                        -- 通配符匹配
+                                        if pattern_match(tostring(value), test_value) then
+                                            found = true
+                                            break
+                                        end
+                                    else
+                                        -- 精确匹配
+                                        if tostring(value) == tostring(test_value) then
+                                            found = true
+                                            break
+                                        end
+                                    end
+                                end
+                                if not found then
+                                    match = false
+                                    break
+                                end
+                            elseif op == "LIKE" then
+                                -- 使用通配符匹配
+                                if not pattern_match(tostring(value), val) then
+                                    match = false
+                                    break
+                                end
+                            else
+                                -- 使用比较函数
+                                if not safe_compare(value, val, op) then
+                                    match = false
+                                    break
+                                end
+                            end
+                        end
                     end
                 end
             end

@@ -143,18 +143,29 @@ async function hquery(pattern, options = {}) {
   for (const [key, value] of Object.entries(filters)) {
     if (Array.isArray(value)) {
       const isOperatorArray =
-        value[0] && [">", "<", ">=", "<=", "="].includes(value[0]);
+        value[0] && [">", "<", ">=", "<=", "=", "<>"].includes(value[0]);
       if (isOperatorArray) {
         // 对于长数字，确保使用字符串形式
-        filterArray.push(key, value[0], value[1].toString());
+        let finalValue = value[1];
+        if (finalValue === null || finalValue === undefined) {
+          finalValue = "NULL";
+        } else {
+          finalValue = finalValue.toString();
+        }
+        filterArray.push(key, value[0], finalValue);
       } else {
         // 确保数组中的长数字也转换为字符串
-        const safeValues = value.map((v) => v.toString());
+        const safeValues = value.map((v) => 
+          v === null || v === undefined ? "NULL" : v.toString()
+        );
         filterArray.push(key, "IN", JSON.stringify(safeValues));
       }
     } else if (typeof value === "string" && value.includes("*")) {
       // 添加对字符串通配符的支持
       filterArray.push(key, "LIKE", value);
+    } else if (value === null || value === undefined) {
+      // 添加对NULL值的支持 - 明确使用IS NULL操作符
+      filterArray.push(key, "IS", "NULL");
     } else {
       // 对普通值进行处理，确保长数字转换为字符串
       const safeValue =
@@ -164,6 +175,7 @@ async function hquery(pattern, options = {}) {
       filterArray.push(key, "=", safeValue);
     }
   }
+
   const params = [
     pattern,
     sort,                            // 合并后的排序参数
@@ -172,6 +184,7 @@ async function hquery(pattern, options = {}) {
     filterArray.length,              // filters 数量
     ...filterArray,                  // filters 数组
   ];
+  
   const result = await this.eval(lua.hquery, 0, ...params);
   return JSON.parse(result);
 }
