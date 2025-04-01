@@ -118,7 +118,7 @@ function env(filePath, cover = false) {
             process.env = { ...process.env, ...content };
         else
             process.env = { ...content, ...process.env };
-        return content;
+        return content || {};
     }
     catch (error) {
         console.error(error);

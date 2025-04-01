@@ -114,15 +114,25 @@ async function hquery(pattern, options = {}) {
   for (const [key, value] of Object.entries(filters)) {
     if (Array.isArray(value)) {
       const isOperatorArray =
-        value[0] && [">", "<", ">=", "<=", "="].includes(value[0]);
+        value[0] && [">", "<", ">=", "<=", "=", "<>"].includes(value[0]);
       if (isOperatorArray) {
-        filterArray.push(key, value[0], value[1].toString());
+        let finalValue = value[1];
+        if (finalValue === null || finalValue === undefined) {
+          finalValue = "NULL";
+        } else {
+          finalValue = finalValue.toString();
+        }
+        filterArray.push(key, value[0], finalValue);
       } else {
-        const safeValues = value.map((v) => v.toString());
+        const safeValues = value.map((v) => 
+          v === null || v === undefined ? "NULL" : v.toString()
+        );
         filterArray.push(key, "IN", JSON.stringify(safeValues));
       }
     } else if (typeof value === "string" && value.includes("*")) {
       filterArray.push(key, "LIKE", value);
+    } else if (value === null || value === undefined) {
+      filterArray.push(key, "IS", "NULL");
     } else {
       const safeValue =
         typeof value === "number" && value > Number.MAX_SAFE_INTEGER
