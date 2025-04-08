@@ -45,6 +45,7 @@ function uuid(len = 21) {
   const randomString = crypto.randomBytes(byteLength).toString("base64url");
   return randomString.substring(0, len);
 }
+/** 每个数同等概率,随机例如-3到10 10到-3的整数,可单写5:0-5 */ 
 function rint(a, b = 0) {
   if (a > b) {
     return Math.floor(Math.random() * (a + 1 - b)) + b;

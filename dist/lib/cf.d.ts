@@ -1,5 +1,6 @@
 export function cf(obj: any): Promise<{
     auth: string;
+    headers: {};
     domain: any;
     zid: any;
     getZoneId: typeof getZoneId;
@@ -9,12 +10,19 @@ export function cf(obj: any): Promise<{
     mset: typeof mset;
     del: typeof del;
     mdel: typeof mdel;
+    setSecurity: typeof setSecurity;
 }>;
 declare function getZoneId(): Promise<any>;
-declare function add(json: any): Promise<void>;
+declare function add(json: any): Promise<any>;
 declare function madd(arr: any): Promise<any[]>;
 declare function set(str: any): Promise<void>;
 declare function mset(arr: any): Promise<any[]>;
-declare function del(pre: any): Promise<void>;
+declare function del(pre: any): Promise<any>;
 declare function mdel(arr: any): Promise<any[]>;
+declare function setSecurity(options?: {
+    description: string;
+    expression: string;
+    action: string;
+    priority: number;
+}): Promise<any>;
 export {};

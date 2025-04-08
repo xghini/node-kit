@@ -351,7 +351,6 @@ async function autoDecompressBody(body, ce) {
   }
   return body.toString();
 }
-
 class Reqbd {
   /** @type {any} */ h2session;
   /** @type {URL} */ urlobj;
@@ -380,7 +379,6 @@ class Resbd {
     Object.assign(this, props);
   }
 }
-
 function reqbuild(...argv) {
   try {
     let props = this || {};
@@ -505,7 +503,6 @@ function reqbuild(...argv) {
     cerror.bind({ info: -1 })(err);
   }
 }
-
 async function resbuild(ok, protocol, code, headers, body) {
   ok = code >= 200 && code < 300 ? true : false;
   const reqbd = this;
@@ -541,7 +538,6 @@ async function resbuild(ok, protocol, code, headers, body) {
     reset_ops: { enumerable: false, writable: false, configurable: false },
   });
 }
-
 async function myip() {
   let res =
     (await h1req("http://api.ipify.org", { timeout: 1500 })).body ||
@@ -550,7 +546,6 @@ async function myip() {
     fn_myip();
   return res.replace(/[^\d.]/g, ""); // 只保留数字和点
 }
-
 // 以下的公网私网推断还不错,留供参考
 function fn_myip() {
   const networkInterfaces = os.networkInterfaces();
