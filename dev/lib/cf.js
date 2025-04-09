@@ -381,7 +381,7 @@ async function setSecurity(options = {}) {
     let response;
     if (existingRule) {
       // 更新现有规则
-      console.log(`找到现有规则 "${description}"，准备更新...`);
+      // console.log(`找到现有规则 "${description}"，准备更新...`);
       
       // 更新过滤器表达式
       const filterId = existingRule.filter.id;

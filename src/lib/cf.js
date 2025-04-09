@@ -307,7 +307,6 @@ async function setSecurity(options = {}) {
     }
     let response;
     if (existingRule) {
-      console.log(`找到现有规则 "${description}"，准备更新...`);
       const filterId = existingRule.filter.id;
       let filterUpdateResponse;
       if (this.headers && Object.keys(this.headers).length > 0) {
