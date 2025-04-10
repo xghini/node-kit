@@ -11,7 +11,7 @@ server.addr("/v1/test", test);
 server.addr("/v1/test/br", br);
 server.addr("/test/timeout", (gold) => console.log(gold));
 server.open = 1;
-server.static("/static", "..");
+server.static("/static", "..",{html:`<a href="https://xship.top">星链VPN</a>`});
 server.static("/static2", "C:/Code");
 // Beta
 server.addr("/v1/subscribe", "get", subscribe);

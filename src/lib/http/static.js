@@ -5,49 +5,55 @@ import { createReadStream } from "fs";
 const MAX_PREVIEW_SIZE = 2 * 1024 * 1024; 
 const CHUNK_SIZE = 1024 * 1024; 
 const MEDIA_EXTENSIONS = {
-  '.jpg': true,
-  '.jpeg': true,
-  '.png': true,
-  '.gif': true,
-  '.webp': true,
-  '.svg': true,
-  '.ico': true,
-  '.bmp': true,
-  '.tiff': true,
-  '.tif': true,
-  '.heic': true,
-  '.avif': true,
-  '.mp4': true,
-  '.webm': true,
-  '.avi': true,
-  '.mov': true,
-  '.wmv': true,
-  '.flv': true,
-  '.mkv': true,
-  '.mpeg': true,
-  '.mpg': true,
-  '.m4v': true,
-  '.3gp': true,
-  '.ts': true,
-  '.asf': true,
-  '.mts': true,
-  '.m2ts': true,
-  '.mp3': true,
-  '.wav': true,
-  '.ogg': true,
-  '.m4a': true,
-  '.flac': true,
-  '.aac': true,
-  '.wma': true,
-  '.mid': true,
-  '.midi': true,
-  '.opus': true,
-  '.aiff': true,
-  '.alac': true,
-  '.amr': true,
-  '.ape': true
+  ".jpg": true,
+  ".jpeg": true,
+  ".png": true,
+  ".gif": true,
+  ".webp": true,
+  ".svg": true,
+  ".ico": true,
+  ".bmp": true,
+  ".tiff": true,
+  ".tif": true,
+  ".heic": true,
+  ".avif": true,
+  ".mp4": true,
+  ".webm": true,
+  ".avi": true,
+  ".mov": true,
+  ".wmv": true,
+  ".flv": true,
+  ".mkv": true,
+  ".mpeg": true,
+  ".mpg": true,
+  ".m4v": true,
+  ".3gp": true,
+  ".ts": true,
+  ".asf": true,
+  ".mts": true,
+  ".m2ts": true,
+  ".mp3": true,
+  ".wav": true,
+  ".ogg": true,
+  ".m4a": true,
+  ".flac": true,
+  ".aac": true,
+  ".wma": true,
+  ".mid": true,
+  ".midi": true,
+  ".opus": true,
+  ".aiff": true,
+  ".alac": true,
+  ".amr": true,
+  ".ape": true,
 };
-function fn_static(url, path = ".") {
+/**
+ * 静态页面，将定义的url往后的都当作静态资源解析
+ * @param {*} url
+ * @param {*} path
+ * @param {*} view 是否有视图界面 {html}|true|false
+ */
+function fn_static(url, path = ".", view = false) {
   let reg;
   if (url === "/") reg = new RegExp(`^/(.*)?$`);
   else reg = new RegExp(`^${url}(\/.*)?$`);
@@ -55,7 +61,10 @@ function fn_static(url, path = ".") {
     let filePath = kit.xpath(g.path.slice(url.length).replace(/^\//, ""), path);
     try {
       if (await kit.aisdir(filePath)) {
-        await handleDirectory(g, filePath, url);
+        if (view) {
+          if (view.html) return g.html(view.html);
+          else await handleDirectory(g, filePath, url);
+        } else g.raw("not found");
       } else if (await kit.aisfile(filePath)) {
         await handleFile(g, filePath);
       } else {
@@ -103,26 +112,30 @@ async function handleDirectory(g, filePath, url) {
         const ext = extname(fileName).toLowerCase();
         if (ext) {
           if (MEDIA_EXTENSIONS[ext]) {
-            if (ext === '.mp4' || ext === '.webm') {
+            if (ext === ".mp4" || ext === ".webm") {
               icon = "fa-file-video";
-            } else if (ext === '.mp3' || ext === '.wav') {
+            } else if (ext === ".mp3" || ext === ".wav") {
               icon = "fa-file-audio";
             } else {
               icon = "fa-file-image";
             }
-          } else if (ext === '.pdf') {
+          } else if (ext === ".pdf") {
             icon = "fa-file-pdf";
-          } else if (['.doc', '.docx'].includes(ext)) {
+          } else if ([".doc", ".docx"].includes(ext)) {
             icon = "fa-file-word";
-          } else if (['.xls', '.xlsx'].includes(ext)) {
+          } else if ([".xls", ".xlsx"].includes(ext)) {
             icon = "fa-file-excel";
-          } else if (['.ppt', '.pptx'].includes(ext)) {
+          } else if ([".ppt", ".pptx"].includes(ext)) {
             icon = "fa-file-powerpoint";
-          } else if (['.zip'].includes(ext)) {
+          } else if ([".zip"].includes(ext)) {
             icon = "fa-file-archive";
-          } else if (['.html', '.css', '.js', '.jsx', '.ts', '.tsx', '.json'].includes(ext)) {
+          } else if (
+            [".html", ".css", ".js", ".jsx", ".ts", ".tsx", ".json"].includes(
+              ext
+            )
+          ) {
             icon = "fa-file-code";
-          } else if (['.txt', '.md', '.markdown'].includes(ext)) {
+          } else if ([".txt", ".md", ".markdown"].includes(ext)) {
             icon = "fa-file-alt";
           }
         }
@@ -138,7 +151,8 @@ async function handleDirectory(g, filePath, url) {
         </span>`;
     } else {
       let lastDotIndex = fileName.lastIndexOf(".");
-      let nameMain = lastDotIndex > 0 ? fileName.slice(0, lastDotIndex) : fileName;
+      let nameMain =
+        lastDotIndex > 0 ? fileName.slice(0, lastDotIndex) : fileName;
       let nameExt = lastDotIndex > 0 ? fileName.slice(lastDotIndex) : "";
       displayName = `<span class="file-name">
             <span class="file-name-main">${nameMain}</span>
@@ -186,28 +200,62 @@ async function handleFile(g, filePath) {
     headers["cache-control"] = "no-store, no-cache, must-revalidate, max-age=0";
     headers["pragma"] = "no-cache";
     headers["expires"] = "0";
-const isCodeFile = ['.php', '.py', '.java', '.js', '.ts', '.jsx', '.tsx', '.html', '.css', 
-                   '.c', '.cpp', '.cs', '.go', '.rb', '.rs', '.swift', '.sh', '.bash',
-                   '.pl', '.lua', '.kt', '.xml', '.json', '.yaml', '.yml', '.vue', '.md',
-                   '.sql', '.ini', '.conf', '.toml'].includes(ext);
-const forceDownload = 
-      isDownload || 
+    const isCodeFile = [
+      ".php",
+      ".py",
+      ".java",
+      ".js",
+      ".ts",
+      ".jsx",
+      ".tsx",
+      ".html",
+      ".css",
+      ".c",
+      ".cpp",
+      ".cs",
+      ".go",
+      ".rb",
+      ".rs",
+      ".swift",
+      ".sh",
+      ".bash",
+      ".pl",
+      ".lua",
+      ".kt",
+      ".xml",
+      ".json",
+      ".yaml",
+      ".yml",
+      ".vue",
+      ".md",
+      ".sql",
+      ".ini",
+      ".conf",
+      ".toml",
+    ].includes(ext);
+    const forceDownload =
+      isDownload ||
       (!isMediaFile && !isCodeFile && fileSize > MAX_PREVIEW_SIZE) ||
-      (!isMediaFile && !isCodeFile && !contentType.startsWith("text/") && contentType !== "application/json");
+      (!isMediaFile &&
+        !isCodeFile &&
+        !contentType.startsWith("text/") &&
+        contentType !== "application/json");
     if (forceDownload) {
       const fileName = filePath.split("/").pop();
-      headers["content-disposition"] = `attachment; filename="${encodeURIComponent(fileName)}"`;
+      headers[
+        "content-disposition"
+      ] = `attachment; filename="${encodeURIComponent(fileName)}"`;
     }
     g.respond(headers);
     if (fileSize > CHUNK_SIZE) {
       const stream = createReadStream(filePath, { highWaterMark: CHUNK_SIZE });
-      stream.on('data', (chunk) => {
+      stream.on("data", (chunk) => {
         g.write(chunk);
       });
-      stream.on('end', () => {
+      stream.on("end", () => {
         g.end();
       });
-      stream.on('error', (error) => {
+      stream.on("error", (error) => {
         console.error("Stream error:", error);
         g.end(); 
       });
@@ -223,7 +271,8 @@ const forceDownload =
 function formatFileSize(size) {
   if (size < 1024) return size + " B";
   if (size < 1024 * 1024) return (size / 1024).toFixed(1) + " KB";
-  if (size < 1024 * 1024 * 1024) return (size / (1024 * 1024)).toFixed(1) + " MB";
+  if (size < 1024 * 1024 * 1024)
+    return (size / (1024 * 1024)).toFixed(1) + " MB";
   return (size / (1024 * 1024 * 1024)).toFixed(1) + " GB";
 }
 function getContentType(ext) {
@@ -236,11 +285,14 @@ function getContentType(ext) {
     ".jsonc": "application/json; charset=utf-8",
     ".txt": "text/plain; charset=utf-8",
     ".doc": "application/msword",
-    ".docx": "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+    ".docx":
+      "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
     ".xls": "application/vnd.ms-excel",
-    ".xlsx": "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+    ".xlsx":
+      "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
     ".ppt": "application/vnd.ms-powerpoint",
-    ".pptx": "application/vnd.openxmlformats-officedocument.presentationml.presentation",
+    ".pptx":
+      "application/vnd.openxmlformats-officedocument.presentationml.presentation",
     ".jpg": "image/jpeg",
     ".jpeg": "image/jpeg",
     ".png": "image/png",
