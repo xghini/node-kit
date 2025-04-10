@@ -47,6 +47,10 @@ function hd_stream(server, stream, headers) {
         });
         return obj;
       })(),
+      // query param 一样的，做兼容
+      get param() {
+        return this.query;
+      },
       data: {},
       body: "",
       direct_ip,

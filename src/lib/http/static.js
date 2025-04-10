@@ -51,7 +51,7 @@ const MEDIA_EXTENSIONS = {
  * 静态页面，将定义的url往后的都当作静态资源解析
  * @param {*} url
  * @param {*} path
- * @param {*} view 是否有视图界面 {html}|true|false
+ * @param {*} view 是否有视图界面 {html,auth}|true|false
  */
 function fn_static(url, path = ".", view = false) {
   let reg;
@@ -62,6 +62,8 @@ function fn_static(url, path = ".", view = false) {
     try {
       if (await kit.aisdir(filePath)) {
         if (view) {
+          console.log(333,g.param)
+          if(view.auth&&g.param?.auth!=view.auth)return g.raw("auth error");
           if (view.html) return g.html(view.html);
           else await handleDirectory(g, filePath, url);
         } else g.raw("not found");
@@ -81,7 +83,7 @@ async function handleDirectory(g, filePath, url) {
   let html = fileSystem;
   if (url != g.path) {
     let parentPath = g.path.split("/").slice(0, -1).join("/") || "/";
-    html += `<a href="${parentPath}" class="parent-link"><i class="fas fa-arrow-left"></i> 返回上级目录 (Parent Directory)</a>`;
+    html += `<a href="${parentPath+g.search}" class="parent-link"><i class="fas fa-arrow-left"></i> 返回上级目录 (Parent Directory)</a>`;
   }
   html += `<ul class="file-list">`;
   let directories = [];
@@ -161,7 +163,7 @@ async function handleDirectory(g, filePath, url) {
     }
     html += `
         <li>
-            <a href="${link}">
+            <a href="${link+g.search}">
                 <i class="fas ${icon}"></i>
                 ${displayName}
             </a>`;

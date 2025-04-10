@@ -42,6 +42,9 @@ function hd_stream(server, stream, headers) {
                 });
                 return obj;
             })(),
+            get param() {
+                return this.query;
+            },
             data: {},
             body: "",
             direct_ip,
