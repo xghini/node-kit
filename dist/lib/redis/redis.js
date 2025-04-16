@@ -78,8 +78,17 @@ async function hquery(pattern, options = {}) {
                 filterArray.push(key, "IN", JSON.stringify(safeValues));
             }
         }
-        else if (typeof value === "string" && value.includes("*")) {
-            filterArray.push(key, "LIKE", value);
+        else if (typeof value === "string") {
+            if (value.includes('>') || value.includes('<') || value.includes('=') ||
+                value.includes('&&') || value.includes('||')) {
+                filterArray.push(key, "EXPR", value);
+            }
+            else if (value.includes("*")) {
+                filterArray.push(key, "LIKE", value);
+            }
+            else {
+                filterArray.push(key, "=", value);
+            }
         }
         else if (value === null || value === undefined) {
             filterArray.push(key, "IS", "NULL");

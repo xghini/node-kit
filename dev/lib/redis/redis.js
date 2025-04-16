@@ -161,9 +161,21 @@ async function hquery(pattern, options = {}) {
         );
         filterArray.push(key, "IN", JSON.stringify(safeValues));
       }
-    } else if (typeof value === "string" && value.includes("*")) {
-      // 添加对字符串通配符的支持
-      filterArray.push(key, "LIKE", value);
+    } else if (typeof value === "string") {
+      // 检查是否包含表达式操作符
+      if (value.includes('>') || value.includes('<') || value.includes('=') || 
+          value.includes('&&') || value.includes('||')) {
+        filterArray.push(key, "EXPR", value);
+      }
+      // 检查是否包含通配符
+      else if (value.includes("*")) {
+        // 添加对字符串通配符的支持
+        filterArray.push(key, "LIKE", value);
+      } 
+      // 默认为精确匹配
+      else {
+        filterArray.push(key, "=", value);
+      }
     } else if (value === null || value === undefined) {
       // 添加对NULL值的支持 - 明确使用IS NULL操作符
       filterArray.push(key, "IS", "NULL");

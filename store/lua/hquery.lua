@@ -1,5 +1,5 @@
 -- query.lua
--- 确保不影响原功能的情况下改进,非要求不必生成测试用例和调试信息
+-- 修改支持复杂表达式条件
 -- Get parameters
 local pattern = ARGV[1]
 local sort_spec = ARGV[2] or ''
@@ -103,6 +103,170 @@ local function safe_compare(value, val, op)
     return false
 end
 
+-- 新增：解析并评估复杂表达式
+local function evaluate_expression(value, expr)
+    if not value then return false end
+    
+    -- 先尝试转换为数字进行比较
+    local num_value = safe_tonumber(tostring(value))
+    
+    -- 处理OR表达式 (||)
+    if string.find(expr, "||") then
+        for cond in string.gmatch(expr, "[^|]+") do
+            cond = string.gsub(cond, "|", "")  -- 移除可能的残留|符号
+            cond = string.gsub(cond, "^%s*(.-)%s*$", "%1")  -- 去除前后空格
+            
+            -- 检查是否有AND条件（可能是嵌套的）
+            if string.find(cond, "&&") then
+                -- 递归处理AND条件
+                if evaluate_expression(value, cond) then
+                    return true -- OR条件中任一条件满足即为true
+                end
+            else
+                -- 处理简单条件
+                -- 检查是否是比较运算
+                if string.find(cond, "[><]=?") or string.find(cond, "=") then
+                    local op, val
+                    
+                    -- 获取操作符和值
+                    if string.find(cond, ">=") then
+                        op = ">="
+                        val = string.sub(cond, 3)
+                    elseif string.find(cond, "<=") then
+                        op = "<="
+                        val = string.sub(cond, 3)
+                    elseif string.find(cond, ">") then
+                        op = ">"
+                        val = string.sub(cond, 2)
+                    elseif string.find(cond, "<") then
+                        op = "<"
+                        val = string.sub(cond, 2)
+                    elseif string.find(cond, "=") then
+                        op = "="
+                        val = string.sub(cond, 2)
+                    end
+                    
+                    -- 如果成功提取了操作符和值
+                    if op and val then
+                        val = string.gsub(val, "^%s*(.-)%s*$", "%1") -- 去除前后空格
+                        if safe_compare(value, val, op) then
+                            return true -- OR条件中任一条件满足即为true
+                        end
+                    end
+                else
+                    -- 简单相等判断
+                    if num_value then
+                        -- 数值比较
+                        if num_value == tonumber(cond) then
+                            return true
+                        end
+                    else
+                        -- 字符串比较
+                        if tostring(value) == cond then
+                            return true
+                        end
+                    end
+                end
+            end
+        end
+        return false -- 所有OR条件都不满足
+    end
+    
+    -- 处理AND表达式 (&&)
+    if string.find(expr, "&&") then
+        for cond in string.gmatch(expr, "[^&]+") do
+            cond = string.gsub(cond, "&", "")  -- 移除可能的残留&符号
+            cond = string.gsub(cond, "^%s*(.-)%s*$", "%1")  -- 去除前后空格
+            
+            -- 处理简单条件
+            if cond ~= "" then
+                -- 检查是否是比较运算
+                if string.find(cond, "[><]=?") or string.find(cond, "=") then
+                    local op, val
+                    
+                    -- 获取操作符和值
+                    if string.find(cond, ">=") then
+                        op = ">="
+                        val = string.sub(cond, 3)
+                    elseif string.find(cond, "<=") then
+                        op = "<="
+                        val = string.sub(cond, 3)
+                    elseif string.find(cond, ">") then
+                        op = ">"
+                        val = string.sub(cond, 2)
+                    elseif string.find(cond, "<") then
+                        op = "<"
+                        val = string.sub(cond, 2)
+                    elseif string.find(cond, "=") then
+                        op = "="
+                        val = string.sub(cond, 2)
+                    end
+                    
+                    -- 如果成功提取了操作符和值
+                    if op and val then
+                        val = string.gsub(val, "^%s*(.-)%s*$", "%1") -- 去除前后空格
+                        if not safe_compare(value, val, op) then
+                            return false -- AND条件中任一条件不满足即为false
+                        end
+                    else
+                        return false -- 无法解析条件
+                    end
+                else
+                    -- 简单相等判断
+                    if num_value then
+                        -- 数值比较
+                        if num_value ~= tonumber(cond) then
+                            return false
+                        end
+                    else
+                        -- 字符串比较
+                        if tostring(value) ~= cond then
+                            return false
+                        end
+                    end
+                end
+            end
+        end
+        return true -- 所有AND条件都满足
+    end
+    
+    -- 处理单一比较条件
+    if string.find(expr, "[><]=?") or string.find(expr, "=") then
+        local op, val
+        
+        -- 获取操作符和值
+        if string.find(expr, ">=") then
+            op = ">="
+            val = string.sub(expr, 3)
+        elseif string.find(expr, "<=") then
+            op = "<="
+            val = string.sub(expr, 3)
+        elseif string.find(expr, ">") then
+            op = ">"
+            val = string.sub(expr, 2)
+        elseif string.find(expr, "<") then
+            op = "<"
+            val = string.sub(expr, 2)
+        elseif string.find(expr, "=") then
+            op = "="
+            val = string.sub(expr, 2)
+        end
+        
+        -- 如果成功提取了操作符和值
+        if op and val then
+            val = string.gsub(val, "^%s*(.-)%s*$", "%1") -- 去除前后空格
+            return safe_compare(value, val, op)
+        end
+    end
+    
+    -- 默认精确匹配
+    if num_value and tonumber(expr) then
+        return num_value == tonumber(expr)
+    else
+        return tostring(value) == expr
+    end
+end
+
 -- 通配符匹配辅助函数
 local function pattern_match(str, pattern)
     if not str or not pattern then return false end
@@ -141,10 +305,10 @@ while i <= 5 + filter_count * 3 do
     local op = ARGV[i + 1]
     local value = ARGV[i + 2]
     
-    -- 验证操作符是否合法 (添加 <> 和 IS NULL, IS NOT NULL 操作符)
+    -- 验证操作符是否合法 (增加EXPR操作符支持表达式)
     if op ~= "=" and op ~= ">" and op ~= "<" and op ~= ">=" and op ~= "<=" and 
        op ~= "IN" and op ~= "LIKE" and op ~= "<>" and 
-       op ~= "IS" and op ~= "IS NOT" then
+       op ~= "IS" and op ~= "IS NOT" and op ~= "EXPR" then
         -- 非法操作符时跳过此过滤器
         break
     end
@@ -203,6 +367,12 @@ repeat
                                 end
                             elseif op == "LIKE" then
                                 if pattern_match(tostring(value), val) then
+                                    field_matched = true
+                                    break
+                                end
+                            elseif op == "EXPR" then
+                                -- 使用表达式评估函数
+                                if evaluate_expression(value, val) then
                                     field_matched = true
                                     break
                                 end
@@ -278,6 +448,20 @@ repeat
                             else
                                 local value = redis.call("HGET", key, field)
                                 if value == cjson.null then
+                                    match = false
+                                    break
+                                end
+                            end
+                        elseif op == "EXPR" then
+                            -- 新增：表达式处理
+                            if not exists then
+                                -- 对于表达式查询，字段不存在时不匹配
+                                match = false
+                                break
+                            else
+                                local value = redis.call("HGET", key, field)
+                                -- 使用表达式评估函数
+                                if not evaluate_expression(value, val) then
                                     match = false
                                     break
                                 end
