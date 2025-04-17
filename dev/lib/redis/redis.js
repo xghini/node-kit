@@ -121,7 +121,8 @@ async function join(aa, bb, cc, dd) {
   return res;
 }
 /**
- * 基于表达式进行Hash查询
+ * hsql因为要支持各种复杂条件,可以() && ||一起用，因此对宽松多变的通配符不好支持
+ * hsql和hquery两个函数都过于复杂了,建议对期望结果进行校验
  * @param {string} pattern 键模式，如 'plan:*'
  * @param {string} expression 表达式条件，如 '(stop<>1&&remain=null)||remain>0'
  * @param {Object} options 可选参数
@@ -157,7 +158,8 @@ async function hsql(pattern, expression, options = {}) {
   return JSON.parse(result);
 }
 /**
- * 
+ * hquery则相反，处理相对没那么复杂，全是and或or，对字段和值的通配符都进行支持
+ * hsql和hquery两个函数都过于复杂了,建议对期望结果进行校验
  * @param {*} pattern 
  * @param {*} options 对于不等于操作符<>，如果字段不存在（并且比较值不是NULL），这个条件会被视为满足;其它运算符都要求字段必须存在;feild:null则是专门找空或不存在的字段匹配.
  * { _sort, _limit, _fields }为预设查询字段,js只负责传参,在lua中实现功能;其它为匹配字段

@@ -16,6 +16,7 @@ function xredis(...argv) {
         scankeys,
         sync,
         avatar,
+        hsql,
         hquery,
         sum,
         join,
@@ -50,7 +51,25 @@ async function join(aa, bb, cc, dd) {
     });
     return res;
 }
-async function hquery(pattern, options = {}) {
+async function hsql(pattern, expression, options = {}) {
+    if (!pattern || typeof pattern !== 'string') {
+        throw new Error('Pattern must be a string');
+    }
+    if (!expression || typeof expression !== 'string') {
+        throw new Error('Expression must be a string');
+    }
+    const { sort, limit, fields } = options;
+    const params = [
+        pattern,
+        expression,
+        sort || '',
+        limit || 0,
+        fields ? fields.join(',') : ''
+    ];
+    const result = await this.eval(lua.hsql, 0, ...params);
+    return JSON.parse(result);
+}
+async function hquery(pattern, options = {}, logic = "and") {
     const { _sort, _limit, _fields, ...filters } = options;
     let sort = "";
     if (typeof _sort === "string") {
@@ -112,6 +131,7 @@ async function hquery(pattern, options = {}) {
         _limit || 0,
         _fields ? _fields.join(",") : "",
         filterArray.length,
+        logic,
         ...filterArray,
     ];
     const result = await this.eval(lua.hquery, 0, ...params);
