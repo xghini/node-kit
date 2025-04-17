@@ -120,6 +120,15 @@ async function join(aa, bb, cc, dd) {
   return res;
 }
 /**
+ * 类似hquery,只用表达式来查询
+ * @param {*} pattern 
+ * @param {*} exp 
+ * @returns 
+ */
+async function hsql(pattern, options = {}) {
+  
+}
+/**
  * 
  * @param {*} pattern 
  * @param {*} options 对于不等于操作符<>，如果字段不存在（并且比较值不是NULL），这个条件会被视为满足;其它运算符都要求字段必须存在;feild:null则是专门找空或不存在的字段匹配.
@@ -130,7 +139,7 @@ async function join(aa, bb, cc, dd) {
  * @param {*} logic "and"|"or"
  * @returns 
  */
-async function hquery(pattern, options = {},logic="and") {
+async function hquery(pattern, options = {}, logic="and") {
   // 使用_feilds之前只有一个值,所以返回一维数组,使用_fields之后返回二维数组
   const { _sort, _limit, _fields, ...filters } = options;
   // 处理排序参数
@@ -204,6 +213,7 @@ async function hquery(pattern, options = {},logic="and") {
     _limit || 0,                     // limit 参数前移
     _fields ? _fields.join(",") : "", // fields 参数前移
     filterArray.length,              // filters 数量
+    logic,                           // 添加 logic 参数，传递给 Lua 脚本
     ...filterArray,                  // filters 数组
   ];
   
