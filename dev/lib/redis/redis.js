@@ -124,12 +124,13 @@ async function join(aa, bb, cc, dd) {
  * @param {*} pattern 
  * @param {*} options 对于不等于操作符<>，如果字段不存在（并且比较值不是NULL），这个条件会被视为满足;其它运算符都要求字段必须存在;feild:null则是专门找空或不存在的字段匹配.
  * { _sort, _limit, _fields }为预设查询字段,js只负责传参,在lua中实现功能;其它为匹配字段
- * @_fields :["download","upload"] 指定返回字段 最终返回二维数组[[key,download,upload]];不指定则返回key的一维数组
- * @_sort :"createDate desc" "createDate" "desc", 当_sort没设置时不排序;使用split(' ')得到的数组长1时,检测字符是否为desc或asc,是则对key排序;否则认为是指定的sortby默认asc排序;得到的数组长2时,第一个sortby(无效则对key排序) 第二个sort(desc|asc,其它无效字符为asc)
- * @_limit 限制返回条数
+ * _fields :["download","upload"] 指定返回字段 最终返回二维数组[[key,download,upload]];不指定则返回key的一维数组
+ * _sort :"createDate desc" "createDate" "desc", 当_sort没设置时不排序;使用split(' ')得到的数组长1时,检测字符是否为desc或asc,是则对key排序;否则认为是指定的sortby默认asc排序;得到的数组长2时,第一个sortby(无效则对key排序) 第二个sort(desc|asc,其它无效字符为asc)
+ * _limit 限制返回条数
+ * @param {*} logic "and"|"or"
  * @returns 
  */
-async function hquery(pattern, options = {}) {
+async function hquery(pattern, options = {},logic="and") {
   // 使用_feilds之前只有一个值,所以返回一维数组,使用_fields之后返回二维数组
   const { _sort, _limit, _fields, ...filters } = options;
   // 处理排序参数
