@@ -32,6 +32,7 @@ function xredis(...argv) {
     scankeys,
     sync,
     avatar,
+    hsql,
     hquery,
     sum,
     join,
@@ -120,13 +121,40 @@ async function join(aa, bb, cc, dd) {
   return res;
 }
 /**
- * 类似hquery,只用表达式来查询
- * @param {*} pattern 
- * @param {*} exp 
- * @returns 
+ * 基于表达式进行Hash查询
+ * @param {string} pattern 键模式，如 'plan:*'
+ * @param {string} expression 表达式条件，如 '(stop<>1&&remain=null)||remain>0'
+ * @param {Object} options 可选参数
+ * @param {number} options.limit 限制返回的结果数量
+ * @param {string} options.sort 排序规格，如 'upload desc'
+ * @param {string[]} options.fields 要返回的字段列表
+ * @returns {Promise<Array>} 查询结果
  */
-async function hsql(pattern, options = {}) {
+async function hsql(pattern, expression, options = {}) {
+  if (!pattern || typeof pattern !== 'string') {
+    throw new Error('Pattern must be a string');
+  }
   
+  if (!expression || typeof expression !== 'string') {
+    throw new Error('Expression must be a string');
+  }
+  
+  const { sort, limit, fields } = options;
+  
+  // 构建参数数组
+  const params = [
+    pattern,                         // 键模式
+    expression,                      // 表达式条件
+    sort || '',                      // 排序规格
+    limit || 0,                      // 限制结果数量
+    fields ? fields.join(',') : ''   // 要返回的字段
+  ];
+  
+  // 调用Lua脚本执行查询
+  const result = await this.eval(lua.hsql, 0, ...params);
+  
+  // 解析结果
+  return JSON.parse(result);
 }
 /**
  * 

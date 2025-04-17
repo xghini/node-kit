@@ -5,5 +5,6 @@ function load(path) {
 }
 export default {
   hquery: load("hquery.lua"),
+  hsql: load("hsql.lua"),
   sum: load("sum.lua"),
 };
