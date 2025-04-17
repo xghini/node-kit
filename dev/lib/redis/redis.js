@@ -144,7 +144,7 @@ async function hquery(pattern, options = {}) {
   for (const [key, value] of Object.entries(filters)) {
     if (Array.isArray(value)) {
       const isOperatorArray =
-        value[0] && [">", "<", ">=", "<=", "=", "<>"].includes(value[0]);
+        value[0] && [">", "<", ">=", "<=", "=", "<>", "!="].includes(value[0]);
       if (isOperatorArray) {
         // 对于长数字，确保使用字符串形式
         let finalValue = value[1];
@@ -153,7 +153,9 @@ async function hquery(pattern, options = {}) {
         } else {
           finalValue = finalValue.toString();
         }
-        filterArray.push(key, value[0], finalValue);
+        // 将 != 转换为 <> 以便在 Lua 中统一处理
+        const operator = value[0] === "!=" ? "<>" : value[0];
+        filterArray.push(key, operator, finalValue);
       } else {
         // 确保数组中的长数字也转换为字符串
         const safeValues = value.map((v) => 
@@ -162,8 +164,14 @@ async function hquery(pattern, options = {}) {
         filterArray.push(key, "IN", JSON.stringify(safeValues));
       }
     } else if (typeof value === "string") {
+      // 检查是否为不等于操作
+      if (value.startsWith("!=") || value.startsWith("<>")) {
+        const operator = "<>"; // 统一使用 <> 作为不等于操作符
+        const val = value.substring(value.startsWith("!=") ? 2 : 2).trim();
+        filterArray.push(key, operator, val || "");
+      }
       // 检查是否包含表达式操作符
-      if (value.includes('>') || value.includes('<') || value.includes('=') || 
+      else if (value.includes('>') || value.includes('<') || value.includes('=') || 
           value.includes('&&') || value.includes('||')) {
         filterArray.push(key, "EXPR", value);
       }

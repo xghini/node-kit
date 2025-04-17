@@ -62,7 +62,7 @@ async function hquery(pattern, options = {}) {
     const filterArray = [];
     for (const [key, value] of Object.entries(filters)) {
         if (Array.isArray(value)) {
-            const isOperatorArray = value[0] && [">", "<", ">=", "<=", "=", "<>"].includes(value[0]);
+            const isOperatorArray = value[0] && [">", "<", ">=", "<=", "=", "<>", "!="].includes(value[0]);
             if (isOperatorArray) {
                 let finalValue = value[1];
                 if (finalValue === null || finalValue === undefined) {
@@ -71,7 +71,8 @@ async function hquery(pattern, options = {}) {
                 else {
                     finalValue = finalValue.toString();
                 }
-                filterArray.push(key, value[0], finalValue);
+                const operator = value[0] === "!=" ? "<>" : value[0];
+                filterArray.push(key, operator, finalValue);
             }
             else {
                 const safeValues = value.map((v) => v === null || v === undefined ? "NULL" : v.toString());
@@ -79,7 +80,12 @@ async function hquery(pattern, options = {}) {
             }
         }
         else if (typeof value === "string") {
-            if (value.includes('>') || value.includes('<') || value.includes('=') ||
+            if (value.startsWith("!=") || value.startsWith("<>")) {
+                const operator = "<>";
+                const val = value.substring(value.startsWith("!=") ? 2 : 2).trim();
+                filterArray.push(key, operator, val || "");
+            }
+            else if (value.includes('>') || value.includes('<') || value.includes('=') ||
                 value.includes('&&') || value.includes('||')) {
                 filterArray.push(key, "EXPR", value);
             }
