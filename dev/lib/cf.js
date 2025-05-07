@@ -6,15 +6,16 @@ async function cf(obj) {
   const key = obj.key;
   const domain = obj.domain;
   const email = obj.email;
-  
+
   // 根据是否提供email决定认证方式
-  let auth, headers = {};
-  
+  let auth,
+    headers = {};
+
   if (email) {
     // Global API Key认证方式 - 使用headers
     headers = {
       "X-Auth-Email": email,
-      "X-Auth-Key": key
+      "X-Auth-Key": key,
     };
     console.dev("使用Global API Key认证");
   } else {
@@ -22,10 +23,10 @@ async function cf(obj) {
     auth = "Bearer " + key;
     console.dev("使用API Token认证");
   }
-  
+
   // 调用时传入正确的参数
   const zid = await getZoneId.bind({ domain, auth, headers })();
-  
+
   return {
     auth,
     headers,
@@ -50,7 +51,7 @@ async function getZoneId() {
       // 使用Global API Key认证（通过headers）
       res = await req(
         `https://api.cloudflare.com/client/v4/zones?name=${this.domain}`,
-        { }, // 空对象
+        {}, // 空对象
         this.headers // 第三个参数传入headers
       );
     } else {
@@ -141,22 +142,29 @@ async function set(str) {
     }
   }
   const host = pre + "." + this.domain;
-  
+
   // 处理ttl，如果是auto或其他非数字值，强制设为60
-  const recordTtl = ttl === "auto" || isNaN(parseInt(ttl)) ? 60 : parseInt(ttl) || 60;
-  
+  const recordTtl =
+    ttl === "auto" || isNaN(parseInt(ttl)) ? 60 : parseInt(ttl) || 60;
+
   try {
     // 确保zid存在
     if (!this.zid) {
       throw new Error(`无法获取Zone ID，请检查域名: ${this.domain}`);
     }
-    
+
     // 特殊情况：处理A记录的多IP地址（逗号分隔）
     if (type === "A" && content.includes(",")) {
       // 如果是A记录且包含逗号，将其视为多个IP地址
-      console.log(`检测到多个IP地址: ${content}`);
-      const ipList = content.split(",").map(ip => ip.trim()).filter(ip => ip !== "");
-      
+      const ipList = [
+        ...new Set(
+          content
+            .split(",")
+            .map((ip) => ip.trim())
+            .filter((ip) => ip !== "")
+        ),
+      ];
+
       // 1. 查询所有现有记录
       let res;
       if (this.headers && Object.keys(this.headers).length > 0) {
@@ -173,11 +181,10 @@ async function set(str) {
           { auth: this.auth }
         );
       }
-      
+
       // 2. 删除所有现有记录
       if (res.data.result && res.data.result.length > 0) {
-        console.log(`找到 ${res.data.result.length} 条现有记录，删除`);
-        const deletePromises = res.data.result.map(record => {
+        const deletePromises = res.data.result.map((record) => {
           if (this.headers && Object.keys(this.headers).length > 0) {
             // 使用Global API Key认证
             return req(
@@ -196,18 +203,18 @@ async function set(str) {
         await Promise.all(deletePromises);
       }
       // 3. 添加新的记录
-      console.log(`添加 ${ipList.length} 条新记录`);
+      console.log(`添加: ${host} ${type} ${content} 数量:${ipList.length}`);
       // 为每个IP创建一条新记录
-      const addPromises = ipList.map(ip => {
+      const addPromises = ipList.map((ip) => {
         const recordData = {
           type: type,
           name: host,
           content: ip,
           proxied: false,
           priority: parseInt(priority) || 10,
-          ttl: recordTtl
+          ttl: recordTtl,
         };
-        
+
         // 使用add函数添加记录
         return add.bind({
           auth: this.auth,
@@ -215,11 +222,14 @@ async function set(str) {
           zid: this.zid,
         })(recordData);
       });
-      await Promise.all(addPromises);      
-      return { success: true, message: `已为 ${host} 添加 ${ipList.length} 条A记录` };
+      await Promise.all(addPromises);
+      return {
+        success: true,
+        message: `已为 ${host} 添加 ${ipList.length} 条A记录`,
+      };
     } else {
       // 处理普通记录（单IP的A记录或其他类型记录）
-      
+
       // 1. 查询现有记录
       let res;
       if (this.headers && Object.keys(this.headers).length > 0) {
@@ -236,11 +246,10 @@ async function set(str) {
           { auth: this.auth }
         );
       }
-      
+
       // 2. 删除所有现有记录
       if (res.data.result && res.data.result.length > 0) {
-        console.log(`找到 ${res.data.result.length} 条现有记录，删除`);
-        const deletePromises = res.data.result.map(record => {
+        const deletePromises = res.data.result.map((record) => {
           if (this.headers && Object.keys(this.headers).length > 0) {
             // 使用Global API Key认证
             return req(
@@ -258,10 +267,10 @@ async function set(str) {
         });
         await Promise.all(deletePromises);
       }
-      
+
       // 3. 添加新记录
       console.log(`添加: ${host} ${type} ${content}`);
-      
+
       const result = await add.bind({
         auth: this.auth,
         headers: this.headers,
@@ -272,9 +281,9 @@ async function set(str) {
         content,
         proxied: false,
         priority: parseInt(priority) || 10,
-        ttl: recordTtl
+        ttl: recordTtl,
       });
-      
+
       return { success: true, message: `已更新 ${host} 的记录` };
     }
   } catch (error) {
@@ -331,7 +340,7 @@ async function del(pre) {
     // 1. 查询记录 ID
     const host = pre + "." + this.domain;
     let res;
-    
+
     if (this.headers && Object.keys(this.headers).length > 0) {
       // 使用Global API Key认证
       res = await req(
@@ -346,13 +355,13 @@ async function del(pre) {
         { auth: this.auth }
       );
     }
-    
+
     const recordId = res.data.result[0]?.id;
     if (!recordId) {
       console.log(`记录 ${host} 不存在，跳过删除`);
       return;
     }
-    
+
     // 2. 删除记录
     if (this.headers && Object.keys(this.headers).length > 0) {
       // 使用Global API Key认证
@@ -368,7 +377,7 @@ async function del(pre) {
         { auth: this.auth }
       );
     }
-    
+
     console.log(`删除${host}: ${res.data.success ? "成功" : "失败"}`);
     return res.data;
   } catch (error) {
@@ -398,7 +407,7 @@ async function setSecurity(options = {}) {
     // 首先查找是否存在同名规则
     let existingRule = null;
     let listResponse;
-    
+
     // 查询所有规则
     if (this.headers && Object.keys(this.headers).length > 0) {
       listResponse = await req(
@@ -412,21 +421,23 @@ async function setSecurity(options = {}) {
         { auth: this.auth }
       );
     }
-    
+
     // 查找同名规则
     if (listResponse.data.success && listResponse.data.result.length > 0) {
-      existingRule = listResponse.data.result.find(rule => rule.description === description);
+      existingRule = listResponse.data.result.find(
+        (rule) => rule.description === description
+      );
     }
-    
+
     let response;
     if (existingRule) {
       // 更新现有规则
       // console.log(`找到现有规则 "${description}"，准备更新...`);
-      
+
       // 更新过滤器表达式
       const filterId = existingRule.filter.id;
       let filterUpdateResponse;
-      
+
       if (this.headers && Object.keys(this.headers).length > 0) {
         filterUpdateResponse = await req(
           `https://api.cloudflare.com/client/v4/zones/${this.zid}/filters/${filterId} put`,
@@ -439,46 +450,48 @@ async function setSecurity(options = {}) {
           { auth: this.auth, json: { expression: expression, paused: false } }
         );
       }
-      
+
       if (!filterUpdateResponse.data.success) {
-        throw new Error(`更新过滤器失败: ${JSON.stringify(filterUpdateResponse.data.errors)}`);
+        throw new Error(
+          `更新过滤器失败: ${JSON.stringify(filterUpdateResponse.data.errors)}`
+        );
       }
-      
+
       // 更新规则本身
       if (this.headers && Object.keys(this.headers).length > 0) {
         response = await req(
           `https://api.cloudflare.com/client/v4/zones/${this.zid}/firewall/rules/${existingRule.id} put`,
-          { 
+          {
             json: {
               action: action,
               priority: priority,
               paused: false,
               description: description, // 保留原有描述
               filter: {
-                id: filterId  // 更新规则时必须包含过滤器ID
-              }
-            } 
+                id: filterId, // 更新规则时必须包含过滤器ID
+              },
+            },
           },
           this.headers
         );
       } else {
         response = await req(
           `https://api.cloudflare.com/client/v4/zones/${this.zid}/firewall/rules/${existingRule.id} put`,
-          { 
-            auth: this.auth, 
+          {
+            auth: this.auth,
             json: {
               action: action,
               priority: priority,
               paused: false,
               description: description, // 保留原有描述
               filter: {
-                id: filterId  // 更新规则时必须包含过滤器ID
-              }
-            } 
+                id: filterId, // 更新规则时必须包含过滤器ID
+              },
+            },
           }
         );
       }
-      
+
       if (response.data.success) {
         console.log(`安全规则 "${description}" 更新成功！`);
         return response.data.result;
@@ -489,19 +502,21 @@ async function setSecurity(options = {}) {
     } else {
       // 创建新规则
       console.log(`未找到安全规则 "${description}"，准备创建...`);
-      
+
       // 构建正确的请求体结构
-      const requestBody = [{
-        filter: {
-          expression: expression,
-          paused: false
+      const requestBody = [
+        {
+          filter: {
+            expression: expression,
+            paused: false,
+          },
+          action: action,
+          priority: priority,
+          paused: false,
+          description: description,
         },
-        action: action,
-        priority: priority,
-        paused: false,
-        description: description
-      }];
-      
+      ];
+
       if (this.headers && Object.keys(this.headers).length > 0) {
         // 使用Global API Key认证
         response = await req(
@@ -516,7 +531,7 @@ async function setSecurity(options = {}) {
           { auth: this.auth, json: requestBody }
         );
       }
-      
+
       if (response.data.success) {
         console.log(`安全规则 "${description}" 创建成功！`);
         return response.data.result[0];

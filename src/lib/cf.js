@@ -4,11 +4,12 @@ async function cf(obj) {
   const key = obj.key;
   const domain = obj.domain;
   const email = obj.email;
-  let auth, headers = {};
+  let auth,
+    headers = {};
   if (email) {
     headers = {
       "X-Auth-Email": email,
-      "X-Auth-Key": key
+      "X-Auth-Key": key,
     };
     console.dev("使用Global API Key认证");
   } else {
@@ -38,7 +39,7 @@ async function getZoneId() {
     if (this.headers && Object.keys(this.headers).length > 0) {
       res = await req(
         `https://api.cloudflare.com/client/v4/zones?name=${this.domain}`,
-        { }, 
+        {}, 
         this.headers 
       );
     } else {
@@ -113,14 +114,21 @@ async function set(str) {
     }
   }
   const host = pre + "." + this.domain;
-  const recordTtl = ttl === "auto" || isNaN(parseInt(ttl)) ? 60 : parseInt(ttl) || 60;
+  const recordTtl =
+    ttl === "auto" || isNaN(parseInt(ttl)) ? 60 : parseInt(ttl) || 60;
   try {
     if (!this.zid) {
       throw new Error(`无法获取Zone ID，请检查域名: ${this.domain}`);
     }
     if (type === "A" && content.includes(",")) {
-      console.log(`检测到多个IP地址: ${content}`);
-      const ipList = content.split(",").map(ip => ip.trim()).filter(ip => ip !== "");
+      const ipList = [
+        ...new Set(
+          content
+            .split(",")
+            .map((ip) => ip.trim())
+            .filter((ip) => ip !== "")
+        ),
+      ];
       let res;
       if (this.headers && Object.keys(this.headers).length > 0) {
         res = await req(
@@ -135,8 +143,7 @@ async function set(str) {
         );
       }
       if (res.data.result && res.data.result.length > 0) {
-        console.log(`找到 ${res.data.result.length} 条现有记录，删除`);
-        const deletePromises = res.data.result.map(record => {
+        const deletePromises = res.data.result.map((record) => {
           if (this.headers && Object.keys(this.headers).length > 0) {
             return req(
               `https://api.cloudflare.com/client/v4/zones/${this.zid}/dns_records/${record.id} delete`,
@@ -152,15 +159,15 @@ async function set(str) {
         });
         await Promise.all(deletePromises);
       }
-      console.log(`添加 ${ipList.length} 条新记录`);
-      const addPromises = ipList.map(ip => {
+      console.log(`添加: ${host} ${type} ${content} 数量:${ipList.length}`);
+      const addPromises = ipList.map((ip) => {
         const recordData = {
           type: type,
           name: host,
           content: ip,
           proxied: false,
           priority: parseInt(priority) || 10,
-          ttl: recordTtl
+          ttl: recordTtl,
         };
         return add.bind({
           auth: this.auth,
@@ -168,8 +175,11 @@ async function set(str) {
           zid: this.zid,
         })(recordData);
       });
-      await Promise.all(addPromises);      
-      return { success: true, message: `已为 ${host} 添加 ${ipList.length} 条A记录` };
+      await Promise.all(addPromises);
+      return {
+        success: true,
+        message: `已为 ${host} 添加 ${ipList.length} 条A记录`,
+      };
     } else {
       let res;
       if (this.headers && Object.keys(this.headers).length > 0) {
@@ -185,8 +195,7 @@ async function set(str) {
         );
       }
       if (res.data.result && res.data.result.length > 0) {
-        console.log(`找到 ${res.data.result.length} 条现有记录，删除`);
-        const deletePromises = res.data.result.map(record => {
+        const deletePromises = res.data.result.map((record) => {
           if (this.headers && Object.keys(this.headers).length > 0) {
             return req(
               `https://api.cloudflare.com/client/v4/zones/${this.zid}/dns_records/${record.id} delete`,
@@ -213,7 +222,7 @@ async function set(str) {
         content,
         proxied: false,
         priority: parseInt(priority) || 10,
-        ttl: recordTtl
+        ttl: recordTtl,
       });
       return { success: true, message: `已更新 ${host} 的记录` };
     }
@@ -331,7 +340,9 @@ async function setSecurity(options = {}) {
       );
     }
     if (listResponse.data.success && listResponse.data.result.length > 0) {
-      existingRule = listResponse.data.result.find(rule => rule.description === description);
+      existingRule = listResponse.data.result.find(
+        (rule) => rule.description === description
+      );
     }
     let response;
     if (existingRule) {
@@ -350,38 +361,40 @@ async function setSecurity(options = {}) {
         );
       }
       if (!filterUpdateResponse.data.success) {
-        throw new Error(`更新过滤器失败: ${JSON.stringify(filterUpdateResponse.data.errors)}`);
+        throw new Error(
+          `更新过滤器失败: ${JSON.stringify(filterUpdateResponse.data.errors)}`
+        );
       }
       if (this.headers && Object.keys(this.headers).length > 0) {
         response = await req(
           `https://api.cloudflare.com/client/v4/zones/${this.zid}/firewall/rules/${existingRule.id} put`,
-          { 
+          {
             json: {
               action: action,
               priority: priority,
               paused: false,
               description: description, 
               filter: {
-                id: filterId  
-              }
-            } 
+                id: filterId, 
+              },
+            },
           },
           this.headers
         );
       } else {
         response = await req(
           `https://api.cloudflare.com/client/v4/zones/${this.zid}/firewall/rules/${existingRule.id} put`,
-          { 
-            auth: this.auth, 
+          {
+            auth: this.auth,
             json: {
               action: action,
               priority: priority,
               paused: false,
               description: description, 
               filter: {
-                id: filterId  
-              }
-            } 
+                id: filterId, 
+              },
+            },
           }
         );
       }
@@ -394,16 +407,18 @@ async function setSecurity(options = {}) {
       }
     } else {
       console.log(`未找到安全规则 "${description}"，准备创建...`);
-      const requestBody = [{
-        filter: {
-          expression: expression,
-          paused: false
+      const requestBody = [
+        {
+          filter: {
+            expression: expression,
+            paused: false,
+          },
+          action: action,
+          priority: priority,
+          paused: false,
+          description: description,
         },
-        action: action,
-        priority: priority,
-        paused: false,
-        description: description
-      }];
+      ];
       if (this.headers && Object.keys(this.headers).length > 0) {
         response = await req(
           `https://api.cloudflare.com/client/v4/zones/${this.zid}/firewall/rules post`,
