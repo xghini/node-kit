@@ -15,7 +15,15 @@ export function cf(obj: any): Promise<{
 declare function getZoneId(): Promise<any>;
 declare function add(json: any): Promise<any>;
 declare function madd(arr: any): Promise<any[]>;
-declare function set(str: any): Promise<void>;
+declare function set(str: any): Promise<{
+    success: boolean;
+    message: string;
+    error?: undefined;
+} | {
+    success: boolean;
+    error: any;
+    message?: undefined;
+}>;
 declare function mset(arr: any): Promise<any[]>;
 declare function del(pre: any): Promise<any>;
 declare function mdel(arr: any): Promise<any[]>;

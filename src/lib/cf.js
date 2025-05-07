@@ -113,67 +113,97 @@ async function set(str) {
     }
   }
   const host = pre + "." + this.domain;
+  const recordTtl = ttl === "auto" || isNaN(parseInt(ttl)) ? 60 : parseInt(ttl) || 60;
   try {
     if (!this.zid) {
       throw new Error(`无法获取Zone ID，请检查域名: ${this.domain}`);
     }
-    let res;
-    if (this.headers && Object.keys(this.headers).length > 0) {
-      res = await req(
-        `https://api.cloudflare.com/client/v4/zones/${this.zid}/dns_records?type=${type}&name=${host}`,
-        {},
-        this.headers
-      );
-    } else {
-      res = await req(
-        `https://api.cloudflare.com/client/v4/zones/${this.zid}/dns_records?type=${type}&name=${host}`,
-        { auth: this.auth }
-      );
-    }
-    if (res.data.result && res.data.result.length > 0) {
-      const record = res.data.result[0];
-      const recordId = record.id;
-      const recordTtl =
-        ttl === "auto" || isNaN(parseInt(ttl)) ? 60 : parseInt(ttl) || 60;
+    if (type === "A" && content.includes(",")) {
+      console.log(`检测到多个IP地址: ${content}`);
+      const ipList = content.split(",").map(ip => ip.trim()).filter(ip => ip !== "");
+      let res;
       if (this.headers && Object.keys(this.headers).length > 0) {
         res = await req(
-          `https://api.cloudflare.com/client/v4/zones/${this.zid}/dns_records/${recordId} put`,
-          {
-            json: {
-              type: type || "A",
-              name: host,
-              content,
-              proxied: false,
-              priority: parseInt(priority) || 10,
-              ttl: recordTtl, 
-            }
-          },
+          `https://api.cloudflare.com/client/v4/zones/${this.zid}/dns_records?type=${type}&name=${host}`,
+          {},
           this.headers
         );
       } else {
         res = await req(
-          `https://api.cloudflare.com/client/v4/zones/${this.zid}/dns_records/${recordId} put`,
-          {
-            auth: this.auth,
-            json: {
-              type: type || "A",
-              name: host,
-              content,
-              proxied: false,
-              priority: parseInt(priority) || 10,
-              ttl: recordTtl, 
-            }
-          }
+          `https://api.cloudflare.com/client/v4/zones/${this.zid}/dns_records?type=${type}&name=${host}`,
+          { auth: this.auth }
         );
       }
-      console.log(
-        `${host}`,
-        res.data.success ? "修改成功" : res.data.errors[0].message
-      );
+      if (res.data.result && res.data.result.length > 0) {
+        console.log(`找到 ${res.data.result.length} 条现有记录，删除`);
+        const deletePromises = res.data.result.map(record => {
+          if (this.headers && Object.keys(this.headers).length > 0) {
+            return req(
+              `https://api.cloudflare.com/client/v4/zones/${this.zid}/dns_records/${record.id} delete`,
+              {},
+              this.headers
+            );
+          } else {
+            return req(
+              `https://api.cloudflare.com/client/v4/zones/${this.zid}/dns_records/${record.id} delete`,
+              { auth: this.auth }
+            );
+          }
+        });
+        await Promise.all(deletePromises);
+      }
+      console.log(`添加 ${ipList.length} 条新记录`);
+      const addPromises = ipList.map(ip => {
+        const recordData = {
+          type: type,
+          name: host,
+          content: ip,
+          proxied: false,
+          priority: parseInt(priority) || 10,
+          ttl: recordTtl
+        };
+        return add.bind({
+          auth: this.auth,
+          headers: this.headers,
+          zid: this.zid,
+        })(recordData);
+      });
+      await Promise.all(addPromises);      
+      return { success: true, message: `已为 ${host} 添加 ${ipList.length} 条A记录` };
     } else {
-      const recordTtl =
-        ttl === "auto" || isNaN(parseInt(ttl)) ? 60 : parseInt(ttl) || 60;
-      await add.bind({
+      let res;
+      if (this.headers && Object.keys(this.headers).length > 0) {
+        res = await req(
+          `https://api.cloudflare.com/client/v4/zones/${this.zid}/dns_records?type=${type}&name=${host}`,
+          {},
+          this.headers
+        );
+      } else {
+        res = await req(
+          `https://api.cloudflare.com/client/v4/zones/${this.zid}/dns_records?type=${type}&name=${host}`,
+          { auth: this.auth }
+        );
+      }
+      if (res.data.result && res.data.result.length > 0) {
+        console.log(`找到 ${res.data.result.length} 条现有记录，删除`);
+        const deletePromises = res.data.result.map(record => {
+          if (this.headers && Object.keys(this.headers).length > 0) {
+            return req(
+              `https://api.cloudflare.com/client/v4/zones/${this.zid}/dns_records/${record.id} delete`,
+              {},
+              this.headers
+            );
+          } else {
+            return req(
+              `https://api.cloudflare.com/client/v4/zones/${this.zid}/dns_records/${record.id} delete`,
+              { auth: this.auth }
+            );
+          }
+        });
+        await Promise.all(deletePromises);
+      }
+      console.log(`添加: ${host} ${type} ${content}`);
+      const result = await add.bind({
         auth: this.auth,
         headers: this.headers,
         zid: this.zid,
@@ -183,11 +213,13 @@ async function set(str) {
         content,
         proxied: false,
         priority: parseInt(priority) || 10,
-        ttl: recordTtl, 
+        ttl: recordTtl
       });
+      return { success: true, message: `已更新 ${host} 的记录` };
     }
   } catch (error) {
     console.error(`操作 ${host} 时出错:`, error.message);
+    return { success: false, error: error.message };
   }
 }
 async function madd(arr) {
@@ -218,10 +250,6 @@ async function add(json) {
         { auth: this.auth, json }
       );
     }
-    console.log(
-      json.name,
-      res.data.success ? "添加成功" : res.data.errors[0].message
-    );
     return res.data;
   } catch (error) {
     console.error(`添加记录 ${json.name} 失败:`, error.message);
