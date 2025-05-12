@@ -88,120 +88,6 @@ function fn_static(url, path = ".", view = false) {
   });
 }
 
-async function handleDirectory(g, filePath, url) {
-  let files = await kit.adir(filePath);
-  let html = fileSystem;
-  if (url != g.path) {
-    let parentPath = g.path.split("/").slice(0, -1).join("/") || "/";
-    html += `<a href="${parentPath+g.search}" class="parent-link"><i class="fas fa-arrow-left"></i> 返回上级目录 (Parent Directory)</a>`;
-  }
-  html += `<ul class="file-list">`;
-  // Sort files: directories first, then regular files
-  let directories = [];
-  let regularFiles = [];
-  for (let file of files) {
-    let fullPath = kit.xpath(file, filePath);
-    let isDir = await kit.aisdir(fullPath);
-    if (isDir) {
-      directories.push(file);
-    } else {
-      regularFiles.push(file);
-    }
-  }
-  directories.sort((a, b) => a.localeCompare(b));
-  regularFiles.sort((a, b) => a.localeCompare(b));
-  const sortedFiles = [...directories, ...regularFiles];
-  // Process each file
-  for (let file of sortedFiles) {
-    let fullPath = kit.xpath(file, filePath);
-    let isDir = await kit.aisdir(fullPath);
-    let link = g.path === "/" ? "/" + file : g.path + "/" + file;
-    let icon = isDir ? "fa-folder" : "fa-file";
-    let fileName = file;
-    let fileSize = "";
-    // Get file size for regular files
-    if (!isDir) {
-      try {
-        const stats = await kit.astat(fullPath);
-        fileSize = formatFileSize(stats.size);
-        // Set appropriate icon based on file type
-        const ext = extname(fileName).toLowerCase();
-        if (ext) {
-          if (MEDIA_EXTENSIONS[ext]) {
-            if (ext === ".mp4" || ext === ".webm") {
-              icon = "fa-file-video";
-            } else if (ext === ".mp3" || ext === ".wav") {
-              icon = "fa-file-audio";
-            } else {
-              icon = "fa-file-image";
-            }
-          } else if (ext === ".pdf") {
-            icon = "fa-file-pdf";
-          } else if ([".doc", ".docx"].includes(ext)) {
-            icon = "fa-file-word";
-          } else if ([".xls", ".xlsx"].includes(ext)) {
-            icon = "fa-file-excel";
-          } else if ([".ppt", ".pptx"].includes(ext)) {
-            icon = "fa-file-powerpoint";
-          } else if ([".zip"].includes(ext)) {
-            icon = "fa-file-archive";
-          } else if (
-            [".html", ".css", ".js", ".jsx", ".ts", ".tsx", ".json"].includes(
-              ext
-            )
-          ) {
-            icon = "fa-file-code";
-          } else if ([".txt", ".md", ".markdown"].includes(ext)) {
-            icon = "fa-file-alt";
-          }
-        }
-      } catch (error) {
-        fileSize = "Unknown size";
-      }
-    }
-    let displayName;
-    if (isDir) {
-      displayName = `<span class="file-name">
-            <span class="file-name-main">${fileName}</span>
-            <span class="file-name-ext">/</span>
-        </span>`;
-    } else {
-      // Split filename and extension
-      let lastDotIndex = fileName.lastIndexOf(".");
-      let nameMain =
-        lastDotIndex > 0 ? fileName.slice(0, lastDotIndex) : fileName;
-      let nameExt = lastDotIndex > 0 ? fileName.slice(lastDotIndex) : "";
-      displayName = `<span class="file-name">
-            <span class="file-name-main">${nameMain}</span>
-            <span class="file-name-ext">${nameExt}</span>
-        </span>`;
-    }
-    html += `
-        <li>
-            <a href="${link+g.search}">
-                <i class="fas ${icon}"></i>
-                ${displayName}
-            </a>`;
-    if (!isDir) {
-      html += `
-            <span class="file-size">${fileSize}</span>
-            <button onclick="window.location.href='${link}?download=1'" 
-                    class="download-btn" 
-                    title="下载文件"
-                    type="button">
-                <i class="fas fa-download"></i>
-            </button>`;
-    }
-    html += `</li>`;
-  }
-  html += `</ul></div></body></html>`;
-  g.respond({
-    ":status": 200,
-    "content-type": "text/html; charset=utf-8",
-  });
-  g.end(html);
-}
-
 async function handleFile(g, filePath) {
   // Check if this is a download request
   const isDownload = g.query && g.query.download === "1";
@@ -319,7 +205,6 @@ function formatFileSize(size) {
     return (size / (1024 * 1024)).toFixed(1) + " MB";
   return (size / (1024 * 1024 * 1024)).toFixed(1) + " GB";
 }
-
 function getContentType(ext) {
   const mimeTypes = {
     // Text and document formats
@@ -425,6 +310,149 @@ function getContentType(ext) {
   return mimeTypes[ext] || "application/octet-stream";
 }
 
+
+
+// 修改 handleDirectory 函数获取和显示最后修改时间
+async function handleDirectory(g, filePath, url) {
+  let files = await kit.adir(filePath);
+  let html = fileSystem;
+  if (url != g.path) {
+    let parentPath = g.path.split("/").slice(0, -1).join("/") || "/";
+    html += `<a href="${parentPath+g.search}" class="parent-link"><i class="fas fa-arrow-left"></i> 返回上级目录 (Parent Directory)</a>`;
+  }
+  html += `<ul class="file-list">`;
+  // 排序文件：目录优先，然后是常规文件
+  let directories = [];
+  let regularFiles = [];
+  for (let file of files) {
+    let fullPath = kit.xpath(file, filePath);
+    let isDir = await kit.aisdir(fullPath);
+    if (isDir) {
+      directories.push(file);
+    } else {
+      regularFiles.push(file);
+    }
+  }
+  directories.sort((a, b) => a.localeCompare(b));
+  regularFiles.sort((a, b) => a.localeCompare(b));
+  const sortedFiles = [...directories, ...regularFiles];
+  // 处理每个文件
+  for (let file of sortedFiles) {
+    let fullPath = kit.xpath(file, filePath);
+    let isDir = await kit.aisdir(fullPath);
+    let link = g.path === "/" ? "/" + file : g.path + "/" + file;
+    let icon = isDir ? "fa-folder" : "fa-file";
+    let fileName = file;
+    let fileSize = "";
+    let modifiedTime = "";
+    
+    // 获取文件信息（大小和修改时间）
+    try {
+      const stats = await kit.astat(fullPath);
+      fileSize = formatFileSize(stats.size);
+      modifiedTime = formatModifiedTime(stats.mtime);
+      
+      // 根据文件类型设置适当的图标
+      const ext = extname(fileName).toLowerCase();
+      if (ext) {
+        if (MEDIA_EXTENSIONS[ext]) {
+          if (ext === ".mp4" || ext === ".webm") {
+            icon = "fa-file-video";
+          } else if (ext === ".mp3" || ext === ".wav") {
+            icon = "fa-file-audio";
+          } else {
+            icon = "fa-file-image";
+          }
+        } else if (ext === ".pdf") {
+          icon = "fa-file-pdf";
+        } else if ([".doc", ".docx"].includes(ext)) {
+          icon = "fa-file-word";
+        } else if ([".xls", ".xlsx"].includes(ext)) {
+          icon = "fa-file-excel";
+        } else if ([".ppt", ".pptx"].includes(ext)) {
+          icon = "fa-file-powerpoint";
+        } else if ([".zip"].includes(ext)) {
+          icon = "fa-file-archive";
+        } else if (
+          [".html", ".css", ".js", ".jsx", ".ts", ".tsx", ".json"].includes(
+            ext
+          )
+        ) {
+          icon = "fa-file-code";
+        } else if ([".txt", ".md", ".markdown"].includes(ext)) {
+          icon = "fa-file-alt";
+        }
+      }
+    } catch (error) {
+      fileSize = "Unknown size";
+      modifiedTime = "Unknown date";
+    }
+    
+    let displayName;
+    if (isDir) {
+      displayName = `<span class="file-name">
+            <span class="file-name-main">${fileName}</span>
+            <span class="file-name-ext">/</span>
+        </span>`;
+    } else {
+      // 拆分文件名和扩展名
+      let lastDotIndex = fileName.lastIndexOf(".");
+      let nameMain =
+        lastDotIndex > 0 ? fileName.slice(0, lastDotIndex) : fileName;
+      let nameExt = lastDotIndex > 0 ? fileName.slice(lastDotIndex) : "";
+      displayName = `<span class="file-name">
+            <span class="file-name-main">${nameMain}</span>
+            <span class="file-name-ext">${nameExt}</span>
+        </span>`;
+    }
+    html += `
+        <li>
+            <div class="file-info">
+                <a href="${link+g.search}">
+                    <i class="fas ${icon}"></i>
+                    ${displayName}
+                </a>`;
+    
+    // 如果不是目录，显示文件大小和下载按钮
+    if (!isDir) {
+      html += `
+                <span class="file-size">${fileSize}</span>
+                <button onclick="window.location.href='${link}?download=1'" 
+                        class="download-btn" 
+                        title="下载文件"
+                        type="button">
+                    <i class="fas fa-download"></i>
+                </button>`;
+    }
+    
+    html += `
+            </div>
+            <span class="file-modified-time">${modifiedTime}</span>`;
+    html += `</li>`;
+  }
+  html += `</ul></div></body></html>`;
+  g.respond({
+    ":status": 200,
+    "content-type": "text/html; charset=utf-8",
+  });
+  g.end(html);
+}
+
+// 添加格式化修改时间的函数
+function formatModifiedTime(date) {
+  if (!date) return "-";
+  
+  const d = new Date(date);
+  const year = d.getFullYear();
+  const month = String(d.getMonth() + 1).padStart(2, '0');
+  const day = String(d.getDate()).padStart(2, '0');
+  const hours = String(d.getHours()).padStart(2, '0');
+  const minutes = String(d.getMinutes()).padStart(2, '0');
+  
+  return `${year.toString().slice(2)}${month}${day} ${hours}:${minutes}`;
+}
+
+// 修改 CSS 部分（文件系统模板的更新）
 const fileSystem = `
 <!DOCTYPE html>
 <html lang="zh-CN">
@@ -502,11 +530,18 @@ const fileSystem = `
             padding: 0.3rem 0.5rem;
             transition: background-color 0.2s;
             display: grid;
-            grid-template-columns: minmax(0, 1fr) auto auto;
+            grid-template-columns: minmax(0, 1fr) auto;
             align-items: center;
-            gap: 1rem;
+            gap: 0.5rem;
             height: 32px;
             min-width: 0;
+        }
+        
+        .file-info {
+            display: flex;
+            align-items: center;
+            min-width: 0;
+            width: 100%;
         }
 
         .file-list li:hover {
@@ -524,7 +559,8 @@ const fileSystem = `
             color: #2c3e50;
             height: 100%;
             min-width: 0;
-            width: 100%;
+            flex: 1;
+            margin-right: 0.5rem;
         }
         
         .file-name {
@@ -606,13 +642,17 @@ const fileSystem = `
             color: #808080;
         }
         
-        .file-size {
+        .file-size, .file-modified-time {
             color: #666;
             font-size: 0.85rem;
             white-space: nowrap;
         }
         
-        .dark-mode .file-size {
+        .file-size {
+            margin-right: 0.5rem;
+        }
+        
+        .dark-mode .file-size, .dark-mode .file-modified-time {
             color: #aaa;
         }
 
@@ -625,9 +665,10 @@ const fileSystem = `
             display: flex;
             align-items: center;
             justify-content: center;
-            width: 2rem;
+            width: 1.5rem;
             height: 100%;
             padding: 0;
+            flex-shrink: 0;
         }
 
         .dark-mode .download-btn {
@@ -673,29 +714,23 @@ const fileSystem = `
             margin: 2rem auto;
             max-width: 600px;
         }
-        
         .dark-mode .file-too-large {
             background: #2a2a2a;
         }
-        
         .file-too-large h2 {
             margin-bottom: 1rem;
             color: #343a40;
         }
-        
         .dark-mode .file-too-large h2 {
             color: #e0e0e0;
         }
-        
         .file-too-large p {
             margin-bottom: 1.5rem;
             color: #495057;
         }
-        
         .dark-mode .file-too-large p {
             color: #adb5bd;
         }
-        
         .file-too-large .btn {
             display: inline-block;
             padding: 0.5rem 1rem;
@@ -705,11 +740,9 @@ const fileSystem = `
             text-decoration: none;
             transition: background-color 0.2s;
         }
-        
         .file-too-large .btn:hover {
             background: #0069d9;
         }
-
         @media (max-width: 768px) {
             body {
                 padding: 1rem;
@@ -729,10 +762,22 @@ const fileSystem = `
                 font-size: 1rem;
             }
             .file-size {
-                display: none;
+                font-size: 0.7rem;
             }
             .download-btn {
-                width: 1.5rem;
+                width: 1.2rem;
+            }
+        }
+        /* 增加一个中等尺寸屏幕的媒体查询，适配不同设备 */
+        @media (max-width: 992px) and (min-width: 769px) {
+            .file-list li {
+                gap: 0.3rem;
+            }
+            .file-modified-time {
+                font-size: 0.75rem;
+            }
+            .file-size {
+                font-size: 0.75rem;
             }
         }
     </style>

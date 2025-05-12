@@ -1,6 +1,6 @@
 {
   "name": "@ghini/kit",
-  "version": "25.5.8023134",
+  "version": "25.5.12122002",
   "scripts": {
     "build": "node ./build.js && tsc",
     "pub": "npm run build && npm publish && git add . && git commit -m 'update' && git push"
