@@ -6,6 +6,7 @@ import { empty } from "../index.js";
 import { br_decompress, inflate, zstd_decompress, gunzip } from "../codec.js";
 import { cerror } from "../console.js";
 import os from "os";
+import { SocksProxyAgent } from "socks-proxy-agent";
 async function reqdata(...argv) {
     return (await req(...argv)).data;
 }
@@ -18,6 +19,7 @@ const options_keys = [
     "auth",
     "ua",
     "furl",
+    "proxy",
 ];
 const d_headers = {
     "user-agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/133.0.0.0 Safari/537.36",
@@ -50,6 +52,9 @@ async function req(...argv) {
 async function h2connect(obj) {
     const { urlobj, options } = obj;
     const host = urlobj.host;
+    if (options.proxy) {
+        return false;
+    }
     if (h2session.has(host)) {
         const session = h2session.get(host);
         if (!session.destroyed && !session.closed) {
@@ -75,7 +80,7 @@ async function h2connect(obj) {
         });
         function fn(err) {
             session.destroy();
-            if (err.code.startsWith("ERR_SSL") || err.code === "ECONNRESET") {
+            if (err.code?.startsWith("ERR_SSL") || err.code === "ECONNRESET") {
                 return resolve(false);
             }
             return reject(err);
@@ -152,6 +157,21 @@ async function h2req(...argv) {
         });
     });
 }
+function getAgent(protocol, options) {
+    if (options?.proxy) {
+        if (!options.proxy.match("://"))
+            options.proxy = "socks5://" + options.proxy;
+        return new SocksProxyAgent(options.proxy);
+    }
+    else {
+        if (protocol === "https:") {
+            return httpsAgent;
+        }
+        else {
+            return httpAgent;
+        }
+    }
+}
 const httpsAgent = new https.Agent({
     keepAlive: true,
     keepAliveMsecs: 60000,
@@ -164,7 +184,7 @@ async function h1req(...argv) {
     const reqbd = reqbuild(...argv);
     let { urlobj, method, body, headers, options } = reqbd;
     const protocol = urlobj.protocol === "https:" ? https : http;
-    const agent = urlobj.protocol === "https:" ? httpsAgent : httpAgent;
+    const agent = getAgent(urlobj.protocol, options);
     const new_headers = {
         ...d_headers,
         ...headers,

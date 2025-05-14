@@ -6,6 +6,7 @@ import { empty } from "../index.js";
 import { br_decompress, inflate, zstd_decompress, gunzip } from "../codec.js";
 import { cerror } from "../console.js";
 import os from "os";
+import { SocksProxyAgent } from "socks-proxy-agent";
 
 /**
  * 只要data数据的req
@@ -24,13 +25,13 @@ const options_keys = [
   "auth",
   "ua",
   "furl",
+  "proxy",
 ];
 const d_headers = {
   "user-agent":
     "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/133.0.0.0 Safari/537.36",
 };
 const d_timeout = 30000;
-
 /*
  * req直接发请求(适合简单发送)
  * @example
@@ -48,7 +49,6 @@ const d_timeout = 30000;
  * no-cache
  * auto-redirects
  */
-
 // 比h1req h2req多一步detect判断
 /** @returns {Promise<ReturnType<typeof resbuild>>} */
 async function req(...argv) {
@@ -84,19 +84,25 @@ async function req(...argv) {
 async function h2connect(obj) {
   const { urlobj, options } = obj;
   const host = urlobj.host;
+
+  // 如果有代理选项，我们将HTTP/2请求降级为使用HTTP/1.1+代理
+  if (options.proxy) {
+    // console.debug("HTTP/2请求使用代理时自动降级为HTTP/1.1");
+    // 直接返回false表示无法使用HTTP/2，会自动降级为HTTP/1.1
+    return false;
+  }
+
   if (h2session.has(host)) {
-    // console.dev("已有session", host);
     const session = h2session.get(host);
     if (!session.destroyed && !session.closed) {
-      // console.dev("复用h2session", host);
       return session;
     } else {
       h2session.delete(host);
     }
   }
+
+  // 其余代码保持不变...
   return new Promise((resolve, reject) => {
-    // console.dev("创建h2session", host);
-    // 避免RFC6066纯ip请求报错
     if (!options.servername && !urlobj.hostname.match(/[a-zA-Z]/))
       options.servername = "_";
     const session = http2.connect(urlobj.origin, {
@@ -106,30 +112,18 @@ async function h2connect(obj) {
       },
       ...options,
     });
-    // once 只监听一次事件后自动取消监听
     session.once("connect", () => {
-      // console.dev("新建h2session", host);
       h2session.set(host, session);
       return resolve(session);
     });
     function fn(err) {
       session.destroy();
-      // ERR_SSL_TLSV1_ALERT_NO_APPLICATION_PROTOCOL protocol错误,使用h2访问h1
-      // ERR_SSL_WRONG_VERSION_NUMBER  使用https访问http
-      // ECONNRESET 网络状态变化
-      if (err.code.startsWith("ERR_SSL") || err.code === "ECONNRESET") {
-        // console.dev("server不支持h2,智能降级http/1.1");
+      if (err.code?.startsWith("ERR_SSL") || err.code === "ECONNRESET") {
         return resolve(false);
       }
-      // ENOTFOUND 域名解析失败
-      // ETIMEDOUT 连接超时
-      // ECONNREFUSED 无连接
       return reject(err);
-      // return resolve(resbuild.bind(obj)(false));
     }
-    // session.socket?.once("error", fn.bind("socketerror1")); //最快,领先2ms
-    session.once("error", fn.bind("error")); //第二,领先1ms
-    // session.once("close", fn.bind('close')); //第三
+    session.once("error", fn.bind("error"));
   });
 }
 /**
@@ -211,6 +205,21 @@ async function h2req(...argv) {
   });
 }
 
+// 创建代理Agent的辅助函数
+function getAgent(protocol, options) {
+  if (options?.proxy) {
+    if (!options.proxy.match("://"))
+      options.proxy = "socks5://" + options.proxy;
+    return new SocksProxyAgent(options.proxy);
+  } else {
+    if (protocol === "https:") {
+      return httpsAgent;
+    } else {
+      return httpAgent;
+    }
+  }
+}
+
 // 创建全局 agent
 const httpsAgent = new https.Agent({
   keepAlive: true,
@@ -228,7 +237,10 @@ async function h1req(...argv) {
   let { urlobj, method, body, headers, options } = reqbd;
   // console.dev("h1", urlobj.protocol, method, body);
   const protocol = urlobj.protocol === "https:" ? https : http;
-  const agent = urlobj.protocol === "https:" ? httpsAgent : httpAgent;
+
+  // 获取合适的agent，支持代理
+  const agent = getAgent(urlobj.protocol, options);
+
   const new_headers = {
     ...d_headers,
     ...headers,
@@ -332,7 +344,6 @@ function body2data(body, ct) {
   }
   return data;
 }
-
 // cookie相关 键值数组,分号分割取第一个,跟现在的cookie相融
 function setcookie(arr, str) {
   if (arr) return str || "" + arr.map((item) => item.split(";")[0]).join("; ");
@@ -467,7 +478,6 @@ function reqbuild(...argv) {
     }
     headers = { ...headers, ...new_headers } || {};
     options = { ...options, ...new_options } || {};
-
     if (options) {
       if ("cert" in options) {
         options.rejectUnauthorized = options.cert;
@@ -489,7 +499,6 @@ function reqbuild(...argv) {
       if ("auth" in options) headers["authorization"] = options.auth;
       if ("ua" in options) headers["user-agent"] = options.ua;
     }
-
     return new Reqbd({
       h2session,
       urlobj,
@@ -637,7 +646,6 @@ function obj2furl(obj, encoding = "url", standard = "common") {
     java: {
       handleKey: function (parentKey, key, value) {
         if (!parentKey) return key;
-
         // 处理数组对象的情况
         if (parentKey.includes("[")) {
           return parentKey + "." + key;
