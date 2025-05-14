@@ -29,8 +29,10 @@
   "license": "MIT",
   "dependencies": {
     "acorn": "8.14.0",
+    "global-agent": "^3.0.0",
     "ioredis": "5.4.2",
     "pg": "8.13.1",
+    "socks-proxy-agent": "^8.0.5",
     "ws": "^8.18.1",
     "yaml": "2.7.0"
   },
