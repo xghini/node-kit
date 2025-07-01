@@ -66,14 +66,21 @@ async function req(...argv) {
     if (error.code === "EPROTO" || error.code === "ECONNRESET") {
       if (reqbd.method.toUpperCase() === "CONNECT")
         return cerror.bind({ info: -1 })("CONNECT method unsupperted");
+      
       cerror.bind({ info: -1 })(
         error.code,
-        "maybe",
+        "HTTP/2连接失败，尝试回退到HTTP/1.1",
         reqbd.urlobj.protocol === "https:" ? "http" : "https"
       );
+      
+      // 修复：添加自动回退到h1req
+      try {
+        return await h1req(reqbd);
+      } catch (fallbackError) {
+        cerror.bind({ info: -1 })(fallbackError, "HTTP/1.1回退也失败");
+        return resbuild.bind(reqbd)(false);
+      }
     } else {
-      // const stack = error.stack.split("\n");
-      // cerror.bind({info:-1})(stack[0], stack[1]);
       cerror.bind({ info: -1 })(error, "目标服务器无法连接");
       return resbuild.bind(reqbd)(false);
     }
@@ -85,10 +92,7 @@ async function h2connect(obj) {
   const { urlobj, options } = obj;
   const host = urlobj.host;
 
-  // 如果有代理选项，我们将HTTP/2请求降级为使用HTTP/1.1+代理
   if (options.proxy) {
-    // console.debug("HTTP/2请求使用代理时自动降级为HTTP/1.1");
-    // 直接返回false表示无法使用HTTP/2，会自动降级为HTTP/1.1
     return false;
   }
 
@@ -101,10 +105,10 @@ async function h2connect(obj) {
     }
   }
 
-  // 其余代码保持不变...
   return new Promise((resolve, reject) => {
     if (!options.servername && !urlobj.hostname.match(/[a-zA-Z]/))
       options.servername = "_";
+    
     const session = http2.connect(urlobj.origin, {
       ...{
         settings: { enablePush: false },
@@ -112,17 +116,33 @@ async function h2connect(obj) {
       },
       ...options,
     });
+    
     session.once("connect", () => {
       h2session.set(host, session);
       return resolve(session);
     });
+    
     function fn(err) {
       session.destroy();
-      if (err.code?.startsWith("ERR_SSL") || err.code === "ECONNRESET") {
+      
+      // 修复：扩展应该回退到HTTP/1.1的错误类型
+      const shouldFallback = [
+        "ERR_SSL_WRONG_VERSION_NUMBER",
+        "ERR_SSL_UNSUPPORTED_PROTOCOL", 
+        "ECONNRESET",
+        "EPROTO",
+        "EPIPE",
+        "ETIMEDOUT"
+      ];
+      
+      if (err.code?.startsWith("ERR_SSL") || 
+          err.code === "ECONNRESET" || 
+          shouldFallback.includes(err.code)) {
         return resolve(false);
       }
       return reject(err);
     }
+    
     session.once("error", fn.bind("error"));
   });
 }
@@ -133,8 +153,7 @@ async function h2connect(obj) {
 async function h2req(...argv) {
   const reqbd = reqbuild(...argv);
   let { urlobj, method, headers, body, options } = reqbd;
-  // console.dev("h2", urlobj.protocol, method, body);
-  // 在connect('https://www.example.com')已经隐式设置了:authority和:scheme
+  
   headers = {
     ...d_headers,
     ...headers,
@@ -143,11 +162,10 @@ async function h2req(...argv) {
       ":method": method || "GET",
     },
   };
-  // console.dev(options);
+  
   let req, sess;
   try {
     sess = this ? this : await h2connect(reqbd);
-    // 走这里的,基本是直接调用h2req,没打算智能降级
     if (sess === false) throw new Error("H2 connect failed");
     req = await sess.request(headers);
     if (method === "GET" || method === "DELETE" || method === "HEAD") {
@@ -160,6 +178,7 @@ async function h2req(...argv) {
     cerror.bind({ info: -1 })(error);
     return resbuild.bind(reqbd)(false, "h2");
   }
+  
   return new Promise((resolve, reject) => {
     req.on("response", (headers, flags) => {
       const chunks = [];
@@ -178,27 +197,39 @@ async function h2req(...argv) {
         resolve(resbuild.bind(reqbd)(true, "h2", code, headers, body));
       });
     });
-    // 设置超时
+    
     const timeout = options.timeout || d_timeout;
     const timeoutId = setTimeout(() => {
       req.close();
       cerror.bind({ info: -1 })(`H2 req timeout >${timeout}ms`, urlobj.host);
       resolve(resbuild.bind(reqbd)(false, "h2", 408));
-      // throw new Error(`H2 req timeout >${timeout}ms`);
-      // return resolve(`timeout >${timeout}ms`);
-      // reject(new Error("HTTP/2 request timed out"));
     }, timeout);
+    
     req.on("error", (err) => {
       clearTimeout(timeoutId);
-      // baidu 首次h2成功,但第二次会失败
-      if (err.code === "ERR_HTTP2_ERROR") {
+      
+      // 修复：扩展需要回退的错误类型
+      const shouldFallback = [
+        "ERR_HTTP2_ERROR",
+        "ERR_HTTP2_STREAM_ERROR", 
+        "ERR_HTTP2_SESSION_ERROR",
+        "ERR_HTTP2_GOAWAY_SESSION",
+        "ERR_HTTP2_INVALID_SESSION",
+        "ECONNRESET",
+        "EPROTO",
+        "EPIPE"
+      ].includes(err.code);
+      
+      if (shouldFallback) {
+        cerror.bind({ info: -1 })(err.code, "HTTP/2请求失败，尝试回退到HTTP/1.1");
         try {
           return resolve(h1req(reqbd));
         } catch (error) {
-          cerror.bind({ info: -1 })(error);
+          cerror.bind({ info: -1 })(error, "HTTP/1.1回退失败");
           return resolve(resbuild.bind(reqbd)(false));
         }
       }
+      
       cerror.bind({ info: -1 })(err);
       resolve(resbuild.bind(reqbd)(false, "h2"));
     });

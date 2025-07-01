@@ -47,9 +47,15 @@ async function req(...argv) {
         return cerror.bind({ info: -1 })("CONNECT method unsupperted");
       cerror.bind({ info: -1 })(
         error.code,
-        "maybe",
+        "HTTP/2连接失败，尝试回退到HTTP/1.1",
         reqbd.urlobj.protocol === "https:" ? "http" : "https"
       );
+      try {
+        return await h1req(reqbd);
+      } catch (fallbackError) {
+        cerror.bind({ info: -1 })(fallbackError, "HTTP/1.1回退也失败");
+        return resbuild.bind(reqbd)(false);
+      }
     } else {
       cerror.bind({ info: -1 })(error, "目标服务器无法连接");
       return resbuild.bind(reqbd)(false);
@@ -86,7 +92,17 @@ async function h2connect(obj) {
     });
     function fn(err) {
       session.destroy();
-      if (err.code?.startsWith("ERR_SSL") || err.code === "ECONNRESET") {
+      const shouldFallback = [
+        "ERR_SSL_WRONG_VERSION_NUMBER",
+        "ERR_SSL_UNSUPPORTED_PROTOCOL", 
+        "ECONNRESET",
+        "EPROTO",
+        "EPIPE",
+        "ETIMEDOUT"
+      ];
+      if (err.code?.startsWith("ERR_SSL") || 
+          err.code === "ECONNRESET" || 
+          shouldFallback.includes(err.code)) {
         return resolve(false);
       }
       return reject(err);
@@ -150,11 +166,22 @@ async function h2req(...argv) {
     }, timeout);
     req.on("error", (err) => {
       clearTimeout(timeoutId);
-      if (err.code === "ERR_HTTP2_ERROR") {
+      const shouldFallback = [
+        "ERR_HTTP2_ERROR",
+        "ERR_HTTP2_STREAM_ERROR", 
+        "ERR_HTTP2_SESSION_ERROR",
+        "ERR_HTTP2_GOAWAY_SESSION",
+        "ERR_HTTP2_INVALID_SESSION",
+        "ECONNRESET",
+        "EPROTO",
+        "EPIPE"
+      ].includes(err.code);
+      if (shouldFallback) {
+        cerror.bind({ info: -1 })(err.code, "HTTP/2请求失败，尝试回退到HTTP/1.1");
         try {
           return resolve(h1req(reqbd));
         } catch (error) {
-          cerror.bind({ info: -1 })(error);
+          cerror.bind({ info: -1 })(error, "HTTP/1.1回退失败");
           return resolve(resbuild.bind(reqbd)(false));
         }
       }

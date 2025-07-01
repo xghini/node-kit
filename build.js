@@ -62,7 +62,7 @@ function generateVersionFromDate() {
 }
 
 // 读取 package.json
-console.log(rf("./package.json"));
+// console.log(rf("./package.json"));
 const packageJson = JSON.parse(rf("./package.json"));
 
 // 更新版本号为日期格式
