@@ -42,22 +42,14 @@ async function req(...argv) {
     }
     return h1req(reqbd);
   } catch (error) {
-    if (error.code === "EPROTO" || error.code === "ECONNRESET") {
-      if (reqbd.method.toUpperCase() === "CONNECT")
-        return cerror.bind({ info: -1 })("CONNECT method unsupperted");
-      cerror.bind({ info: -1 })(
-        error.code,
-        "HTTP/2连接失败，尝试回退到HTTP/1.1",
-        reqbd.urlobj.protocol === "https:" ? "http" : "https"
-      );
-      try {
-        return await h1req(reqbd);
-      } catch (fallbackError) {
-        cerror.bind({ info: -1 })(fallbackError, "HTTP/1.1回退也失败");
-        return resbuild.bind(reqbd)(false);
-      }
-    } else {
-      cerror.bind({ info: -1 })(error, "目标服务器无法连接");
+    if (reqbd.method.toUpperCase() === "CONNECT") {
+      return cerror.bind({ info: -1 })("CONNECT method unsupperted");
+    }
+    cerror.bind({ info: -1 })(error.code || 'HTTP2_ERROR', "HTTP/2失败，回退到HTTP/1.1");
+    try {
+      return await h1req(reqbd);
+    } catch (fallbackError) {
+      cerror.bind({ info: -1 })(fallbackError, "HTTP/1.1回退也失败");
       return resbuild.bind(reqbd)(false);
     }
   }
@@ -66,7 +58,7 @@ async function h2connect(obj) {
   const { urlobj, options } = obj;
   const host = urlobj.host;
   if (options.proxy) {
-    return false;
+    return false; 
   }
   if (h2session.has(host)) {
     const session = h2session.get(host);
@@ -90,24 +82,17 @@ async function h2connect(obj) {
       h2session.set(host, session);
       return resolve(session);
     });
-    function fn(err) {
+    session.once("error", (err) => {
       session.destroy();
-      const shouldFallback = [
-        "ERR_SSL_WRONG_VERSION_NUMBER",
-        "ERR_SSL_UNSUPPORTED_PROTOCOL", 
-        "ECONNRESET",
-        "EPROTO",
-        "EPIPE",
-        "ETIMEDOUT"
-      ];
-      if (err.code?.startsWith("ERR_SSL") || 
-          err.code === "ECONNRESET" || 
-          shouldFallback.includes(err.code)) {
-        return resolve(false);
+      const shouldReject = [
+        "ENOTFOUND",        
+        "ECONNREFUSED",     
+      ].includes(err.code);
+      if (shouldReject) {
+        return reject(err);
       }
-      return reject(err);
-    }
-    session.once("error", fn.bind("error"));
+      return resolve(false);
+    });
   });
 }
 /**
@@ -137,8 +122,13 @@ async function h2req(...argv) {
       req.end(body);
     }
   } catch (error) {
-    cerror.bind({ info: -1 })(error);
-    return resbuild.bind(reqbd)(false, "h2");
+    cerror.bind({ info: -1 })(error.code || 'HTTP2_ERROR', "HTTP/2请求失败，回退到HTTP/1.1");
+    try {
+      return await h1req(reqbd);
+    } catch (fallbackError) {
+      cerror.bind({ info: -1 })(fallbackError, "HTTP/1.1回退失败");
+      return resbuild.bind(reqbd)(false, "h1");
+    }
   }
   return new Promise((resolve, reject) => {
     req.on("response", (headers, flags) => {
@@ -166,27 +156,22 @@ async function h2req(...argv) {
     }, timeout);
     req.on("error", (err) => {
       clearTimeout(timeoutId);
-      const shouldFallback = [
-        "ERR_HTTP2_ERROR",
-        "ERR_HTTP2_STREAM_ERROR", 
-        "ERR_HTTP2_SESSION_ERROR",
-        "ERR_HTTP2_GOAWAY_SESSION",
-        "ERR_HTTP2_INVALID_SESSION",
-        "ECONNRESET",
-        "EPROTO",
-        "EPIPE"
+      const cannotFallback = [
+        "ERR_HTTP2_INVALID_PSEUDOHEADER", 
+        "ERR_HTTP2_HEADERS_OBJECT",       
       ].includes(err.code);
-      if (shouldFallback) {
-        cerror.bind({ info: -1 })(err.code, "HTTP/2请求失败，尝试回退到HTTP/1.1");
-        try {
-          return resolve(h1req(reqbd));
-        } catch (error) {
-          cerror.bind({ info: -1 })(error, "HTTP/1.1回退失败");
-          return resolve(resbuild.bind(reqbd)(false));
-        }
+      if (cannotFallback) {
+        cerror.bind({ info: -1 })(err);
+        resolve(resbuild.bind(reqbd)(false, "h2"));
+        return;
       }
-      cerror.bind({ info: -1 })(err);
-      resolve(resbuild.bind(reqbd)(false, "h2"));
+      cerror.bind({ info: -1 })(err.code || 'HTTP2_ERROR', "HTTP/2请求错误，回退到HTTP/1.1");
+      try {
+        return resolve(h1req(reqbd));
+      } catch (error) {
+        cerror.bind({ info: -1 })(error, "HTTP/1.1回退失败");
+        return resolve(resbuild.bind(reqbd)(false));
+      }
     });
   });
 }

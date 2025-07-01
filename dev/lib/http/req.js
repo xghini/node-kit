@@ -63,25 +63,17 @@ async function req(...argv) {
     }
     return h1req(reqbd);
   } catch (error) {
-    if (error.code === "EPROTO" || error.code === "ECONNRESET") {
-      if (reqbd.method.toUpperCase() === "CONNECT")
-        return cerror.bind({ info: -1 })("CONNECT method unsupperted");
-      
-      cerror.bind({ info: -1 })(
-        error.code,
-        "HTTP/2连接失败，尝试回退到HTTP/1.1",
-        reqbd.urlobj.protocol === "https:" ? "http" : "https"
-      );
-      
-      // 修复：添加自动回退到h1req
-      try {
-        return await h1req(reqbd);
-      } catch (fallbackError) {
-        cerror.bind({ info: -1 })(fallbackError, "HTTP/1.1回退也失败");
-        return resbuild.bind(reqbd)(false);
-      }
-    } else {
-      cerror.bind({ info: -1 })(error, "目标服务器无法连接");
+    // 明确不能回退的情况
+    if (reqbd.method.toUpperCase() === "CONNECT") {
+      return cerror.bind({ info: -1 })("CONNECT method unsupperted");
+    }
+    
+    // 其他所有错误都尝试回退到HTTP/1.1
+    cerror.bind({ info: -1 })(error.code || 'HTTP2_ERROR', "HTTP/2失败，回退到HTTP/1.1");
+    try {
+      return await h1req(reqbd);
+    } catch (fallbackError) {
+      cerror.bind({ info: -1 })(fallbackError, "HTTP/1.1回退也失败");
       return resbuild.bind(reqbd)(false);
     }
   }
@@ -93,7 +85,7 @@ async function h2connect(obj) {
   const host = urlobj.host;
 
   if (options.proxy) {
-    return false;
+    return false; // 有代理直接用HTTP/1.1
   }
 
   if (h2session.has(host)) {
@@ -122,28 +114,22 @@ async function h2connect(obj) {
       return resolve(session);
     });
     
-    function fn(err) {
+    session.once("error", (err) => {
       session.destroy();
       
-      // 修复：扩展应该回退到HTTP/1.1的错误类型
-      const shouldFallback = [
-        "ERR_SSL_WRONG_VERSION_NUMBER",
-        "ERR_SSL_UNSUPPORTED_PROTOCOL", 
-        "ECONNRESET",
-        "EPROTO",
-        "EPIPE",
-        "ETIMEDOUT"
-      ];
+      // 明确需要抛出错误的情况（很少见）
+      const shouldReject = [
+        "ENOTFOUND",        // 域名不存在
+        "ECONNREFUSED",     // 连接被拒绝且端口明确关闭
+      ].includes(err.code);
       
-      if (err.code?.startsWith("ERR_SSL") || 
-          err.code === "ECONNRESET" || 
-          shouldFallback.includes(err.code)) {
-        return resolve(false);
+      if (shouldReject) {
+        return reject(err);
       }
-      return reject(err);
-    }
-    
-    session.once("error", fn.bind("error"));
+      
+      // 其他所有连接错误都静默回退到HTTP/1.1（在上层统一输出日志）
+      return resolve(false);
+    });
   });
 }
 /**
@@ -175,8 +161,14 @@ async function h2req(...argv) {
       req.end(body);
     }
   } catch (error) {
-    cerror.bind({ info: -1 })(error);
-    return resbuild.bind(reqbd)(false, "h2");
+    // 直接回退，不判断具体错误类型
+    cerror.bind({ info: -1 })(error.code || 'HTTP2_ERROR', "HTTP/2请求失败，回退到HTTP/1.1");
+    try {
+      return await h1req(reqbd);
+    } catch (fallbackError) {
+      cerror.bind({ info: -1 })(fallbackError, "HTTP/1.1回退失败");
+      return resbuild.bind(reqbd)(false, "h1");
+    }
   }
   
   return new Promise((resolve, reject) => {
@@ -208,30 +200,26 @@ async function h2req(...argv) {
     req.on("error", (err) => {
       clearTimeout(timeoutId);
       
-      // 修复：扩展需要回退的错误类型
-      const shouldFallback = [
-        "ERR_HTTP2_ERROR",
-        "ERR_HTTP2_STREAM_ERROR", 
-        "ERR_HTTP2_SESSION_ERROR",
-        "ERR_HTTP2_GOAWAY_SESSION",
-        "ERR_HTTP2_INVALID_SESSION",
-        "ECONNRESET",
-        "EPROTO",
-        "EPIPE"
+      // 明确不能回退的错误（很少见）
+      const cannotFallback = [
+        "ERR_HTTP2_INVALID_PSEUDOHEADER", // 伪头部错误，HTTP/1.1也不会成功
+        "ERR_HTTP2_HEADERS_OBJECT",       // 头部格式错误
       ].includes(err.code);
       
-      if (shouldFallback) {
-        cerror.bind({ info: -1 })(err.code, "HTTP/2请求失败，尝试回退到HTTP/1.1");
-        try {
-          return resolve(h1req(reqbd));
-        } catch (error) {
-          cerror.bind({ info: -1 })(error, "HTTP/1.1回退失败");
-          return resolve(resbuild.bind(reqbd)(false));
-        }
+      if (cannotFallback) {
+        cerror.bind({ info: -1 })(err);
+        resolve(resbuild.bind(reqbd)(false, "h2"));
+        return;
       }
       
-      cerror.bind({ info: -1 })(err);
-      resolve(resbuild.bind(reqbd)(false, "h2"));
+      // 其他所有错误都回退到HTTP/1.1
+      cerror.bind({ info: -1 })(err.code || 'HTTP2_ERROR', "HTTP/2请求错误，回退到HTTP/1.1");
+      try {
+        return resolve(h1req(reqbd));
+      } catch (error) {
+        cerror.bind({ info: -1 })(error, "HTTP/1.1回退失败");
+        return resolve(resbuild.bind(reqbd)(false));
+      }
     });
   });
 }
