@@ -30,7 +30,95 @@ async function cf(obj) {
     del,
     mdel,
     setSecurity,
+    updateByContent,
+    mupdateByContent,
   };
+}
+/**
+ * 根据记录内容查找并更新特定记录
+ * @param {string} pre - 子域名前缀
+ * @param {string} oldContent - 原记录内容（旧IP）
+ * @param {string} newContent - 新记录内容（新IP）
+ * @param {string} type - 记录类型，默认A
+ * @param {number} ttl - TTL值，默认60
+ * @returns {Promise<Object>} - 操作结果
+ */
+async function updateByContent(pre, oldContent, newContent, type = "A", ttl = 60) {
+  const host = pre + "." + this.domain;
+  try {
+    if (!this.zid) {
+      throw new Error(`无法获取Zone ID，请检查域名: ${this.domain}`);
+    }
+    console.log(`查找记录: ${host} ${type} ${oldContent}`);
+    let res;
+    if (this.headers && Object.keys(this.headers).length > 0) {
+      res = await req(
+        `https://api.cloudflare.com/client/v4/zones/${this.zid}/dns_records?type=${type}&name=${host}`,
+        {},
+        this.headers
+      );
+    } else {
+      res = await req(
+        `https://api.cloudflare.com/client/v4/zones/${this.zid}/dns_records?type=${type}&name=${host}`,
+        { auth: this.auth }
+      );
+    }
+    if (!res.data.success) {
+      throw new Error(`查询记录失败: ${JSON.stringify(res.data.errors)}`);
+    }
+    const targetRecord = res.data.result.find(record => record.content === oldContent);
+    if (!targetRecord) {
+      console.log(`未找到内容为 ${oldContent} 的记录`);
+      return { 
+        success: false, 
+        message: `未找到内容为 ${oldContent} 的记录` 
+      };
+    }
+    console.log(`找到目标记录ID: ${targetRecord.id}`);
+    const updateData = {
+      type: type,
+      name: host,
+      content: newContent,
+      proxied: targetRecord.proxied || false,
+      priority: targetRecord.priority || 10,
+      ttl: ttl
+    };
+    let updateRes;
+    if (this.headers && Object.keys(this.headers).length > 0) {
+      updateRes = await req(
+        `https://api.cloudflare.com/client/v4/zones/${this.zid}/dns_records/${targetRecord.id} put`,
+        { json: updateData },
+        this.headers
+      );
+    } else {
+      updateRes = await req(
+        `https://api.cloudflare.com/client/v4/zones/${this.zid}/dns_records/${targetRecord.id} put`,
+        { auth: this.auth, json: updateData }
+      );
+    }
+    if (updateRes.data.success) {
+      console.log(`✅ 成功更新: ${host} ${oldContent} → ${newContent}`);
+      return {
+        success: true,
+        message: `已将 ${host} 从 ${oldContent} 更新为 ${newContent}`,
+        record: updateRes.data.result
+      };
+    } else {
+      throw new Error(`更新记录失败: ${JSON.stringify(updateRes.data.errors)}`);
+    }
+  } catch (error) {
+    console.error(`更新记录时出错:`, error.message);
+    return { 
+      success: false, 
+      error: error.message 
+    };
+  }
+}
+async function mupdateByContent(updates) {
+  return Promise.all(updates.map((update) => {
+    const [pre, oldContent, newContent, type, ttl] = update;
+    return this.updateByContent(pre, oldContent, newContent, type, ttl);
+  }));
 }
 async function getZoneId() {
   try {
