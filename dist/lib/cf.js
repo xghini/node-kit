@@ -30,11 +30,13 @@ async function cf(obj) {
         del,
         mdel,
         setSecurity,
-        updateByContent,
-        mupdateByContent,
+        setByContent,
+        msetByContent,
+        setByContentForce,
+        msetByContentForce,
     };
 }
-async function updateByContent(pre, oldContent, newContent, type = "A", ttl = 60) {
+async function setByContent(pre, oldContent, newContent, type = "A", ttl = 60) {
     const host = pre + "." + this.domain;
     try {
         if (!this.zid) {
@@ -56,7 +58,8 @@ async function updateByContent(pre, oldContent, newContent, type = "A", ttl = 60
             console.log(`未找到内容为 ${oldContent} 的记录`);
             return {
                 success: false,
-                message: `未找到内容为 ${oldContent} 的记录`
+                message: `未找到内容为 ${oldContent} 的记录`,
+                action: 'not_found'
             };
         }
         console.log(`找到目标记录ID: ${targetRecord.id}`);
@@ -80,7 +83,8 @@ async function updateByContent(pre, oldContent, newContent, type = "A", ttl = 60
             return {
                 success: true,
                 message: `已将 ${host} 从 ${oldContent} 更新为 ${newContent}`,
-                record: updateRes.data.result
+                record: updateRes.data.result,
+                action: 'updated'
             };
         }
         else {
@@ -95,10 +99,59 @@ async function updateByContent(pre, oldContent, newContent, type = "A", ttl = 60
         };
     }
 }
-async function mupdateByContent(updates) {
+async function msetByContent(updates) {
     return Promise.all(updates.map((update) => {
         const [pre, oldContent, newContent, type, ttl] = update;
-        return this.updateByContent(pre, oldContent, newContent, type, ttl);
+        return this.setByContent(pre, oldContent, newContent, type, ttl);
+    }));
+}
+async function setByContentForce(pre, oldContent, newContent, type = "A", ttl = 60) {
+    const result = await this.setByContent(pre, oldContent, newContent, type, ttl);
+    if (result.success) {
+        return result;
+    }
+    if (result.action === 'not_found') {
+        console.log(`未找到旧记录，强制添加新记录: ${pre}.${this.domain} ${newContent}`);
+        try {
+            const addResult = await add.bind({
+                auth: this.auth,
+                headers: this.headers,
+                zid: this.zid,
+            })({
+                type: type,
+                name: pre + "." + this.domain,
+                content: newContent,
+                proxied: false,
+                priority: 10,
+                ttl: ttl
+            });
+            if (addResult.success) {
+                console.log(`✅ 强制添加成功: ${pre}.${this.domain} ${newContent}`);
+                return {
+                    success: true,
+                    message: `已为 ${pre}.${this.domain} 强制添加新记录 ${newContent}`,
+                    record: addResult.result,
+                    action: 'added'
+                };
+            }
+            else {
+                throw new Error(`强制添加记录失败: ${JSON.stringify(addResult.errors)}`);
+            }
+        }
+        catch (error) {
+            console.error(`强制添加记录时出错:`, error.message);
+            return {
+                success: false,
+                error: error.message
+            };
+        }
+    }
+    return result;
+}
+async function msetByContentForce(updates) {
+    return Promise.all(updates.map((update) => {
+        const [pre, oldContent, newContent, type, ttl] = update;
+        return this.setByContentForce(pre, oldContent, newContent, type, ttl);
     }));
 }
 async function getZoneId() {

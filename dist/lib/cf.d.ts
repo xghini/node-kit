@@ -11,8 +11,10 @@ export function cf(obj: any): Promise<{
     del: typeof del;
     mdel: typeof mdel;
     setSecurity: typeof setSecurity;
-    updateByContent: typeof updateByContent;
-    mupdateByContent: typeof mupdateByContent;
+    setByContent: typeof setByContent;
+    msetByContent: typeof msetByContent;
+    setByContentForce: typeof setByContentForce;
+    msetByContentForce: typeof msetByContentForce;
 }>;
 declare function getZoneId(): Promise<any>;
 declare function add(json: any): Promise<any>;
@@ -35,6 +37,8 @@ declare function setSecurity(options?: {
     action: string;
     priority: number;
 }): Promise<any>;
-declare function updateByContent(pre: string, oldContent: string, newContent: string, type?: string, ttl?: number): Promise<any>;
-declare function mupdateByContent(updates: any): Promise<any[]>;
+declare function setByContent(pre: string, oldContent: string, newContent: string, type?: string, ttl?: number): Promise<any>;
+declare function msetByContent(updates: any): Promise<any[]>;
+declare function setByContentForce(pre: string, oldContent: string, newContent: string, type?: string, ttl?: number): Promise<any>;
+declare function msetByContentForce(updates: any): Promise<any[]>;
 export {};
