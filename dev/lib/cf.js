@@ -58,7 +58,7 @@ async function cf(obj) {
  */
 async function setByContent(pre, oldContent, newContent, type = "A", ttl = 60) {
   const host = pre + "." + this.domain;
-  
+
   try {
     // 确保zid存在
     if (!this.zid) {
@@ -89,14 +89,16 @@ async function setByContent(pre, oldContent, newContent, type = "A", ttl = 60) {
     }
 
     // 2. 查找内容匹配的记录
-    const targetRecord = res.data.result.find(record => record.content === oldContent);
-    
+    const targetRecord = res.data.result.find(
+      (record) => record.content === oldContent
+    );
+
     if (!targetRecord) {
       console.log(`未找到内容为 ${oldContent} 的记录`);
       return {
         success: false,
         message: `未找到内容为 ${oldContent} 的记录`,
-        action: 'not_found'
+        action: "not_found",
       };
     }
 
@@ -109,7 +111,7 @@ async function setByContent(pre, oldContent, newContent, type = "A", ttl = 60) {
       content: newContent,
       proxied: targetRecord.proxied || false,
       priority: targetRecord.priority || 10,
-      ttl: ttl
+      ttl: ttl,
     };
 
     let updateRes;
@@ -134,27 +136,54 @@ async function setByContent(pre, oldContent, newContent, type = "A", ttl = 60) {
         success: true,
         message: `已将 ${host} 从 ${oldContent} 更新为 ${newContent}`,
         record: updateRes.data.result,
-        action: 'updated'
+        action: "updated",
       };
     } else {
       throw new Error(`更新记录失败: ${JSON.stringify(updateRes.data.errors)}`);
     }
-
   } catch (error) {
     console.error(`更新记录时出错:`, error.message);
-    return { 
-      success: false, 
-      error: error.message 
+    return {
+      success: false,
+      error: error.message,
     };
   }
 }
 
-// 批量根据内容设置记录（未找到则返回失败）
+// 批量根据内容设置记录（未找到则返回失败）- 按子域名分组处理
 async function msetByContent(updates) {
-  return Promise.all(updates.map((update) => {
-    const [pre, oldContent, newContent, type, ttl] = update;
-    return this.setByContent(pre, oldContent, newContent, type, ttl);
-  }));
+  // 将操作按子域名分组
+  const grouped = {};
+  updates.forEach((update, index) => {
+    const pre = update[0];
+    if (!grouped[pre]) grouped[pre] = [];
+    grouped[pre].push({ update, index });
+  });
+
+  // 结果数组
+  const results = new Array(updates.length);
+
+  // 并行处理不同子域名，串行处理相同子域名
+  await Promise.all(
+    Object.values(grouped).map(async (group) => {
+      for (const { update, index } of group) {
+        try {
+          const [pre, oldContent, newContent, type, ttl] = update;
+          results[index] = await this.setByContent(
+            pre,
+            oldContent,
+            newContent,
+            type,
+            ttl
+          );
+        } catch (error) {
+          results[index] = { success: false, error: error.message };
+        }
+      }
+    })
+  );
+
+  return results;
 }
 
 /**
@@ -166,19 +195,33 @@ async function msetByContent(updates) {
  * @param {number} ttl - TTL值，默认60
  * @returns {Promise<Object>} - 操作结果，包含action字段标识是'updated'还是'added'
  */
-async function setByContentForce(pre, oldContent, newContent, type = "A", ttl = 60) {
+async function setByContentForce(
+  pre,
+  oldContent,
+  newContent,
+  type = "A",
+  ttl = 60
+) {
   // 先尝试正常设置
-  const result = await this.setByContent(pre, oldContent, newContent, type, ttl);
-  
+  const result = await this.setByContent(
+    pre,
+    oldContent,
+    newContent,
+    type,
+    ttl
+  );
+
   // 如果找到记录，直接返回结果
   if (result.success) {
     return result;
   }
-  
+
   // 如果没找到记录，强制添加新记录
-  if (result.action === 'not_found') {
-    console.log(`未找到旧记录，强制添加新记录: ${pre}.${this.domain} ${newContent}`);
-    
+  if (result.action === "not_found") {
+    console.log(
+      `未找到旧记录，强制添加新记录: ${pre}.${this.domain} ${newContent}`
+    );
+
     try {
       const addResult = await add.bind({
         auth: this.auth,
@@ -190,7 +233,7 @@ async function setByContentForce(pre, oldContent, newContent, type = "A", ttl = 
         content: newContent,
         proxied: false,
         priority: 10,
-        ttl: ttl
+        ttl: ttl,
       });
 
       if (addResult.success) {
@@ -199,30 +242,60 @@ async function setByContentForce(pre, oldContent, newContent, type = "A", ttl = 
           success: true,
           message: `已为 ${pre}.${this.domain} 强制添加新记录 ${newContent}`,
           record: addResult.result,
-          action: 'added'
+          action: "added",
         };
       } else {
-        throw new Error(`强制添加记录失败: ${JSON.stringify(addResult.errors)}`);
+        throw new Error(
+          `强制添加记录失败: ${JSON.stringify(addResult.errors)}`
+        );
       }
     } catch (error) {
       console.error(`强制添加记录时出错:`, error.message);
-      return { 
-        success: false, 
-        error: error.message 
+      return {
+        success: false,
+        error: error.message,
       };
     }
   }
-  
+
   // 其他错误直接返回
   return result;
 }
 
-// 批量根据内容强制设置记录（未找到则强制添加）
+// 批量根据内容强制设置记录（未找到则强制添加）- 按子域名分组处理
 async function msetByContentForce(updates) {
-  return Promise.all(updates.map((update) => {
-    const [pre, oldContent, newContent, type, ttl] = update;
-    return this.setByContentForce(pre, oldContent, newContent, type, ttl);
-  }));
+  // 将操作按子域名分组
+  const grouped = {};
+  updates.forEach((update, index) => {
+    const pre = update[0];
+    if (!grouped[pre]) grouped[pre] = [];
+    grouped[pre].push({ update, index });
+  });
+
+  // 结果数组
+  const results = new Array(updates.length);
+
+  // 并行处理不同子域名，串行处理相同子域名
+  await Promise.all(
+    Object.values(grouped).map(async (group) => {
+      for (const { update, index } of group) {
+        try {
+          const [pre, oldContent, newContent, type, ttl] = update;
+          results[index] = await this.setByContentForce(
+            pre,
+            oldContent,
+            newContent,
+            type,
+            ttl
+          );
+        } catch (error) {
+          results[index] = { success: false, error: error.message };
+        }
+      }
+    })
+  );
+
+  return results;
 }
 
 async function getZoneId() {
@@ -255,8 +328,42 @@ async function getZoneId() {
   }
 }
 
+// 批量设置记录 - 按子域名分组处理，避免竞态条件
 async function mset(arr) {
-  return Promise.all(arr.map((item) => this.set(item)));
+  // 将操作按子域名分组
+  const grouped = {};
+  arr.forEach((item, index) => {
+    let pre;
+    if (Array.isArray(item)) {
+      pre = item[0];
+    } else {
+      // 处理字符串格式，提取子域名前缀
+      const parts = item.split(" ");
+      pre = parts[0];
+    }
+
+    if (!grouped[pre]) grouped[pre] = [];
+    grouped[pre].push({ item, index });
+  });
+
+  // 结果数组，保持原始顺序
+  const results = new Array(arr.length);
+
+  // 并行处理不同子域名，串行处理相同子域名
+  await Promise.all(
+    Object.values(grouped).map(async (group) => {
+      // 对同一子域名的操作串行执行
+      for (const { item, index } of group) {
+        try {
+          results[index] = await this.set(item);
+        } catch (error) {
+          results[index] = { success: false, error: error.message };
+        }
+      }
+    })
+  );
+
+  return results;
 }
 
 // 查询ID+修改(没有批量)
@@ -335,6 +442,9 @@ async function set(str) {
       throw new Error(`无法获取Zone ID，请检查域名: ${this.domain}`);
     }
 
+    // 准备要添加的记录数据
+    const recordsToAdd = [];
+
     // 特殊情况：处理A记录的多IP地址（逗号分隔）
     if (type === "A" && content.includes(",")) {
       // 如果是A记录且包含逗号，将其视为多个IP地址
@@ -347,117 +457,18 @@ async function set(str) {
         ),
       ];
 
-      // 1. 查询所有现有记录
-      let res;
-      if (this.headers && Object.keys(this.headers).length > 0) {
-        // 使用Global API Key认证
-        res = await req(
-          `https://api.cloudflare.com/client/v4/zones/${this.zid}/dns_records?type=${type}&name=${host}`,
-          {},
-          this.headers
-        );
-      } else {
-        // 使用API Token认证
-        res = await req(
-          `https://api.cloudflare.com/client/v4/zones/${this.zid}/dns_records?type=${type}&name=${host}`,
-          { auth: this.auth }
-        );
-      }
-
-      // 2. 删除所有现有记录
-      if (res.data.result && res.data.result.length > 0) {
-        const deletePromises = res.data.result.map((record) => {
-          if (this.headers && Object.keys(this.headers).length > 0) {
-            // 使用Global API Key认证
-            return req(
-              `https://api.cloudflare.com/client/v4/zones/${this.zid}/dns_records/${record.id} delete`,
-              {},
-              this.headers
-            );
-          } else {
-            // 使用API Token认证
-            return req(
-              `https://api.cloudflare.com/client/v4/zones/${this.zid}/dns_records/${record.id} delete`,
-              { auth: this.auth }
-            );
-          }
-        });
-        await Promise.all(deletePromises);
-      }
-      // 3. 添加新的记录
-      console.log(`添加: ${host} ${type} ${content} 数量:${ipList.length}`);
-      // 为每个IP创建一条新记录
-      const addPromises = ipList.map((ip) => {
-        const recordData = {
+      ipList.forEach((ip) => {
+        recordsToAdd.push({
           type: type,
           name: host,
           content: ip,
           proxied: false,
           priority: parseInt(priority) || 10,
           ttl: recordTtl,
-        };
-
-        // 使用add函数添加记录
-        return add.bind({
-          auth: this.auth,
-          headers: this.headers,
-          zid: this.zid,
-        })(recordData);
-      });
-      await Promise.all(addPromises);
-      return {
-        success: true,
-        message: `已为 ${host} 添加 ${ipList.length} 条A记录`,
-      };
-    } else {
-      // 处理普通记录（单IP的A记录或其他类型记录）
-
-      // 1. 查询现有记录
-      let res;
-      if (this.headers && Object.keys(this.headers).length > 0) {
-        // 使用Global API Key认证
-        res = await req(
-          `https://api.cloudflare.com/client/v4/zones/${this.zid}/dns_records?type=${type}&name=${host}`,
-          {},
-          this.headers
-        );
-      } else {
-        // 使用API Token认证
-        res = await req(
-          `https://api.cloudflare.com/client/v4/zones/${this.zid}/dns_records?type=${type}&name=${host}`,
-          { auth: this.auth }
-        );
-      }
-
-      // 2. 删除所有现有记录
-      if (res.data.result && res.data.result.length > 0) {
-        const deletePromises = res.data.result.map((record) => {
-          if (this.headers && Object.keys(this.headers).length > 0) {
-            // 使用Global API Key认证
-            return req(
-              `https://api.cloudflare.com/client/v4/zones/${this.zid}/dns_records/${record.id} delete`,
-              {},
-              this.headers
-            );
-          } else {
-            // 使用API Token认证
-            return req(
-              `https://api.cloudflare.com/client/v4/zones/${this.zid}/dns_records/${record.id} delete`,
-              { auth: this.auth }
-            );
-          }
         });
-        await Promise.all(deletePromises);
-      }
-
-      // 3. 添加新记录
-      console.log(`添加: ${host} ${type} ${content}`);
-
-      const result = await add.bind({
-        auth: this.auth,
-        headers: this.headers,
-        zid: this.zid,
-      })({
+      });
+    } else {
+      recordsToAdd.push({
         type: type || "A",
         name: host,
         content,
@@ -465,17 +476,126 @@ async function set(str) {
         priority: parseInt(priority) || 10,
         ttl: recordTtl,
       });
-
-      return { success: true, message: `已更新 ${host} 的记录` };
     }
+
+    // 1. 查询现有记录
+    let res;
+    if (this.headers && Object.keys(this.headers).length > 0) {
+      // 使用Global API Key认证
+      res = await req(
+        `https://api.cloudflare.com/client/v4/zones/${this.zid}/dns_records?type=${type}&name=${host}`,
+        {},
+        this.headers
+      );
+    } else {
+      // 使用API Token认证
+      res = await req(
+        `https://api.cloudflare.com/client/v4/zones/${this.zid}/dns_records?type=${type}&name=${host}`,
+        { auth: this.auth }
+      );
+    }
+
+    const existingRecords = res.data.result || [];
+
+    // 2. 先尝试添加新记录（确保能添加成功）
+    const addResults = [];
+    let addFailed = false;
+
+    for (const record of recordsToAdd) {
+      try {
+        const result = await add.bind({
+          auth: this.auth,
+          headers: this.headers,
+          zid: this.zid,
+        })(record);
+
+        if (result.success) {
+          addResults.push(result);
+        } else {
+          throw new Error(`添加失败: ${JSON.stringify(result.errors)}`);
+        }
+      } catch (error) {
+        addFailed = true;
+        console.error(`添加新记录失败: ${error.message}`);
+        // 如果添加失败，不继续操作，保留原有记录
+        throw new Error(`添加新记录失败，保留原有记录: ${error.message}`);
+      }
+    }
+
+    // 3. 新记录添加成功后，再删除旧记录
+    if (!addFailed && existingRecords.length > 0) {
+      console.log(
+        `新记录添加成功，开始删除 ${existingRecords.length} 条旧记录`
+      );
+
+      const deletePromises = existingRecords.map((record) => {
+        if (this.headers && Object.keys(this.headers).length > 0) {
+          // 使用Global API Key认证
+          return req(
+            `https://api.cloudflare.com/client/v4/zones/${this.zid}/dns_records/${record.id} delete`,
+            {},
+            this.headers
+          );
+        } else {
+          // 使用API Token认证
+          return req(
+            `https://api.cloudflare.com/client/v4/zones/${this.zid}/dns_records/${record.id} delete`,
+            { auth: this.auth }
+          );
+        }
+      });
+
+      // 尝试删除所有旧记录，但不因删除失败而中断
+      const deleteResults = await Promise.allSettled(deletePromises);
+      deleteResults.forEach((result, index) => {
+        if (result.status === "rejected") {
+          console.warn(
+            `删除旧记录失败 (ID: ${existingRecords[index].id}):`,
+            result.reason
+          );
+        }
+      });
+    }
+
+    const message =
+      recordsToAdd.length > 1
+        ? `已为 ${host} 添加 ${recordsToAdd.length} 条${type}记录`
+        : `已更新 ${host} 的记录`;
+
+    return { success: true, message };
   } catch (error) {
     console.error(`操作 ${host} 时出错:`, error.message);
     return { success: false, error: error.message };
   }
 }
 
+// 批量添加记录 - 按域名分组处理
 async function madd(arr) {
-  return Promise.all(arr.map((item) => this.add(item)));
+  // 将操作按域名分组
+  const grouped = {};
+  arr.forEach((item, index) => {
+    const name = item.name;
+    if (!grouped[name]) grouped[name] = [];
+    grouped[name].push({ item, index });
+  });
+
+  // 结果数组
+  const results = new Array(arr.length);
+
+  // 并行处理不同域名，串行处理相同域名
+  await Promise.all(
+    Object.values(grouped).map(async (group) => {
+      for (const { item, index } of group) {
+        try {
+          results[index] = await this.add(item);
+        } catch (error) {
+          results[index] = { success: false, error: error.message };
+        }
+      }
+    })
+  );
+
+  return results;
 }
 
 /**
@@ -512,8 +632,32 @@ async function add(json) {
   }
 }
 
+// 批量删除记录 - 按域名分组处理
 async function mdel(arr) {
-  return Promise.all(arr.map((item) => this.del(item)));
+  // 将操作按子域名分组
+  const grouped = {};
+  arr.forEach((pre, index) => {
+    if (!grouped[pre]) grouped[pre] = [];
+    grouped[pre].push({ pre, index });
+  });
+
+  // 结果数组
+  const results = new Array(arr.length);
+
+  // 并行处理不同子域名，串行处理相同子域名
+  await Promise.all(
+    Object.values(grouped).map(async (group) => {
+      for (const { pre, index } of group) {
+        try {
+          results[index] = await this.del(pre);
+        } catch (error) {
+          results[index] = { success: false, error: error.message };
+        }
+      }
+    })
+  );
+
+  return results;
 }
 
 // 删除单个记录（需先查询 ID）
@@ -541,7 +685,7 @@ async function del(pre) {
     const recordId = res.data.result[0]?.id;
     if (!recordId) {
       console.log(`记录 ${host} 不存在，跳过删除`);
-      return;
+      return { success: true, message: `记录 ${host} 不存在` };
     }
 
     // 2. 删除记录
