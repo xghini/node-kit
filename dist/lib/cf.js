@@ -100,26 +100,10 @@ async function setByContent(pre, oldContent, newContent, type = "A", ttl = 60) {
     }
 }
 async function msetByContent(updates) {
-    const grouped = {};
-    updates.forEach((update, index) => {
-        const pre = update[0];
-        if (!grouped[pre])
-            grouped[pre] = [];
-        grouped[pre].push({ update, index });
-    });
-    const results = new Array(updates.length);
-    await Promise.all(Object.values(grouped).map(async (group) => {
-        for (const { update, index } of group) {
-            try {
-                const [pre, oldContent, newContent, type, ttl] = update;
-                results[index] = await this.setByContent(pre, oldContent, newContent, type, ttl);
-            }
-            catch (error) {
-                results[index] = { success: false, error: error.message };
-            }
-        }
+    return Promise.all(updates.map((update) => {
+        const [pre, oldContent, newContent, type, ttl] = update;
+        return this.setByContent(pre, oldContent, newContent, type, ttl);
     }));
-    return results;
 }
 async function setByContentForce(pre, oldContent, newContent, type = "A", ttl = 60) {
     const result = await this.setByContent(pre, oldContent, newContent, type, ttl);
@@ -165,26 +149,10 @@ async function setByContentForce(pre, oldContent, newContent, type = "A", ttl = 
     return result;
 }
 async function msetByContentForce(updates) {
-    const grouped = {};
-    updates.forEach((update, index) => {
-        const pre = update[0];
-        if (!grouped[pre])
-            grouped[pre] = [];
-        grouped[pre].push({ update, index });
-    });
-    const results = new Array(updates.length);
-    await Promise.all(Object.values(grouped).map(async (group) => {
-        for (const { update, index } of group) {
-            try {
-                const [pre, oldContent, newContent, type, ttl] = update;
-                results[index] = await this.setByContentForce(pre, oldContent, newContent, type, ttl);
-            }
-            catch (error) {
-                results[index] = { success: false, error: error.message };
-            }
-        }
+    return Promise.all(updates.map((update) => {
+        const [pre, oldContent, newContent, type, ttl] = update;
+        return this.setByContentForce(pre, oldContent, newContent, type, ttl);
     }));
-    return results;
 }
 async function getZoneId() {
     try {
@@ -209,32 +177,7 @@ async function getZoneId() {
     }
 }
 async function mset(arr) {
-    const grouped = {};
-    arr.forEach((item, index) => {
-        let pre;
-        if (Array.isArray(item)) {
-            pre = item[0];
-        }
-        else {
-            const parts = item.split(' ');
-            pre = parts[0];
-        }
-        if (!grouped[pre])
-            grouped[pre] = [];
-        grouped[pre].push({ item, index });
-    });
-    const results = new Array(arr.length);
-    await Promise.all(Object.values(grouped).map(async (group) => {
-        for (const { item, index } of group) {
-            try {
-                results[index] = await this.set(item);
-            }
-            catch (error) {
-                results[index] = { success: false, error: error.message };
-            }
-        }
-    }));
-    return results;
+    return Promise.all(arr.map((item) => this.set(item)));
 }
 async function set(str) {
     let pre, content, type, priority, ttl;
@@ -294,7 +237,6 @@ async function set(str) {
         if (!this.zid) {
             throw new Error(`无法获取Zone ID，请检查域名: ${this.domain}`);
         }
-        const recordsToAdd = [];
         if (type === "A" && content.includes(",")) {
             const ipList = [
                 ...new Set(content
@@ -302,78 +244,80 @@ async function set(str) {
                     .map((ip) => ip.trim())
                     .filter((ip) => ip !== "")),
             ];
-            ipList.forEach(ip => {
-                recordsToAdd.push({
+            let res;
+            if (this.headers && Object.keys(this.headers).length > 0) {
+                res = await req(`https://api.cloudflare.com/client/v4/zones/${this.zid}/dns_records?type=${type}&name=${host}`, {}, this.headers);
+            }
+            else {
+                res = await req(`https://api.cloudflare.com/client/v4/zones/${this.zid}/dns_records?type=${type}&name=${host}`, { auth: this.auth });
+            }
+            if (res.data.result && res.data.result.length > 0) {
+                const deletePromises = res.data.result.map((record) => {
+                    if (this.headers && Object.keys(this.headers).length > 0) {
+                        return req(`https://api.cloudflare.com/client/v4/zones/${this.zid}/dns_records/${record.id} delete`, {}, this.headers);
+                    }
+                    else {
+                        return req(`https://api.cloudflare.com/client/v4/zones/${this.zid}/dns_records/${record.id} delete`, { auth: this.auth });
+                    }
+                });
+                await Promise.all(deletePromises);
+            }
+            console.log(`添加: ${host} ${type} ${content} 数量:${ipList.length}`);
+            const addPromises = ipList.map((ip) => {
+                const recordData = {
                     type: type,
                     name: host,
                     content: ip,
                     proxied: false,
                     priority: parseInt(priority) || 10,
-                    ttl: recordTtl
-                });
+                    ttl: recordTtl,
+                };
+                return add.bind({
+                    auth: this.auth,
+                    headers: this.headers,
+                    zid: this.zid,
+                })(recordData);
             });
+            await Promise.all(addPromises);
+            return {
+                success: true,
+                message: `已为 ${host} 添加 ${ipList.length} 条A记录`,
+            };
         }
         else {
-            recordsToAdd.push({
+            let res;
+            if (this.headers && Object.keys(this.headers).length > 0) {
+                res = await req(`https://api.cloudflare.com/client/v4/zones/${this.zid}/dns_records?type=${type}&name=${host}`, {}, this.headers);
+            }
+            else {
+                res = await req(`https://api.cloudflare.com/client/v4/zones/${this.zid}/dns_records?type=${type}&name=${host}`, { auth: this.auth });
+            }
+            if (res.data.result && res.data.result.length > 0) {
+                const deletePromises = res.data.result.map((record) => {
+                    if (this.headers && Object.keys(this.headers).length > 0) {
+                        return req(`https://api.cloudflare.com/client/v4/zones/${this.zid}/dns_records/${record.id} delete`, {}, this.headers);
+                    }
+                    else {
+                        return req(`https://api.cloudflare.com/client/v4/zones/${this.zid}/dns_records/${record.id} delete`, { auth: this.auth });
+                    }
+                });
+                await Promise.all(deletePromises);
+            }
+            console.log(`添加: ${host} ${type} ${content}`);
+            const result = await add.bind({
+                auth: this.auth,
+                headers: this.headers,
+                zid: this.zid,
+            })({
                 type: type || "A",
                 name: host,
                 content,
                 proxied: false,
                 priority: parseInt(priority) || 10,
-                ttl: recordTtl
+                ttl: recordTtl,
             });
+            return { success: true, message: `已更新 ${host} 的记录` };
         }
-        let res;
-        if (this.headers && Object.keys(this.headers).length > 0) {
-            res = await req(`https://api.cloudflare.com/client/v4/zones/${this.zid}/dns_records?type=${type}&name=${host}`, {}, this.headers);
-        }
-        else {
-            res = await req(`https://api.cloudflare.com/client/v4/zones/${this.zid}/dns_records?type=${type}&name=${host}`, { auth: this.auth });
-        }
-        const existingRecords = res.data.result || [];
-        const addResults = [];
-        let addFailed = false;
-        for (const record of recordsToAdd) {
-            try {
-                const result = await add.bind({
-                    auth: this.auth,
-                    headers: this.headers,
-                    zid: this.zid,
-                })(record);
-                if (result.success) {
-                    addResults.push(result);
-                }
-                else {
-                    throw new Error(`添加失败: ${JSON.stringify(result.errors)}`);
-                }
-            }
-            catch (error) {
-                addFailed = true;
-                console.error(`添加新记录失败: ${error.message}`);
-                throw new Error(`添加新记录失败，保留原有记录: ${error.message}`);
-            }
-        }
-        if (!addFailed && existingRecords.length > 0) {
-            console.log(`新记录添加成功，开始删除 ${existingRecords.length} 条旧记录`);
-            const deletePromises = existingRecords.map((record) => {
-                if (this.headers && Object.keys(this.headers).length > 0) {
-                    return req(`https://api.cloudflare.com/client/v4/zones/${this.zid}/dns_records/${record.id} delete`, {}, this.headers);
-                }
-                else {
-                    return req(`https://api.cloudflare.com/client/v4/zones/${this.zid}/dns_records/${record.id} delete`, { auth: this.auth });
-                }
-            });
-            const deleteResults = await Promise.allSettled(deletePromises);
-            deleteResults.forEach((result, index) => {
-                if (result.status === 'rejected') {
-                    console.warn(`删除旧记录失败 (ID: ${existingRecords[index].id}):`, result.reason);
-                }
-            });
-        }
-        const message = recordsToAdd.length > 1
-            ? `已为 ${host} 添加 ${recordsToAdd.length} 条${type}记录`
-            : `已更新 ${host} 的记录`;
-        return { success: true, message };
     }
     catch (error) {
         console.error(`操作 ${host} 时出错:`, error.message);
@@ -381,25 +325,7 @@ async function set(str) {
     }
 }
 async function madd(arr) {
-    const grouped = {};
-    arr.forEach((item, index) => {
-        const name = item.name;
-        if (!grouped[name])
-            grouped[name] = [];
-        grouped[name].push({ item, index });
-    });
-    const results = new Array(arr.length);
-    await Promise.all(Object.values(grouped).map(async (group) => {
-        for (const { item, index } of group) {
-            try {
-                results[index] = await this.add(item);
-            }
-            catch (error) {
-                results[index] = { success: false, error: error.message };
-            }
-        }
-    }));
-    return results;
+    return Promise.all(arr.map((item) => this.add(item)));
 }
 async function add(json) {
     try {
@@ -418,24 +344,7 @@ async function add(json) {
     }
 }
 async function mdel(arr) {
-    const grouped = {};
-    arr.forEach((pre, index) => {
-        if (!grouped[pre])
-            grouped[pre] = [];
-        grouped[pre].push({ pre, index });
-    });
-    const results = new Array(arr.length);
-    await Promise.all(Object.values(grouped).map(async (group) => {
-        for (const { pre, index } of group) {
-            try {
-                results[index] = await this.del(pre);
-            }
-            catch (error) {
-                results[index] = { success: false, error: error.message };
-            }
-        }
-    }));
-    return results;
+    return Promise.all(arr.map((item) => this.del(item)));
 }
 async function del(pre) {
     try {
@@ -450,7 +359,7 @@ async function del(pre) {
         const recordId = res.data.result[0]?.id;
         if (!recordId) {
             console.log(`记录 ${host} 不存在，跳过删除`);
-            return { success: true, message: `记录 ${host} 不存在` };
+            return;
         }
         if (this.headers && Object.keys(this.headers).length > 0) {
             res = await req(`https://api.cloudflare.com/client/v4/zones/${this.zid}/dns_records/${recordId} delete`, {}, this.headers);
