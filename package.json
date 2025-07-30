@@ -28,7 +28,9 @@
   "author": "Ghini",
   "license": "MIT",
   "dependencies": {
+    "@faker-js/faker": "^9.9.0",
     "acorn": "8.14.0",
+    "country-state-city": "^3.2.1",
     "global-agent": "^3.0.0",
     "ioredis": "5.4.2",
     "pg": "8.13.1",
