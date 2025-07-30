@@ -1,5 +1,91 @@
 import { req } from "./http/req.js";
 export { cf };
+const CONFIG = {
+    MAX_RETRIES: 3,
+    RETRY_DELAY: 1000,
+    RATE_LIMIT: 4,
+    RATE_LIMIT_DELAY: 200,
+    BATCH_SIZE: 10,
+};
+async function retryOperation(fn, maxRetries = CONFIG.MAX_RETRIES, delay = CONFIG.RETRY_DELAY, operation = "操作") {
+    let lastError;
+    for (let i = 0; i < maxRetries; i++) {
+        try {
+            return await fn();
+        }
+        catch (error) {
+            lastError = error;
+            if (error.message && (error.message.includes("权限不足") ||
+                error.message.includes("认证失败") ||
+                error.message.includes("Invalid API key") ||
+                error.message.includes("unauthorized"))) {
+                throw error;
+            }
+            if (i < maxRetries - 1) {
+                const retryDelay = delay * Math.pow(2, i);
+                console.log(`${operation} 第 ${i + 1} 次失败，${retryDelay}ms 后重试...`);
+                await new Promise(resolve => setTimeout(resolve, retryDelay));
+            }
+        }
+    }
+    console.error(`${operation} 在 ${maxRetries} 次尝试后失败`);
+    throw lastError;
+}
+async function rateLimitedOperation(operations, limit = CONFIG.RATE_LIMIT, delay = CONFIG.RATE_LIMIT_DELAY) {
+    const results = [];
+    for (let i = 0; i < operations.length; i += limit) {
+        const batch = operations.slice(i, i + limit);
+        const batchResults = await Promise.allSettled(batch.map(op => op()));
+        results.push(...batchResults);
+        if (i + limit < operations.length) {
+            await new Promise(resolve => setTimeout(resolve, delay));
+        }
+        const completed = Math.min(i + limit, operations.length);
+        console.log(`批量操作进度: ${completed}/${operations.length}`);
+    }
+    return results;
+}
+async function batchProcess(items, processor, options = {}) {
+    const { groupBy = null, rateLimit = CONFIG.RATE_LIMIT, rateLimitDelay = CONFIG.RATE_LIMIT_DELAY, operationName = "批量操作" } = options;
+    let results;
+    if (groupBy) {
+        const grouped = {};
+        items.forEach((item, index) => {
+            const key = groupBy(item);
+            if (!grouped[key])
+                grouped[key] = [];
+            grouped[key].push({ item, index });
+        });
+        results = new Array(items.length);
+        await Promise.all(Object.values(grouped).map(async (group) => {
+            for (const { item, index } of group) {
+                try {
+                    results[index] = await processor(item);
+                }
+                catch (error) {
+                    results[index] = { success: false, error: error.message };
+                }
+            }
+        }));
+    }
+    else if (items.length > CONFIG.BATCH_SIZE) {
+        const operations = items.map(item => () => processor(item));
+        const settledResults = await rateLimitedOperation(operations, rateLimit, rateLimitDelay);
+        results = settledResults.map(result => result.status === 'fulfilled' ? result.value : { success: false, error: result.reason?.message || '未知错误' });
+    }
+    else {
+        results = await Promise.all(items.map(item => processor(item).catch(error => ({ success: false, error: error.message }))));
+    }
+    const successCount = results.filter(r => r.success !== false).length;
+    const failCount = results.length - successCount;
+    console.log(`\n📊 ${operationName}执行完成:`);
+    console.log(`   ✅ 成功: ${successCount} 条`);
+    if (failCount > 0) {
+        console.log(`   ❌ 失败: ${failCount} 条`);
+    }
+    console.log(`   📋 总计: ${results.length} 条\n`);
+    return results;
+}
 async function cf(obj) {
     const key = obj.key;
     const domain = obj.domain;
@@ -43,13 +129,14 @@ async function setByContent(pre, oldContent, newContent, type = "A", ttl = 60) {
             throw new Error(`无法获取Zone ID，请检查域名: ${this.domain}`);
         }
         console.log(`查找记录: ${host} ${type} ${oldContent}`);
-        let res;
-        if (this.headers && Object.keys(this.headers).length > 0) {
-            res = await req(`https://api.cloudflare.com/client/v4/zones/${this.zid}/dns_records?type=${type}&name=${host}`, {}, this.headers);
-        }
-        else {
-            res = await req(`https://api.cloudflare.com/client/v4/zones/${this.zid}/dns_records?type=${type}&name=${host}`, { auth: this.auth });
-        }
+        let res = await retryOperation(async () => {
+            if (this.headers && Object.keys(this.headers).length > 0) {
+                return await req(`https://api.cloudflare.com/client/v4/zones/${this.zid}/dns_records?type=${type}&name=${host}`, {}, this.headers);
+            }
+            else {
+                return await req(`https://api.cloudflare.com/client/v4/zones/${this.zid}/dns_records?type=${type}&name=${host}`, { auth: this.auth });
+            }
+        }, CONFIG.MAX_RETRIES, CONFIG.RETRY_DELAY, `查询记录 ${host}`);
         if (!res.data.success) {
             throw new Error(`查询记录失败: ${JSON.stringify(res.data.errors)}`);
         }
@@ -71,13 +158,14 @@ async function setByContent(pre, oldContent, newContent, type = "A", ttl = 60) {
             priority: targetRecord.priority || 10,
             ttl: ttl
         };
-        let updateRes;
-        if (this.headers && Object.keys(this.headers).length > 0) {
-            updateRes = await req(`https://api.cloudflare.com/client/v4/zones/${this.zid}/dns_records/${targetRecord.id} put`, { json: updateData }, this.headers);
-        }
-        else {
-            updateRes = await req(`https://api.cloudflare.com/client/v4/zones/${this.zid}/dns_records/${targetRecord.id} put`, { auth: this.auth, json: updateData });
-        }
+        let updateRes = await retryOperation(async () => {
+            if (this.headers && Object.keys(this.headers).length > 0) {
+                return await req(`https://api.cloudflare.com/client/v4/zones/${this.zid}/dns_records/${targetRecord.id} put`, { json: updateData }, this.headers);
+            }
+            else {
+                return await req(`https://api.cloudflare.com/client/v4/zones/${this.zid}/dns_records/${targetRecord.id} put`, { auth: this.auth, json: updateData });
+            }
+        }, CONFIG.MAX_RETRIES, CONFIG.RETRY_DELAY, `更新记录 ${host}`);
         if (updateRes.data.success) {
             console.log(`✅ 成功更新: ${host} ${oldContent} → ${newContent}`);
             return {
@@ -100,10 +188,13 @@ async function setByContent(pre, oldContent, newContent, type = "A", ttl = 60) {
     }
 }
 async function msetByContent(updates) {
-    return Promise.all(updates.map((update) => {
+    return batchProcess(updates, async (update) => {
         const [pre, oldContent, newContent, type, ttl] = update;
         return this.setByContent(pre, oldContent, newContent, type, ttl);
-    }));
+    }, {
+        groupBy: update => update[0],
+        operationName: "批量内容更新"
+    });
 }
 async function setByContentForce(pre, oldContent, newContent, type = "A", ttl = 60) {
     const result = await this.setByContent(pre, oldContent, newContent, type, ttl);
@@ -149,21 +240,25 @@ async function setByContentForce(pre, oldContent, newContent, type = "A", ttl = 
     return result;
 }
 async function msetByContentForce(updates) {
-    return Promise.all(updates.map((update) => {
+    return batchProcess(updates, async (update) => {
         const [pre, oldContent, newContent, type, ttl] = update;
         return this.setByContentForce(pre, oldContent, newContent, type, ttl);
-    }));
+    }, {
+        groupBy: update => update[0],
+        operationName: "批量强制更新"
+    });
 }
 async function getZoneId() {
     try {
         console.dev("获取Zone ID，域名:", this.domain);
-        let res;
-        if (this.headers && Object.keys(this.headers).length > 0) {
-            res = await req(`https://api.cloudflare.com/client/v4/zones?name=${this.domain}`, {}, this.headers);
-        }
-        else {
-            res = await req(`https://api.cloudflare.com/client/v4/zones?name=${this.domain}`, { auth: this.auth });
-        }
+        let res = await retryOperation(async () => {
+            if (this.headers && Object.keys(this.headers).length > 0) {
+                return await req(`https://api.cloudflare.com/client/v4/zones?name=${this.domain}`, {}, this.headers);
+            }
+            else {
+                return await req(`https://api.cloudflare.com/client/v4/zones?name=${this.domain}`, { auth: this.auth });
+            }
+        }, CONFIG.MAX_RETRIES, CONFIG.RETRY_DELAY, `获取Zone ID for ${this.domain}`);
         if (res.data.success && res.data.result.length > 0) {
             return res.data.result[0].id;
         }
@@ -177,7 +272,18 @@ async function getZoneId() {
     }
 }
 async function mset(arr) {
-    return Promise.all(arr.map((item) => this.set(item)));
+    return batchProcess(arr, async (item) => this.set(item), {
+        groupBy: (item) => {
+            if (Array.isArray(item)) {
+                return item[0];
+            }
+            else {
+                const parts = item.split(' ');
+                return parts[0];
+            }
+        },
+        operationName: "批量设置记录"
+    });
 }
 async function set(str) {
     let pre, content, type, priority, ttl;
@@ -237,6 +343,7 @@ async function set(str) {
         if (!this.zid) {
             throw new Error(`无法获取Zone ID，请检查域名: ${this.domain}`);
         }
+        const recordsToAdd = [];
         if (type === "A" && content.includes(",")) {
             const ipList = [
                 ...new Set(content
@@ -244,80 +351,132 @@ async function set(str) {
                     .map((ip) => ip.trim())
                     .filter((ip) => ip !== "")),
             ];
-            let res;
-            if (this.headers && Object.keys(this.headers).length > 0) {
-                res = await req(`https://api.cloudflare.com/client/v4/zones/${this.zid}/dns_records?type=${type}&name=${host}`, {}, this.headers);
-            }
-            else {
-                res = await req(`https://api.cloudflare.com/client/v4/zones/${this.zid}/dns_records?type=${type}&name=${host}`, { auth: this.auth });
-            }
-            if (res.data.result && res.data.result.length > 0) {
-                const deletePromises = res.data.result.map((record) => {
-                    if (this.headers && Object.keys(this.headers).length > 0) {
-                        return req(`https://api.cloudflare.com/client/v4/zones/${this.zid}/dns_records/${record.id} delete`, {}, this.headers);
-                    }
-                    else {
-                        return req(`https://api.cloudflare.com/client/v4/zones/${this.zid}/dns_records/${record.id} delete`, { auth: this.auth });
-                    }
-                });
-                await Promise.all(deletePromises);
-            }
-            console.log(`添加: ${host} ${type} ${content} 数量:${ipList.length}`);
-            const addPromises = ipList.map((ip) => {
-                const recordData = {
+            ipList.forEach(ip => {
+                recordsToAdd.push({
                     type: type,
                     name: host,
                     content: ip,
                     proxied: false,
                     priority: parseInt(priority) || 10,
-                    ttl: recordTtl,
-                };
-                return add.bind({
-                    auth: this.auth,
-                    headers: this.headers,
-                    zid: this.zid,
-                })(recordData);
+                    ttl: recordTtl
+                });
             });
-            await Promise.all(addPromises);
-            return {
-                success: true,
-                message: `已为 ${host} 添加 ${ipList.length} 条A记录`,
-            };
         }
         else {
-            let res;
-            if (this.headers && Object.keys(this.headers).length > 0) {
-                res = await req(`https://api.cloudflare.com/client/v4/zones/${this.zid}/dns_records?type=${type}&name=${host}`, {}, this.headers);
-            }
-            else {
-                res = await req(`https://api.cloudflare.com/client/v4/zones/${this.zid}/dns_records?type=${type}&name=${host}`, { auth: this.auth });
-            }
-            if (res.data.result && res.data.result.length > 0) {
-                const deletePromises = res.data.result.map((record) => {
-                    if (this.headers && Object.keys(this.headers).length > 0) {
-                        return req(`https://api.cloudflare.com/client/v4/zones/${this.zid}/dns_records/${record.id} delete`, {}, this.headers);
-                    }
-                    else {
-                        return req(`https://api.cloudflare.com/client/v4/zones/${this.zid}/dns_records/${record.id} delete`, { auth: this.auth });
-                    }
-                });
-                await Promise.all(deletePromises);
-            }
-            console.log(`添加: ${host} ${type} ${content}`);
-            const result = await add.bind({
-                auth: this.auth,
-                headers: this.headers,
-                zid: this.zid,
-            })({
+            recordsToAdd.push({
                 type: type || "A",
                 name: host,
                 content,
                 proxied: false,
                 priority: parseInt(priority) || 10,
-                ttl: recordTtl,
+                ttl: recordTtl
             });
-            return { success: true, message: `已更新 ${host} 的记录` };
         }
+        let res = await retryOperation(async () => {
+            if (this.headers && Object.keys(this.headers).length > 0) {
+                return await req(`https://api.cloudflare.com/client/v4/zones/${this.zid}/dns_records?type=${type}&name=${host}`, {}, this.headers);
+            }
+            else {
+                return await req(`https://api.cloudflare.com/client/v4/zones/${this.zid}/dns_records?type=${type}&name=${host}`, { auth: this.auth });
+            }
+        }, CONFIG.MAX_RETRIES, CONFIG.RETRY_DELAY, `查询 ${host} 的现有记录`);
+        const existingRecords = res.data.result || [];
+        console.log(`准备添加 ${recordsToAdd.length} 条记录到 ${host}`);
+        let addResults = [];
+        if (recordsToAdd.length <= 5) {
+            const addPromises = recordsToAdd.map(record => retryOperation(() => add.bind({
+                auth: this.auth,
+                headers: this.headers,
+                zid: this.zid,
+            })(record), CONFIG.MAX_RETRIES, CONFIG.RETRY_DELAY, `添加记录 ${record.content}`));
+            const results = await Promise.allSettled(addPromises);
+            let allSuccess = true;
+            for (const result of results) {
+                if (result.status === 'rejected' || !result.value?.success) {
+                    allSuccess = false;
+                    console.error(`添加记录失败:`, result.reason || result.value?.errors);
+                }
+                else {
+                    addResults.push(result.value);
+                }
+            }
+            if (!allSuccess) {
+                throw new Error(`部分记录添加失败，保留原有记录`);
+            }
+        }
+        else {
+            const addOperations = recordsToAdd.map(record => () => retryOperation(() => add.bind({
+                auth: this.auth,
+                headers: this.headers,
+                zid: this.zid,
+            })(record), CONFIG.MAX_RETRIES, CONFIG.RETRY_DELAY, `添加记录 ${record.content}`));
+            const results = await rateLimitedOperation(addOperations, CONFIG.RATE_LIMIT, CONFIG.RATE_LIMIT_DELAY);
+            let allSuccess = true;
+            for (const result of results) {
+                if (result.status === 'rejected' || !result.value?.success) {
+                    allSuccess = false;
+                    console.error(`添加记录失败:`, result.reason || result.value?.errors);
+                }
+                else {
+                    addResults.push(result.value);
+                }
+            }
+            if (!allSuccess) {
+                throw new Error(`部分记录添加失败，保留原有记录`);
+            }
+        }
+        if (existingRecords.length > 0) {
+            console.log(`新记录添加成功，开始删除 ${existingRecords.length} 条旧记录`);
+            if (existingRecords.length <= 5) {
+                const deletePromises = existingRecords.map((record) => retryOperation(async () => {
+                    if (this.headers && Object.keys(this.headers).length > 0) {
+                        return await req(`https://api.cloudflare.com/client/v4/zones/${this.zid}/dns_records/${record.id} delete`, {}, this.headers);
+                    }
+                    else {
+                        return await req(`https://api.cloudflare.com/client/v4/zones/${this.zid}/dns_records/${record.id} delete`, { auth: this.auth });
+                    }
+                }, CONFIG.MAX_RETRIES, CONFIG.RETRY_DELAY, `删除记录 ${record.id}`));
+                const deleteResults = await Promise.allSettled(deletePromises);
+                deleteResults.forEach((result, index) => {
+                    if (result.status === 'rejected') {
+                        console.warn(`删除旧记录失败 (ID: ${existingRecords[index].id}):`, result.reason);
+                    }
+                });
+            }
+            else {
+                const deleteOperations = existingRecords.map((record) => () => retryOperation(async () => {
+                    if (this.headers && Object.keys(this.headers).length > 0) {
+                        return await req(`https://api.cloudflare.com/client/v4/zones/${this.zid}/dns_records/${record.id} delete`, {}, this.headers);
+                    }
+                    else {
+                        return await req(`https://api.cloudflare.com/client/v4/zones/${this.zid}/dns_records/${record.id} delete`, { auth: this.auth });
+                    }
+                }, CONFIG.MAX_RETRIES, CONFIG.RETRY_DELAY, `删除记录 ${record.id}`));
+                const deleteResults = await rateLimitedOperation(deleteOperations, CONFIG.RATE_LIMIT, CONFIG.RATE_LIMIT_DELAY);
+                deleteResults.forEach((result, index) => {
+                    if (result.status === 'rejected') {
+                        console.warn(`删除旧记录失败 (ID: ${existingRecords[index].id}):`, result.reason);
+                    }
+                });
+            }
+        }
+        const message = recordsToAdd.length > 1
+            ? `已为 ${host} 添加 ${recordsToAdd.length} 条${type}记录`
+            : `已更新 ${host} 的记录`;
+        if (recordsToAdd.length > 1) {
+            const ips = recordsToAdd.map(r => r.content).join(', ');
+            console.log(`✅ 成功设置: ${host} ${type} → [${ips}]`);
+        }
+        else {
+            const oldContents = existingRecords.map(r => r.content).join(', ');
+            if (existingRecords.length > 0) {
+                console.log(`✅ 成功更新: ${host} ${type} ${oldContents ? `[${oldContents}] → ` : ''}${content}`);
+            }
+            else {
+                console.log(`✅ 成功添加: ${host} ${type} ${content}`);
+            }
+        }
+        return { success: true, message };
     }
     catch (error) {
         console.error(`操作 ${host} 时出错:`, error.message);
@@ -325,16 +484,23 @@ async function set(str) {
     }
 }
 async function madd(arr) {
-    return Promise.all(arr.map((item) => this.add(item)));
+    return batchProcess(arr, async (item) => this.add(item), {
+        groupBy: (item) => item.name,
+        operationName: "批量添加记录"
+    });
 }
 async function add(json) {
     try {
-        let res;
-        if (this.headers && Object.keys(this.headers).length > 0) {
-            res = await req(`https://api.cloudflare.com/client/v4/zones/${this.zid}/dns_records post`, { json }, this.headers);
-        }
-        else {
-            res = await req(`https://api.cloudflare.com/client/v4/zones/${this.zid}/dns_records post`, { auth: this.auth, json });
+        let res = await retryOperation(async () => {
+            if (this.headers && Object.keys(this.headers).length > 0) {
+                return await req(`https://api.cloudflare.com/client/v4/zones/${this.zid}/dns_records post`, { json }, this.headers);
+            }
+            else {
+                return await req(`https://api.cloudflare.com/client/v4/zones/${this.zid}/dns_records post`, { auth: this.auth, json });
+            }
+        }, CONFIG.MAX_RETRIES, CONFIG.RETRY_DELAY, `添加记录 ${json.name}`);
+        if (res.data.success) {
+            console.log(`✅ 成功添加: ${json.name} ${json.type} ${json.content}`);
         }
         return res.data;
     }
@@ -344,29 +510,35 @@ async function add(json) {
     }
 }
 async function mdel(arr) {
-    return Promise.all(arr.map((item) => this.del(item)));
+    return batchProcess(arr, async (pre) => this.del(pre), {
+        groupBy: (pre) => pre,
+        operationName: "批量删除记录"
+    });
 }
 async function del(pre) {
     try {
         const host = pre + "." + this.domain;
-        let res;
-        if (this.headers && Object.keys(this.headers).length > 0) {
-            res = await req(`https://api.cloudflare.com/client/v4/zones/${this.zid}/dns_records?type=A&name=${host}`, {}, this.headers);
-        }
-        else {
-            res = await req(`https://api.cloudflare.com/client/v4/zones/${this.zid}/dns_records?type=A&name=${host}`, { auth: this.auth });
-        }
+        let res = await retryOperation(async () => {
+            if (this.headers && Object.keys(this.headers).length > 0) {
+                return await req(`https://api.cloudflare.com/client/v4/zones/${this.zid}/dns_records?type=A&name=${host}`, {}, this.headers);
+            }
+            else {
+                return await req(`https://api.cloudflare.com/client/v4/zones/${this.zid}/dns_records?type=A&name=${host}`, { auth: this.auth });
+            }
+        }, CONFIG.MAX_RETRIES, CONFIG.RETRY_DELAY, `查询记录 ${host}`);
         const recordId = res.data.result[0]?.id;
         if (!recordId) {
             console.log(`记录 ${host} 不存在，跳过删除`);
-            return;
+            return { success: true, message: `记录 ${host} 不存在` };
         }
-        if (this.headers && Object.keys(this.headers).length > 0) {
-            res = await req(`https://api.cloudflare.com/client/v4/zones/${this.zid}/dns_records/${recordId} delete`, {}, this.headers);
-        }
-        else {
-            res = await req(`https://api.cloudflare.com/client/v4/zones/${this.zid}/dns_records/${recordId} delete`, { auth: this.auth });
-        }
+        res = await retryOperation(async () => {
+            if (this.headers && Object.keys(this.headers).length > 0) {
+                return await req(`https://api.cloudflare.com/client/v4/zones/${this.zid}/dns_records/${recordId} delete`, {}, this.headers);
+            }
+            else {
+                return await req(`https://api.cloudflare.com/client/v4/zones/${this.zid}/dns_records/${recordId} delete`, { auth: this.auth });
+            }
+        }, CONFIG.MAX_RETRIES, CONFIG.RETRY_DELAY, `删除记录 ${host}`);
         console.log(`删除${host}: ${res.data.success ? "成功" : "失败"}`);
         return res.data;
     }
@@ -379,56 +551,61 @@ async function setSecurity(options = {}) {
     try {
         const { description = "安全规则", expression = "", action = "managed_challenge", priority = 999, } = options;
         let existingRule = null;
-        let listResponse;
-        if (this.headers && Object.keys(this.headers).length > 0) {
-            listResponse = await req(`https://api.cloudflare.com/client/v4/zones/${this.zid}/firewall/rules`, {}, this.headers);
-        }
-        else {
-            listResponse = await req(`https://api.cloudflare.com/client/v4/zones/${this.zid}/firewall/rules`, { auth: this.auth });
-        }
+        let listResponse = await retryOperation(async () => {
+            if (this.headers && Object.keys(this.headers).length > 0) {
+                return await req(`https://api.cloudflare.com/client/v4/zones/${this.zid}/firewall/rules`, {}, this.headers);
+            }
+            else {
+                return await req(`https://api.cloudflare.com/client/v4/zones/${this.zid}/firewall/rules`, { auth: this.auth });
+            }
+        }, CONFIG.MAX_RETRIES, CONFIG.RETRY_DELAY, "查询安全规则");
         if (listResponse.data.success && listResponse.data.result.length > 0) {
             existingRule = listResponse.data.result.find((rule) => rule.description === description);
         }
         let response;
         if (existingRule) {
+            console.log(`找到现有规则 "${description}"，准备更新...`);
             const filterId = existingRule.filter.id;
-            let filterUpdateResponse;
-            if (this.headers && Object.keys(this.headers).length > 0) {
-                filterUpdateResponse = await req(`https://api.cloudflare.com/client/v4/zones/${this.zid}/filters/${filterId} put`, { json: { expression: expression, paused: false } }, this.headers);
-            }
-            else {
-                filterUpdateResponse = await req(`https://api.cloudflare.com/client/v4/zones/${this.zid}/filters/${filterId} put`, { auth: this.auth, json: { expression: expression, paused: false } });
-            }
+            let filterUpdateResponse = await retryOperation(async () => {
+                if (this.headers && Object.keys(this.headers).length > 0) {
+                    return await req(`https://api.cloudflare.com/client/v4/zones/${this.zid}/filters/${filterId} put`, { json: { expression: expression, paused: false } }, this.headers);
+                }
+                else {
+                    return await req(`https://api.cloudflare.com/client/v4/zones/${this.zid}/filters/${filterId} put`, { auth: this.auth, json: { expression: expression, paused: false } });
+                }
+            }, CONFIG.MAX_RETRIES, CONFIG.RETRY_DELAY, "更新过滤器");
             if (!filterUpdateResponse.data.success) {
                 throw new Error(`更新过滤器失败: ${JSON.stringify(filterUpdateResponse.data.errors)}`);
             }
-            if (this.headers && Object.keys(this.headers).length > 0) {
-                response = await req(`https://api.cloudflare.com/client/v4/zones/${this.zid}/firewall/rules/${existingRule.id} put`, {
-                    json: {
-                        action: action,
-                        priority: priority,
-                        paused: false,
-                        description: description,
-                        filter: {
-                            id: filterId,
+            response = await retryOperation(async () => {
+                if (this.headers && Object.keys(this.headers).length > 0) {
+                    return await req(`https://api.cloudflare.com/client/v4/zones/${this.zid}/firewall/rules/${existingRule.id} put`, {
+                        json: {
+                            action: action,
+                            priority: priority,
+                            paused: false,
+                            description: description,
+                            filter: {
+                                id: filterId,
+                            },
                         },
-                    },
-                }, this.headers);
-            }
-            else {
-                response = await req(`https://api.cloudflare.com/client/v4/zones/${this.zid}/firewall/rules/${existingRule.id} put`, {
-                    auth: this.auth,
-                    json: {
-                        action: action,
-                        priority: priority,
-                        paused: false,
-                        description: description,
-                        filter: {
-                            id: filterId,
+                    }, this.headers);
+                }
+                else {
+                    return await req(`https://api.cloudflare.com/client/v4/zones/${this.zid}/firewall/rules/${existingRule.id} put`, {
+                        auth: this.auth,
+                        json: {
+                            action: action,
+                            priority: priority,
+                            paused: false,
+                            description: description,
+                            filter: {
+                                id: filterId,
+                            },
                         },
-                    },
-                });
-            }
+                    });
+                }
+            }, CONFIG.MAX_RETRIES, CONFIG.RETRY_DELAY, "更新安全规则");
             if (response.data.success) {
                 console.log(`安全规则 "${description}" 更新成功！`);
                 return response.data.result;
@@ -452,12 +629,14 @@ async function setSecurity(options = {}) {
                     description: description,
                 },
             ];
-            if (this.headers && Object.keys(this.headers).length > 0) {
-                response = await req(`https://api.cloudflare.com/client/v4/zones/${this.zid}/firewall/rules post`, { json: requestBody }, this.headers);
-            }
-            else {
-                response = await req(`https://api.cloudflare.com/client/v4/zones/${this.zid}/firewall/rules post`, { auth: this.auth, json: requestBody });
-            }
+            response = await retryOperation(async () => {
+                if (this.headers && Object.keys(this.headers).length > 0) {
+                    return await req(`https://api.cloudflare.com/client/v4/zones/${this.zid}/firewall/rules post`, { json: requestBody }, this.headers);
+                }
+                else {
+                    return await req(`https://api.cloudflare.com/client/v4/zones/${this.zid}/firewall/rules post`, { auth: this.auth, json: requestBody });
+                }
+            }, CONFIG.MAX_RETRIES, CONFIG.RETRY_DELAY, "创建安全规则");
             if (response.data.success) {
                 console.log(`安全规则 "${description}" 创建成功！`);
                 return response.data.result[0];
