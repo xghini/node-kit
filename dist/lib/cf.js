@@ -53,13 +53,13 @@ async function setByContent(pre, oldContent, newContent, type = "A", ttl = 60) {
         if (!res.data.success) {
             throw new Error(`查询记录失败: ${JSON.stringify(res.data.errors)}`);
         }
-        const targetRecord = res.data.result.find((record) => record.content === oldContent);
+        const targetRecord = res.data.result.find(record => record.content === oldContent);
         if (!targetRecord) {
             console.log(`未找到内容为 ${oldContent} 的记录`);
             return {
                 success: false,
                 message: `未找到内容为 ${oldContent} 的记录`,
-                action: "not_found",
+                action: 'not_found'
             };
         }
         console.log(`找到目标记录ID: ${targetRecord.id}`);
@@ -69,7 +69,7 @@ async function setByContent(pre, oldContent, newContent, type = "A", ttl = 60) {
             content: newContent,
             proxied: targetRecord.proxied || false,
             priority: targetRecord.priority || 10,
-            ttl: ttl,
+            ttl: ttl
         };
         let updateRes;
         if (this.headers && Object.keys(this.headers).length > 0) {
@@ -84,7 +84,7 @@ async function setByContent(pre, oldContent, newContent, type = "A", ttl = 60) {
                 success: true,
                 message: `已将 ${host} 从 ${oldContent} 更新为 ${newContent}`,
                 record: updateRes.data.result,
-                action: "updated",
+                action: 'updated'
             };
         }
         else {
@@ -95,7 +95,7 @@ async function setByContent(pre, oldContent, newContent, type = "A", ttl = 60) {
         console.error(`更新记录时出错:`, error.message);
         return {
             success: false,
-            error: error.message,
+            error: error.message
         };
     }
 }
@@ -126,7 +126,7 @@ async function setByContentForce(pre, oldContent, newContent, type = "A", ttl = 
     if (result.success) {
         return result;
     }
-    if (result.action === "not_found") {
+    if (result.action === 'not_found') {
         console.log(`未找到旧记录，强制添加新记录: ${pre}.${this.domain} ${newContent}`);
         try {
             const addResult = await add.bind({
@@ -139,7 +139,7 @@ async function setByContentForce(pre, oldContent, newContent, type = "A", ttl = 
                 content: newContent,
                 proxied: false,
                 priority: 10,
-                ttl: ttl,
+                ttl: ttl
             });
             if (addResult.success) {
                 console.log(`✅ 强制添加成功: ${pre}.${this.domain} ${newContent}`);
@@ -147,7 +147,7 @@ async function setByContentForce(pre, oldContent, newContent, type = "A", ttl = 
                     success: true,
                     message: `已为 ${pre}.${this.domain} 强制添加新记录 ${newContent}`,
                     record: addResult.result,
-                    action: "added",
+                    action: 'added'
                 };
             }
             else {
@@ -158,7 +158,7 @@ async function setByContentForce(pre, oldContent, newContent, type = "A", ttl = 
             console.error(`强制添加记录时出错:`, error.message);
             return {
                 success: false,
-                error: error.message,
+                error: error.message
             };
         }
     }
@@ -216,7 +216,7 @@ async function mset(arr) {
             pre = item[0];
         }
         else {
-            const parts = item.split(" ");
+            const parts = item.split(' ');
             pre = parts[0];
         }
         if (!grouped[pre])
@@ -302,14 +302,14 @@ async function set(str) {
                     .map((ip) => ip.trim())
                     .filter((ip) => ip !== "")),
             ];
-            ipList.forEach((ip) => {
+            ipList.forEach(ip => {
                 recordsToAdd.push({
                     type: type,
                     name: host,
                     content: ip,
                     proxied: false,
                     priority: parseInt(priority) || 10,
-                    ttl: recordTtl,
+                    ttl: recordTtl
                 });
             });
         }
@@ -320,7 +320,7 @@ async function set(str) {
                 content,
                 proxied: false,
                 priority: parseInt(priority) || 10,
-                ttl: recordTtl,
+                ttl: recordTtl
             });
         }
         let res;
@@ -365,7 +365,7 @@ async function set(str) {
             });
             const deleteResults = await Promise.allSettled(deletePromises);
             deleteResults.forEach((result, index) => {
-                if (result.status === "rejected") {
+                if (result.status === 'rejected') {
                     console.warn(`删除旧记录失败 (ID: ${existingRecords[index].id}):`, result.reason);
                 }
             });
