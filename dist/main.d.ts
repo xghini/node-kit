@@ -77,7 +77,9 @@ declare const kit: {
     cinfo: typeof index.cinfo;
     cwarn: typeof index.cwarn;
     clog: typeof index.clog;
+    clogall: typeof index.clogall;
     cerror: typeof index.cerror;
+    cerror1: typeof index.cerror1;
     prompt: typeof index.prompt;
     style: {
         reset: string;

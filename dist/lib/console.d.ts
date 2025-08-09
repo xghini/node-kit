@@ -8,7 +8,9 @@ export function cdebug(...args: any[]): void;
 export function cinfo(...args: any[]): void;
 export function cwarn(...args: any[]): void;
 export function clog(...args: any[]): void;
+export function clogall(...args: any[]): void;
 export function cerror(...args: any[]): void;
+export function cerror1(...args: any[]): void;
 export function prompt(promptText: string, validator: () => boolean, option: any): Promise<any>;
 export namespace style {
     export { reset };

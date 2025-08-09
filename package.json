@@ -1,6 +1,6 @@
 {
   "name": "@ghini/kit",
-  "version": "25.8.1140757",
+  "version": "25.8.9170100",
   "scripts": {
     "build": "node ./build.js && tsc",
     "pub": "npm run build && npm publish && git add . && git commit -m 'update' && git push"
@@ -28,9 +28,7 @@
   "author": "Ghini",
   "license": "MIT",
   "dependencies": {
-    "@faker-js/faker": "^9.9.0",
     "acorn": "8.14.0",
-    "country-state-city": "^3.2.1",
     "global-agent": "^3.0.0",
     "ioredis": "5.4.2",
     "pg": "8.13.1",

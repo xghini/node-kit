@@ -1,172 +1,178 @@
 import pg from "pg";
+import { insert } from "./insert.js";
+import { truncate } from "./del.js";
+const { Pool } = pg;
+const instanceCache = new Map();
+const defaultConfig = {
+    user: process.env.PGUSER || "postgres",
+    password: process.env.PGPASSWORD || "postgres",
+    host: process.env.PGHOST || "localhost",
+    port: process.env.PGPORT || 5432,
+    database: process.env.PGDATABASE || "postgres",
+    max: 20,
+    idleTimeoutMillis: 30000,
+    connectionTimeoutMillis: 2000,
+};
+function createCacheKey(config) {
+    const normalized = { ...defaultConfig, ...config };
+    const keys = Object.keys(normalized).sort();
+    return keys.map((key) => `${key}:${normalized[key]}`).join("|");
+}
+const gracefulShutdown = async (signal) => {
+    console.log(`收到${signal}信号，开始优雅关闭...`);
+    await xpg.closeAll();
+    console.log("所有连接池已关闭");
+    process.exit(0);
+};
+["SIGINT", "SIGTERM"].forEach((signal) => process.on(signal, () => gracefulShutdown(signal)));
 class PGClient {
     constructor(config = {}) {
-        this.pool = new pg.Pool({
-            host: "localhost",
-            port: 5432,
-            database: "postgres",
-            user: "postgres",
-            password: "postgres",
-            max: 30,
-            min: 5,
-            idleTimeoutMillis: 60000,
-            connectionTimeoutMillis: 3000,
-            maxUses: 7500,
-            allowExitOnIdle: true,
-            ...config,
-        });
-        this.columnTypeCache = {};
-        this.pool.on('error', (err) => {
-            console.error('PostgreSQL pool error:', err);
-        });
+        const finalConfig = { ...defaultConfig, ...config };
+        this.config = finalConfig;
+        this.pool = new Pool(finalConfig);
+        this.pool.on("error", (err) => console.error("PG Pool Error:", {
+            message: err.message,
+            code: err.code,
+            database: finalConfig.database,
+            host: finalConfig.host,
+        }));
+        if (process.env.NODE_ENV !== "production") {
+            this.pool.on("connect", (client) => {
+                console.log(`数据库连接已建立 (PID: ${client.processID})`);
+            });
+        }
+        this.insert = (table, data, options = {}) => insert(this, table, data, options);
+        this.truncate = (table) => truncate(this, table);
     }
-    async getColumnTypes(tableName) {
-        if (this.columnTypeCache[tableName]) {
-            return this.columnTypeCache[tableName];
-        }
-        const client = await this.pool.connect();
-        try {
-            const query = `
-        SELECT column_name, data_type 
-        FROM information_schema.columns 
-        WHERE table_name = $1
-      `;
-            const result = await client.query(query, [tableName]);
-            const columnTypes = {};
-            for (const row of result.rows) {
-                columnTypes[row.column_name] = row.data_type;
-            }
-            this.columnTypeCache[tableName] = columnTypes;
-            return columnTypes;
-        }
-        finally {
-            client.release();
-        }
-    }
-    async query(tableName, options = {}) {
-        const { _sort, _limit, _fields, _explain = false, _forceTypecast = {}, ...filters } = options;
-        const columnTypes = await this.getColumnTypes(tableName);
-        let query = `SELECT ${_fields ? _fields.join(", ") : "*"} FROM ${tableName}`;
-        const whereConditions = [];
-        const queryParams = [];
-        let paramIndex = 1;
-        for (const [key, value] of Object.entries(filters)) {
-            const columnType = columnTypes[key];
-            const forceType = _forceTypecast[key];
-            if (Array.isArray(value)) {
-                const isOperatorArray = value[0] && [">", "<", ">=", "<=", "=", "!=", "<>"].includes(value[0]);
-                if (isOperatorArray) {
-                    if (forceType) {
-                        whereConditions.push(`${key}::${forceType} ${value[0]} $${paramIndex++}`);
-                    }
-                    else if (key === 'id') {
-                        whereConditions.push(`${key} ${value[0]} $${paramIndex++}`);
-                    }
-                    else if (typeof value[1] === 'number' &&
-                        (!columnType ||
-                            !['integer', 'bigint', 'smallint', 'decimal', 'numeric', 'real', 'double precision'].includes(columnType.toLowerCase()))) {
-                        whereConditions.push(`${key}::numeric ${value[0]} $${paramIndex++}`);
-                    }
-                    else {
-                        whereConditions.push(`${key} ${value[0]} $${paramIndex++}`);
-                    }
-                    queryParams.push(value[1]);
-                }
-                else {
-                    whereConditions.push(`${key} IN (${value.map(() => `$${paramIndex++}`).join(", ")})`);
-                    queryParams.push(...value);
-                }
-            }
-            else {
-                whereConditions.push(`${key} = $${paramIndex++}`);
-                queryParams.push(value);
-            }
-        }
-        if (whereConditions.length > 0) {
-            query += ` WHERE ${whereConditions.join(" AND ")}`;
-        }
-        if (_sort) {
-            let sortClause = "";
-            if (typeof _sort === "string") {
-                sortClause = _sort.trim();
-            }
-            else if (options._sortby) {
-                sortClause = `${options._sortby} ${options._sort || "asc"}`.trim();
-            }
-            if (sortClause) {
-                query += ` ORDER BY ${sortClause}`;
-            }
-        }
-        if (_limit) {
-            query += ` LIMIT $${paramIndex++}`;
-            queryParams.push(_limit);
-        }
+    async query(text, params = []) {
         const startTime = Date.now();
-        if (_explain) {
-            query = `EXPLAIN ANALYZE ${query}`;
-        }
-        const client = await this.pool.connect();
         try {
-            const result = await client.query(query, queryParams);
-            const endTime = Date.now();
-            if (endTime - startTime > 1000) {
-                console.warn(`Slow query (${endTime - startTime}ms): ${query}`, queryParams);
+            const result = await this.pool.query(text, params);
+            const duration = Date.now() - startTime;
+            if (duration > 1000) {
+                console.warn("慢查询检测:", {
+                    duration: `${duration}ms`,
+                    query: text.length > 200 ? text.substring(0, 200) + "..." : text,
+                    rowCount: result.rowCount,
+                });
             }
-            return result.rows;
+            return [null, result];
         }
-        finally {
-            client.release();
+        catch (err) {
+            const duration = Date.now() - startTime;
+            return [err, null];
         }
     }
-    async createIndex(tableName, columns, options = {}) {
-        const indexName = options.name || `idx_${tableName}_${columns.join('_')}`;
-        const unique = options.unique ? 'UNIQUE' : '';
-        const method = options.method || 'btree';
-        const query = `CREATE ${unique} INDEX IF NOT EXISTS ${indexName} 
-                   ON ${tableName} USING ${method} (${columns.join(', ')})`;
-        const client = await this.pool.connect();
+    async getClient() {
         try {
-            await client.query(query);
-            return { success: true, indexName };
+            return [null, await this.pool.connect()];
+        }
+        catch (err) {
+            console.error("获取数据库客户端失败:", {
+                message: err.message,
+                code: err.code,
+                poolStatus: this.getPoolStatus(),
+            });
+            return [err, null];
+        }
+    }
+    async transaction(callback, options = {}) {
+        const [err, client] = await this.getClient();
+        if (err)
+            return [err, null];
+        try {
+            await client.query("BEGIN");
+            if (options.isolationLevel) {
+                await client.query(`SET TRANSACTION ISOLATION LEVEL ${options.isolationLevel}`);
+            }
+            const result = await callback(client);
+            await client.query("COMMIT");
+            return [null, result];
         }
         catch (error) {
-            console.error(`Error creating index: ${error.message}`);
-            return { success: false, error: error.message };
+            try {
+                await client.query("ROLLBACK");
+                console.log("事务已回滚");
+            }
+            catch (rollbackErr) {
+                console.error("事务回滚失败:", rollbackErr);
+            }
+            return [error, null];
         }
         finally {
             client.release();
         }
     }
-    async getTableStats(tableName) {
-        const client = await this.pool.connect();
-        try {
-            const sizeQuery = `SELECT pg_size_pretty(pg_total_relation_size($1)) as total_size,
-                          pg_size_pretty(pg_relation_size($1)) as table_size,
-                          pg_size_pretty(pg_total_relation_size($1) - pg_relation_size($1)) as index_size`;
-            const sizeResult = await client.query(sizeQuery, [tableName]);
-            const countQuery = `SELECT reltuples::bigint AS row_estimate
-                          FROM pg_class
-                          WHERE relname = $1`;
-            const countResult = await client.query(countQuery, [tableName]);
-            const indexQuery = `SELECT indexname, indexdef
-                          FROM pg_indexes
-                          WHERE tablename = $1`;
-            const indexResult = await client.query(indexQuery, [tableName]);
-            return {
-                size: sizeResult.rows[0],
-                rowEstimate: countResult.rows[0]?.row_estimate || 0,
-                indexes: indexResult.rows
-            };
+    async mquery(mquery) {
+        if (!Array.isArray(mquery) || mquery.length === 0) {
+            return [null, []];
         }
-        finally {
-            client.release();
-        }
+        return this.transaction(async (client) => {
+            const results = [];
+            for (const query of mquery) {
+                const result = await client.query(query.text, query.params || []);
+                results.push(result);
+            }
+            return results;
+        });
+    }
+    getPoolStatus() {
+        return {
+            totalCount: this.pool.totalCount,
+            idleCount: this.pool.idleCount,
+            waitingCount: this.pool.waitingCount,
+            config: {
+                max: this.config.max,
+                database: this.config.database,
+                host: this.config.host,
+                port: this.config.port,
+            },
+        };
+    }
+    async testConnection() {
+        const [err, result] = await this.query("SELECT 1 as test");
+        if (err)
+            return [err, null];
+        return [null, result.rows[0]?.test === 1];
     }
     async close() {
-        await this.pool.end();
+        if (this.pool.ended) {
+            console.log("连接池已经关闭");
+            return;
+        }
+        try {
+            await this.pool.end();
+            console.log("连接池已关闭");
+        }
+        catch (err) {
+            console.error("关闭连接池失败:", err);
+            throw err;
+        }
     }
 }
 function xpg(config = {}) {
-    return new PGClient(config);
+    const cacheKey = createCacheKey(config);
+    if (!instanceCache.has(cacheKey)) {
+        const client = new PGClient(config);
+        instanceCache.set(cacheKey, client);
+        console.log(`创建新的PG客户端实例: ${client.config.database}@${client.config.host}`);
+    }
+    return instanceCache.get(cacheKey);
 }
+xpg.transaction = async (callback, config = {}) => {
+    const instance = xpg(config);
+    return instance.transaction(callback);
+};
+xpg.getAllInstancesStatus = () => {
+    return Array.from(instanceCache.entries()).map(([key, client]) => ({
+        cacheKey: key,
+        status: client.getPoolStatus(),
+    }));
+};
+xpg.closeAll = async () => {
+    const closePromises = Array.from(instanceCache.values()).map((client) => client.close());
+    await Promise.allSettled(closePromises);
+    instanceCache.clear();
+    console.log("所有PG实例已关闭并清空缓存");
+};
 export { xpg };

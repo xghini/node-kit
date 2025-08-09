@@ -1,4 +1,5 @@
-export { cs, csm, cdev, cdebug, cinfo, cwarn, clog, cerror, prompt, style, clear, echo, fresh, };
+import util from "util";
+export { cs, csm, cdev, cdebug, cinfo, cwarn, clog, clogall, cerror, cerror1, prompt, style, clear, echo, fresh, };
 const error_map = new Map();
 const MAX_ERRORS = 1000;
 const TTL = 180000;
@@ -41,6 +42,8 @@ function error_cache(args) {
 const sep_file = process.platform == "win32" ? "file:///" : "file://";
 console.sm = csm;
 console.dev = cdev.bind({ info: -1 });
+console.logall = clogall;
+console.error1 = cerror1;
 const originalDebug = console.debug;
 const originalInfo = console.info;
 const originalWarn = console.warn;
@@ -132,17 +135,25 @@ const csconf = {
     xinfo: undefined,
     xline: undefined,
 };
-function arvg_final(arvg) {
+function arvg_final(arvg, colorStyle = '') {
     return arvg.map((item) => {
-        if (typeof item === "number")
-            item += "";
-        return item;
+        if (typeof item === "number") {
+            return colorStyle + item + reset;
+        }
+        else if (typeof item === "string") {
+            return colorStyle + item + reset;
+        }
+        else if (typeof item === "object") {
+            return item;
+        }
+        return colorStyle + item + reset;
     });
 }
-function arvg_final_sm(arvg) {
+function arvg_final_sm(arvg, colorStyle = '') {
     return arvg.map((item) => {
-        if (typeof item === "number")
-            item += "";
+        if (typeof item === "number") {
+            return colorStyle + item + reset;
+        }
         else if (typeof item === "object") {
             return JSON.stringify(item, (key, value) => {
                 if (typeof value === "string" && value.length > 400)
@@ -150,9 +161,13 @@ function arvg_final_sm(arvg) {
                 return value;
             }, 2);
         }
-        if (item?.length > 200)
-            item = item.slice(0, 100) + "... total:" + item.length;
-        return item;
+        else if (typeof item === "string") {
+            if (item.length > 200) {
+                item = item.slice(0, 100) + "... total:" + item.length;
+            }
+            return colorStyle + item + reset;
+        }
+        return colorStyle + item + reset;
     });
 }
 function csm(...args) {
@@ -167,28 +182,40 @@ function cdev(...args) {
     if (!pre)
         return;
     process.stdout.write(pre);
-    originalLog(...arvg_final(args), `${reset}`);
+    originalLog(...arvg_final(args, yellow), `${reset}`);
 }
 function cdebug(...args) {
     let pre = preStyle(this, `${reset}${brightYellow}`);
     if (!pre)
         return;
     process.stdout.write(pre);
-    originalInfo(...arvg_final(args), `${reset}`);
+    originalInfo(...arvg_final(args, brightYellow), `${reset}`);
 }
 function cinfo(...args) {
     let pre = preStyle(this, `${reset}${bold}${brightWhite}`);
     if (!pre)
         return;
     process.stdout.write(pre);
-    originalInfo(...arvg_final(args), `${reset}`);
+    originalInfo(...arvg_final(args, `${bold}${brightWhite}`), `${reset}`);
 }
 function cwarn(...args) {
     let pre = preStyle(this, `${reset}${bold}${brightMagenta}`);
     if (!pre)
         return;
     process.stdout.write(pre);
-    originalWarn(...arvg_final(args), `${reset}`);
+    originalWarn(...arvg_final(args, `${bold}${brightMagenta}`), `${reset}`);
+}
+function clogall(...args) {
+    let pre = preStyle(this, `${reset}`);
+    if (!pre)
+        return;
+    const formattedArgs = args.map((arg) => util.inspect(arg, {
+        depth: null,
+        maxArrayLength: null,
+        colors: true,
+    }));
+    process.stdout.write(pre);
+    originalLog(...formattedArgs, `${reset}`);
 }
 function clog(...args) {
     let pre = preStyle(this, `${reset}`);
@@ -197,7 +224,7 @@ function clog(...args) {
     process.stdout.write(pre);
     originalLog(...arvg_final(args), `${reset}`);
 }
-function cerror(...args) {
+function cerror1(...args) {
     if (error_cache(args))
         return;
     const mainstyle = `${reset}${red}`;
@@ -208,15 +235,43 @@ function cerror(...args) {
     originalError(...args.map((item) => {
         if (item instanceof Error) {
             const stack = item.stack.split("\n");
-            return (stack[0] +
+            return (mainstyle +
+                stack[0] +
                 " " +
                 underline +
                 (stack.slice(1).find((item) => item.match("//")) || stack[1]).split("at ")[1] +
-                reset +
-                mainstyle);
+                reset);
         }
         else if (typeof item === "number") {
-            return item + "";
+            return mainstyle + item + reset;
+        }
+        else if (typeof item === "string") {
+            return mainstyle + item + reset;
+        }
+        return item;
+    }), `${reset}`);
+}
+function cerror(...args) {
+    const mainstyle = `${reset}${red}`;
+    let pre = preStyle(this, mainstyle);
+    if (!pre)
+        return;
+    process.stdout.write(pre);
+    originalError(...args.map((item) => {
+        if (item instanceof Error) {
+            const stack = item.stack.split("\n");
+            return (mainstyle +
+                stack[0] +
+                " " +
+                underline +
+                (stack.slice(1).find((item) => item.match("//")) || stack[1]).split("at ")[1] +
+                reset);
+        }
+        else if (typeof item === "number") {
+            return mainstyle + item + reset;
+        }
+        else if (typeof item === "string") {
+            return mainstyle + item + reset;
         }
         return item;
     }), `${reset}`);
@@ -228,6 +283,7 @@ function cs(config, n) {
         console.warn = originalWarn;
         console.log = originalLog;
         console.error = originalError;
+        delete console.error1;
         return;
     }
     else if (typeof config === "object") {
@@ -249,6 +305,7 @@ function cs(config, n) {
     console.warn = cwarn;
     console.log = clog;
     console.error = cerror;
+    console.error1 = cerror1;
 }
 cs(8);
 async function prompt(promptText = "ENTER continue , CTRL+C exit: ", validator = () => true, option) {
@@ -396,7 +453,7 @@ const echo1 = {
         clearInterval(echo1.intervalId);
         echo1.intervalId = undefined;
         clear();
-        console.log(obj.show);
+        console.log(echo1.show);
         process.stdout.write(showcursor);
     },
 };

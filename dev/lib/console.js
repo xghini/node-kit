@@ -1,3 +1,6 @@
+import util from "util"; // 1. 引入 util 模块
+
+// 模块导出部分: 同时导出现有的 cerror 和新增的 cerror1
 export {
   cs,
   csm,
@@ -6,7 +9,9 @@ export {
   cinfo,
   cwarn,
   clog,
-  cerror,
+  clogall, 
+  cerror, // 导出新的 cerror
+  cerror1, // 导出重命名后的 cerror1
   prompt,
   style,
   clear,
@@ -75,6 +80,10 @@ function error_cache(args) {
 const sep_file = process.platform == "win32" ? "file:///" : "file://"; //win32|linux|darwin
 console.sm = csm; //对长内容能简短输出 smart simple small
 console.dev = cdev.bind({ info: -1 }); //
+console.logall = clogall; 
+// 【新增】将重命名后的 cerror1 挂载到 console.error1
+console.error1 = cerror1;
+
 const originalDebug = console.debug;
 const originalInfo = console.info;
 const originalWarn = console.warn;
@@ -175,16 +184,32 @@ const csconf = {
 };
 /*XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX*/
 // 数字会影响后面的样式,将其转换为string; 还可以将长对象适当收缩显示摘要
-function arvg_final(arvg) {
+function arvg_final(arvg, colorStyle = '') {
   return arvg.map((item) => {
-    if (typeof item === "number") item += "";
-    return item;
+    // 数字转字符串并染色
+    if (typeof item === "number") {
+      return colorStyle + item + reset;
+    }
+    // 字符串直接染色
+    else if (typeof item === "string") {
+      return colorStyle + item + reset;
+    }
+    // 对象保持原样，不染色
+    else if (typeof item === "object") {
+      return item;
+    }
+    // 其他类型也染色
+    return colorStyle + item + reset;
   });
 }
-function arvg_final_sm(arvg) {
+
+function arvg_final_sm(arvg, colorStyle = '') {
   return arvg.map((item) => {
-    if (typeof item === "number") item += "";
+    if (typeof item === "number") {
+      return colorStyle + item + reset;
+    }
     else if (typeof item === "object") {
+      // 对象使用 JSON.stringify 但不染色
       return JSON.stringify(
         item,
         (key, value) => {
@@ -195,9 +220,13 @@ function arvg_final_sm(arvg) {
         2
       );
     }
-    if (item?.length > 200)
-      item = item.slice(0, 100) + "... total:" + item.length;
-    return item;
+    else if (typeof item === "string") {
+      if (item.length > 200) {
+        item = item.slice(0, 100) + "... total:" + item.length;
+      }
+      return colorStyle + item + reset;
+    }
+    return colorStyle + item + reset;
   });
 }
 
@@ -212,33 +241,59 @@ function cdev(...args) {
   let pre = preStyle(this, `${cyan}[dev] ${reset}${yellow}`);
   if (!pre) return;
   process.stdout.write(pre);
-  originalLog(...arvg_final(args), `${reset}`);
+  originalLog(...arvg_final(args, yellow), `${reset}`);
 }
 function cdebug(...args) {
   let pre = preStyle(this, `${reset}${brightYellow}`);
   if (!pre) return;
   process.stdout.write(pre);
-  originalInfo(...arvg_final(args), `${reset}`);
+  originalInfo(...arvg_final(args, brightYellow), `${reset}`);
 }
 function cinfo(...args) {
   let pre = preStyle(this, `${reset}${bold}${brightWhite}`);
   if (!pre) return;
   process.stdout.write(pre);
-  originalInfo(...arvg_final(args), `${reset}`);
+  originalInfo(...arvg_final(args, `${bold}${brightWhite}`), `${reset}`);
 }
 function cwarn(...args) {
   let pre = preStyle(this, `${reset}${bold}${brightMagenta}`);
   if (!pre) return;
   process.stdout.write(pre);
-  originalWarn(...arvg_final(args), `${reset}`);
+  originalWarn(...arvg_final(args, `${bold}${brightMagenta}`), `${reset}`);
 }
+
+/**
+ * 使用 util.inspect 完整打印所有参数，不受深度和数组长度限制。
+ * @param  {...any} args - 要打印的内容。
+ */
+function clogall(...args) {
+  // 保持和其他日志函数一样的样式前缀
+  let pre = preStyle(this, `${reset}`);
+  if (!pre) return;
+
+  // 格式化所有参数，确保完整显示
+  const formattedArgs = args.map((arg) =>
+    util.inspect(arg, {
+      depth: null, // 无限深度
+      maxArrayLength: null, // 无限数组长度
+      colors: true, // 开启颜色，以获得更好的可读性
+    })
+  );
+
+  // 统一输出
+  process.stdout.write(pre);
+  originalLog(...formattedArgs, `${reset}`);
+}
+
 function clog(...args) {
   let pre = preStyle(this, `${reset}`);
   if (!pre) return;
   process.stdout.write(pre);
   originalLog(...arvg_final(args), `${reset}`);
 }
-function cerror(...args) {
+
+// 【修改】将原 cerror 重命名为 cerror1，保留了重复抑制功能
+function cerror1(...args) {
   if (error_cache(args)) return;
   const mainstyle = `${reset}${red}`;
   let pre = preStyle(this, mainstyle);
@@ -249,6 +304,7 @@ function cerror(...args) {
       if (item instanceof Error) {
         const stack = item.stack.split("\n");
         return (
+          mainstyle +
           stack[0] +
           " " +
           underline +
@@ -256,17 +312,54 @@ function cerror(...args) {
           (stack.slice(1).find((item) => item.match("//")) || stack[1]).split(
             "at "
           )[1] +
-          reset +
-          mainstyle
+          reset
         );
       } else if (typeof item === "number") {
-        return item + "";
+        return mainstyle + item + reset;
+      } else if (typeof item === "string") {
+        return mainstyle + item + reset;
       }
+      // 对象不染色
       return item;
     }),
     `${reset}`
   );
 }
+
+// 【新增】创建新的 cerror 函数，移除了重复抑制功能 (即去掉了 if (error_cache(args)) return; 这一行)
+function cerror(...args) {
+  // if (error_cache(args)) return; // 移除此行以取消重复抑制
+  const mainstyle = `${reset}${red}`;
+  let pre = preStyle(this, mainstyle);
+  if (!pre) return;
+  process.stdout.write(pre);
+  originalError(
+    ...args.map((item) => {
+      if (item instanceof Error) {
+        const stack = item.stack.split("\n");
+        return (
+          mainstyle +
+          stack[0] +
+          " " +
+          underline +
+          // 带//的有文件路径
+          (stack.slice(1).find((item) => item.match("//")) || stack[1]).split(
+            "at "
+          )[1] +
+          reset
+        );
+      } else if (typeof item === "number") {
+        return mainstyle + item + reset;
+      } else if (typeof item === "string") {
+        return mainstyle + item + reset;
+      }
+      // 对象不染色
+      return item;
+    }),
+    `${reset}`
+  );
+}
+
 /**
  * 重写或扩展控制台输出方法，支持带时间戳和调用行号的 `console.log` 和 `console.error`。
  * @param {number} [rewrite=2] - 是否重写全局 `console.log` 和 `console.error` 方法,重写等级,默认2。
@@ -288,6 +381,8 @@ function cs(config, n) {
     console.warn = originalWarn;
     console.log = originalLog;
     console.error = originalError;
+    // 【修改】复原时，也要处理 console.error1
+    delete console.error1; 
     return;
   } else if (typeof config === "object") {
     config.info ? (csconf.info = config.info) : 0;
@@ -306,7 +401,9 @@ function cs(config, n) {
   console.info = cinfo;
   console.warn = cwarn;
   console.log = clog;
+  // 【修改】确保 console.error 指向新的无抑制函数，console.error1 指向旧的有抑制函数
   console.error = cerror;
+  console.error1 = cerror1;
 }
 cs(8); //几乎必备 直接默认运行吧 cs(88)才会显示dev
 
@@ -468,7 +565,7 @@ const echo1 = {
     clearInterval(echo1.intervalId);
     echo1.intervalId = undefined;
     clear();
-    console.log(obj.show);
+    console.log(echo1.show);
     process.stdout.write(showcursor);
   },
 };
