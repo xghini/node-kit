@@ -4,7 +4,7 @@ import * as xdb from "./lib/xdb/xdb.js";
 import * as redis from "./lib/redis/redis.js";
 import * as captcha from "./lib/captcha/captcha.js";
 import * as pg from "./lib/pg/pg.js";
-const kit = {
+export default {
     ...index,
     ...http,
     ...xdb,
@@ -12,7 +12,6 @@ const kit = {
     ...captcha,
     ...pg,
 };
-export default kit;
 export * from "./lib/index.js";
 export * from "./lib/http/http.js";
 export * from "./lib/xdb/xdb.js";

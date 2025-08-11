@@ -1,11 +1,4 @@
-export default kit;
-export * from "./lib/index.js";
-export * from "./lib/http/http.js";
-export * from "./lib/xdb/xdb.js";
-export * from "./lib/redis/redis.js";
-export * from "./lib/captcha/captcha.js";
-export * from "./lib/pg/pg.js";
-declare const kit: {
+declare const _default: {
     xpg: typeof pg.xpg;
     captcha: typeof captcha.captcha;
     xredis: typeof redis.xredis;
@@ -154,7 +147,15 @@ declare const kit: {
     addobjs: typeof index.addobjs;
     obj2v1: typeof index.obj2v1;
     addTwoDimensionalObjects: typeof index.addTwoDimensionalObjects;
+    queue: typeof index.queue;
 };
+export default _default;
+export * from "./lib/index.js";
+export * from "./lib/http/http.js";
+export * from "./lib/xdb/xdb.js";
+export * from "./lib/redis/redis.js";
+export * from "./lib/captcha/captcha.js";
+export * from "./lib/pg/pg.js";
 import * as pg from "./lib/pg/pg.js";
 import * as captcha from "./lib/captcha/captcha.js";
 import * as redis from "./lib/redis/redis.js";
