@@ -6,7 +6,7 @@ import https from "https";
 import http from "http";
 import EventEmitter from "events";
 import { hd_stream } from "./gold.js";
-import { addr, _404 } from "./router.js";
+import { addr, _404, apidev } from "./router.js";
 import { fn_static } from "./static.js";
 /*
  * hs定位:业务核心服务器,及h2测试服务器,生产环境中主要反代使用
@@ -20,6 +20,7 @@ import { fn_static } from "./static.js";
  * @property {Function} addr
  * @property {Function} static
  * @property {Function} _404
+ * @property {Function} apidev
  * @property {Function} router_begin
  * @property {number} cnn
  */
@@ -52,9 +53,9 @@ async function hs(...argv) {
       console.info.bind({ xinfo: 2 })(
         `${style.reset}${style.bold}${style.brightGreen} ✓ ${
           style.brightWhite
-        }Running on ${
-          style.underline
-        }${scheme}://${"127.0.0.1"}:${port}${style.reset}  open:${open}`
+        }Running on ${style.underline}${scheme}://${"127.0.0.1"}:${port}${
+          style.reset
+        }  open:${open}`
       );
       gcatch();
       server.port = port;
@@ -105,12 +106,14 @@ async function hs(...argv) {
       addr,
       static: fn_static,
       _404,
+      apidev,
       router_begin: (server, gold) => {},
       cnn: 0,
     });
     Object.defineProperties(server, {
       routes: { writable: false, configurable: false },
       addr: { writable: false, configurable: false },
+      apidev: { writable: false, configurable: false },
       cnn: {
         get: () => currentConnections,
         enumerable: true,
@@ -206,5 +209,3 @@ function simulateHttp2Stream(req, res) {
   req.on("error", (err) => stream.emit("error", err));
   return { stream, headers };
 }
-
-

@@ -5,6 +5,7 @@ export type ServerExtension = {
     addr: Function;
     static: Function;
     _404: Function;
+    apidev: Function;
     router_begin: Function;
     cnn: number;
 };

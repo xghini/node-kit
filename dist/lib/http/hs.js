@@ -5,7 +5,7 @@ import https from "https";
 import http from "http";
 import EventEmitter from "events";
 import { hd_stream } from "./gold.js";
-import { addr, _404 } from "./router.js";
+import { addr, _404, apidev } from "./router.js";
 import { fn_static } from "./static.js";
 async function hs(...argv) {
     return new Promise((resolve, reject) => {
@@ -64,12 +64,14 @@ async function hs(...argv) {
             addr,
             static: fn_static,
             _404,
+            apidev,
             router_begin: (server, gold) => { },
             cnn: 0,
         });
         Object.defineProperties(server, {
             routes: { writable: false, configurable: false },
             addr: { writable: false, configurable: false },
+            apidev: { writable: false, configurable: false },
             cnn: {
                 get: () => currentConnections,
                 enumerable: true,

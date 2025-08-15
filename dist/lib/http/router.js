@@ -1,6 +1,21 @@
-export { router_find_resolve, addr, _404 };
+export { router_find_resolve, addr, _404, apidev };
 import { rf } from "../index.js";
 import { hd_default } from "./routes.js";
+function apidev() {
+    console.log("apidev!");
+    console.log(this.routes);
+    this.addr("/apidev", (gold) => {
+        let html = '';
+        this.routes.slice(0, -1).map(item => {
+            const method = (item[1] || 'get').toLowerCase();
+            const fetchCall = (method === 'get' || method === '*')
+                ? `fetch('${item[0]}')`
+                : `fetch('${item[0]}', { method: '${item[1].toUpperCase()}' })`;
+            html += `<button onclick="${fetchCall}">${item[0]}</button> `;
+        });
+        gold.html(html);
+    });
+}
 function addr(...argv) {
     let path, method, ct, fn_end, fn_data, config = {};
     if (typeof argv[0] === "string") {
