@@ -1,25 +1,33 @@
 export { queue };
-function queue(num = 3) {
+function queue(num = 1, options = {}) {
     if (typeof num !== "number" || num < 1) {
         throw new TypeError("并发数(num)必须是一个大于等于1的数字。");
     }
+    const { minInterval = 0 } = options;
     const taskQueue = [];
     const availableWorkerIds = Array.from({ length: num }, (_, i) => i);
-    async function next() {
+    let nextAvailableSlotTime = Date.now();
+    function next() {
         if (availableWorkerIds.length === 0 || taskQueue.length === 0)
             return;
         const workerId = availableWorkerIds.shift();
-        const { task, resolve, reject } = taskQueue.shift();
-        try {
-            resolve(await task(workerId));
-        }
-        catch (error) {
-            reject(error);
-        }
-        finally {
-            availableWorkerIds.push(workerId);
-            next();
-        }
+        const now = Date.now();
+        const scheduledTime = Math.max(now, nextAvailableSlotTime);
+        const delay = scheduledTime - now;
+        nextAvailableSlotTime = scheduledTime + minInterval;
+        setTimeout(async () => {
+            const { task, resolve, reject } = taskQueue.shift();
+            try {
+                resolve(await task(workerId));
+            }
+            catch (error) {
+                reject(error);
+            }
+            finally {
+                availableWorkerIds.push(workerId);
+                next();
+            }
+        }, delay);
     }
     return (task) => {
         return new Promise((resolve, reject) => {

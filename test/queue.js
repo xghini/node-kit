@@ -18,15 +18,14 @@ async function task(name, duration, workerId) {
 }
 
 console.log("--- 并发任务可视化测试 ---");
-const run = queue(2); // 我们依然使用2个并发“worker”
+const run = queue(2, { minInterval: 500 }); // 我们依然使用2个并发“worker”
 // 在 run() 中，我们传入一个接收 workerId 的新函数
 const results = await Promise.all([
   run((id) => task("A最慢", 10000, id)),
-  run((id) => task("B较快", 2000, id)),
+  run((id) => task("B较快(但会被最小间隔限制晚500ms)", 2000, id)),
   run((id) => task("C中等", 5000, id)),
   run((id) => task("D中等", 6000, id)),
   run((id) => task("E最快", 1000, id)),
 ]);
 console.log("\n--- 所有任务均已成功完成！ ---");
 console.log("返回结果:", results);
-

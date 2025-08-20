@@ -1,43 +1,71 @@
 // queue.js 并发队列,解决async这类异步函数才存在的并发性能和优先级问题
 // 1.一个极简版本,只限制并发数（目前实现） 2.增强版本,增加 优先级、超时、on状态监控等，到时根据需求按需拓展（未来实现）
 export { queue };
+
 /**
- * 创建一个并发任务队列控制器。
- * @param {number} concurrency - 最大并发数量。
+ * 创建一个支持并发和速率控制的任务队列。
+ * @param {number} num - 最大并发数量。默认为1。
+ * @param {object} [options] - 配置选项。
+ * @param {number} [options.minInterval=0] - 两个任务开始执行之间的最小时间间隔（毫秒）。
  * @returns {function(function): Promise} 返回一个任务添加函数。
- * example: const run = queue(2);
- * await run((id)=>task(id))
+ *
+ * @example
+ * // 最多3个并发，且每两个任务之间至少间隔100ms
+ * const run = queue(3, { minInterval: 100 });
+ * await run(() => myAsyncTask());
  */
-function queue(num = 3) {
+function queue(num = 1, options = {}) {
   if (typeof num !== "number" || num < 1) {
     throw new TypeError("并发数(num)必须是一个大于等于1的数字。");
   }
+
+  // 从选项中获取最小间隔时间，默认为0（无间隔）
+  const { minInterval = 0 } = options;
   const taskQueue = [];
   const availableWorkerIds = Array.from({ length: num }, (_, i) => i);
+  
+  // 跟踪下一个任务可以开始的时间点，初始化为当前时间
+  let nextAvailableSlotTime = Date.now();
 
-  async function next() {
-    // 没有可用worker或没有任务时直接返回
+  function next() {
+    // 1. 检查是否有任务和可用的worker (和以前一样)
     if (availableWorkerIds.length === 0 || taskQueue.length === 0) return;
-    // 取出最前的一个worker和任务，尝试执行
+    
+    // 2. 立即“预定”一个worker，这是防止竞争的关键
     const workerId = availableWorkerIds.shift();
-    const { task, resolve, reject } = taskQueue.shift();
-    try {
-      // 会给task传入workerId，不需要可以不接收（忽略）
-      resolve(await task(workerId));
-    } catch (error) {
-      reject(error);
-    } finally {
-      // 完成后将此worker放回可用队列
-      availableWorkerIds.push(workerId);
-      // 循环的关键，完成任务后继续调用处理任务
-      next();
-    }
+    
+    const now = Date.now();
+    
+    // 3. 计算任务的计划执行时间
+    // 它必须在 "当前时间" 和 "下一个允许的时间点" 之间取较晚的那个
+    const scheduledTime = Math.max(now, nextAvailableSlotTime);
+    const delay = scheduledTime - now;
+
+    // 4. 立即为【下一个】将要被调度的任务，预定好它的开始时间
+    // 这可以防止两个任务被同时调度时计算出相同的延迟
+    nextAvailableSlotTime = scheduledTime + minInterval;
+
+    // 5. 使用计算出的延迟来执行任务
+    setTimeout(async () => {
+      const { task, resolve, reject } = taskQueue.shift();
+      try {
+        // 会给task传入workerId，不需要可以不接收（忽略）
+        resolve(await task(workerId));
+      } catch (error) {
+        reject(error);
+      } finally {
+        // 任务完成后，归还worker并尝试处理下一个任务
+        availableWorkerIds.push(workerId);
+        next();
+      }
+    }, delay);
   }
-  // 返回一个函数，每次激活会接收任务放入queue处理并发
+
+  // 返回的函数保持不变
   return (task) => {
     return new Promise((resolve, reject) => {
       taskQueue.push({ task, resolve, reject });
-      next(); //假如无可用worker，此处会直接返回，但之前的next在完成任务后还会自调用来继续完成等待中的新任务。
+      next(); // 尝试启动任务
     });
   };
 }
