@@ -28,28 +28,26 @@ function queue(num = 1, options = {}) {
   let nextAvailableSlotTime = Date.now();
 
   function next() {
-    // 1. 检查是否有任务和可用的worker (和以前一样)
+    // 1. 检查是否有任务和可用的worker
     if (availableWorkerIds.length === 0 || taskQueue.length === 0) return;
     
-    // 2. 立即“预定”一个worker，这是防止竞争的关键
+    // 2. 立即预定一个worker并取出任务（关键修复：原子操作）
     const workerId = availableWorkerIds.shift();
+    const taskItem = taskQueue.shift(); // 立即从队列中取出，防止重复处理
     
     const now = Date.now();
     
     // 3. 计算任务的计划执行时间
-    // 它必须在 "当前时间" 和 "下一个允许的时间点" 之间取较晚的那个
     const scheduledTime = Math.max(now, nextAvailableSlotTime);
     const delay = scheduledTime - now;
 
-    // 4. 立即为【下一个】将要被调度的任务，预定好它的开始时间
-    // 这可以防止两个任务被同时调度时计算出相同的延迟
+    // 4. 立即为下一个将要被调度的任务预定开始时间
     nextAvailableSlotTime = scheduledTime + minInterval;
 
     // 5. 使用计算出的延迟来执行任务
     setTimeout(async () => {
-      const { task, resolve, reject } = taskQueue.shift();
+      const { task, resolve, reject } = taskItem; // 使用已取出的任务
       try {
-        // 会给task传入workerId，不需要可以不接收（忽略）
         resolve(await task(workerId));
       } catch (error) {
         reject(error);

@@ -11,12 +11,13 @@ function queue(num = 1, options = {}) {
         if (availableWorkerIds.length === 0 || taskQueue.length === 0)
             return;
         const workerId = availableWorkerIds.shift();
+        const taskItem = taskQueue.shift();
         const now = Date.now();
         const scheduledTime = Math.max(now, nextAvailableSlotTime);
         const delay = scheduledTime - now;
         nextAvailableSlotTime = scheduledTime + minInterval;
         setTimeout(async () => {
-            const { task, resolve, reject } = taskQueue.shift();
+            const { task, resolve, reject } = taskItem;
             try {
                 resolve(await task(workerId));
             }
