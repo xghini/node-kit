@@ -564,7 +564,7 @@ async function set(str) {
     const existingRecords = res.data.result || [];
 
     // 2. 批量添加新记录（优化性能）
-    // console.log(`准备添加 ${recordsToAdd.length} 条记录到 ${host}`);
+    console.log(`准备添加 ${recordsToAdd.length} 条记录到 ${host}`);
     
     let addResults = [];
     
@@ -596,9 +596,9 @@ async function set(str) {
         }
       }
       
-      // if (!allSuccess) {
-      //   throw new Error(`部分记录添加失败，保留原有记录`);
-      // }
+      if (!allSuccess) {
+        throw new Error(`部分记录添加失败，保留原有记录`);
+      }
     } else {
       // 记录数量较多时，使用限流批量添加
       const addOperations = recordsToAdd.map(record => 
@@ -627,9 +627,9 @@ async function set(str) {
         }
       }
       
-      // if (!allSuccess) {
-      //   throw new Error(`部分记录添加失败，保留原有记录`);
-      // }
+      if (!allSuccess) {
+        throw new Error(`部分记录添加失败，保留原有记录`);
+      }
     }
 
     // 3. 新记录添加成功后，再删除旧记录
