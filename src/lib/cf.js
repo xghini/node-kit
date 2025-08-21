@@ -460,7 +460,6 @@ async function set(str) {
       }
     }, CONFIG.MAX_RETRIES, CONFIG.RETRY_DELAY, `查询 ${host} 的现有记录`);
     const existingRecords = res.data.result || [];
-    console.log(`准备添加 ${recordsToAdd.length} 条记录到 ${host}`);
     let addResults = [];
     if (recordsToAdd.length <= 5) {
       const addPromises = recordsToAdd.map(record => 
@@ -485,9 +484,6 @@ async function set(str) {
           addResults.push(result.value);
         }
       }
-      if (!allSuccess) {
-        throw new Error(`部分记录添加失败，保留原有记录`);
-      }
     } else {
       const addOperations = recordsToAdd.map(record => 
         () => retryOperation(
@@ -510,9 +506,6 @@ async function set(str) {
         } else {
           addResults.push(result.value);
         }
-      }
-      if (!allSuccess) {
-        throw new Error(`部分记录添加失败，保留原有记录`);
       }
     }
     if (existingRecords.length > 0) {
