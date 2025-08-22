@@ -87,7 +87,7 @@ async function retryOperation(
 async function batchProcess(items, processor, options = {}) {
   const { groupBy = null, operationName = "批量操作" } = options;
   let results = new Array(items.length);
-  const runInQueue = queue(10, { minInterval: 100 });
+  const runInQueue = queue(100, { minInterval: 10 });
   if (groupBy) {
     const grouped = new Map();
     items.forEach((item, index) => {
