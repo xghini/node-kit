@@ -17,6 +17,7 @@ async function insert(pg, table, data, options = {}) {
     let onConflictClause = "";
     if (onconflict) {
         if (typeof onconflict === "string") {
+            console.log(`CONFLICT: DO NOTHING`);
             onConflictClause = `ON CONFLICT ("${onconflict}") DO NOTHING`;
         }
         else if (Array.isArray(onconflict)) {
@@ -32,6 +33,7 @@ async function insert(pg, table, data, options = {}) {
             if (columnsToUpdate.length === 0) {
                 return [new Error("没有可供DO UPDATE操作的列"), null];
             }
+            console.log(`CONFLICT: DO UPDATE`);
             const updateSetClause = columnsToUpdate
                 .map((col) => `"${col}" = EXCLUDED."${col}"`)
                 .join(", ");
