@@ -19,9 +19,7 @@ function createCacheKey(config) {
     return keys.map((key) => `${key}:${normalized[key]}`).join("|");
 }
 const gracefulShutdown = async (signal) => {
-    console.log(`收到${signal}信号，开始优雅关闭...`);
     await xpg.closeAll();
-    console.log("所有连接池已关闭");
     process.exit(0);
 };
 ["SIGINT", "SIGTERM"].forEach((signal) => process.on(signal, () => gracefulShutdown(signal)));
@@ -173,6 +171,5 @@ xpg.closeAll = async () => {
     const closePromises = Array.from(instanceCache.values()).map((client) => client.close());
     await Promise.allSettled(closePromises);
     instanceCache.clear();
-    console.log("所有PG实例已关闭并清空缓存");
 };
 export { xpg };

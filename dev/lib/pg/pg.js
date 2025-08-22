@@ -23,9 +23,8 @@ function createCacheKey(config) {
 }
 // --- 优雅关闭 ---
 const gracefulShutdown = async (signal) => {
-  console.log(`收到${signal}信号，开始优雅关闭...`);
+  // console.log(`收到${signal}结束信号，关闭所有连接池...`);
   await xpg.closeAll();
-  console.log("所有连接池已关闭");
   process.exit(0);
 };
 ["SIGINT", "SIGTERM"].forEach((signal) =>
@@ -294,7 +293,7 @@ xpg.closeAll = async () => {
   );
   await Promise.allSettled(closePromises);
   instanceCache.clear();
-  console.log("所有PG实例已关闭并清空缓存");
+  // console.log("所有PG实例已关闭并清空缓存");
 };
 
 export { xpg };
