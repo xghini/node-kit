@@ -1,5 +1,5 @@
 import kit from "@ghini/kit/dev";
-const app = await kit.h2s(666);
+const app = await kit.hs(666);
 // console.log(app);
 app.addr("/a", (gold) => {
   console.log("/a", gold.data);

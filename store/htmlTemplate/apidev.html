@@ -149,7 +149,7 @@
   <script>
     const paramList = document.getElementById("param-list");
     const selectAllCheckbox = document.getElementById("select-all");
-    const STORAGE_KEY = "requestBuilderParams";
+    const STORAGE_KEY = "apidev-"+location.host;
 
     // ---- 核心逻辑 ----
 
@@ -187,9 +187,9 @@
     /** 默认method为POST */
     async function sendRequest(url, method = "POST") {
       const params = getMergedParams();
-      const upperMethod = method.toUpperCase();
+      const upperMethod = method === '*' ? 'POST' : upperMethod.toUpperCase();
       // 【修改点 3】将 "color: blue" 改为更亮的 "color: dodgerblue"
-      console.log(`%c[Requesting]%c ${upperMethod == '*' ? 'POST' : upperMethod} ${url}`, "color: dodgerblue; font-weight: bold;", "color: white;");
+      console.log(`%c[Requesting]%c ${upperMethod} ${url}`, "color: dodgerblue; font-weight: bold;", "color: white;");
       console.log("%c[Parameters]", "color: dodgerblue; font-weight: bold;", params);
       const options = {
         method: upperMethod,
@@ -316,9 +316,9 @@
           });
         }
       } else {
-        paramList.appendChild(createParamRow("a=100&b=200", true));
-        paramList.appendChild(createParamRow('{"c": 300, "d": {"nested": true}}', false));
-        paramList.appendChild(createParamRow("page=1&limit=10&sort=desc", true));
+        paramList.appendChild(createParamRow("hi=Ghini&hello=world", true));
+        paramList.appendChild(createParamRow('{"example": true, "d": {"nested": true}}', true));
+        paramList.appendChild(createParamRow("page=1&limit=10&sort=desc", false));
       }
       updateSelectAllCheckboxState();
     }
