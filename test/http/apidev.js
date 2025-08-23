@@ -1,15 +1,22 @@
 import kit from "@ghini/kit/dev";
 const app = await kit.hs(666);
 // console.log(app);
-app.addr("/a", (gold) => {
-  console.log("/a", gold.data);
+app.addr("/a", "get", (gold) => {
+  console.log("/a param", gold.param);
+  console.log("/a data", gold.data);
   gold.raw("/a");
 });
 app.addr("/b", "post", (gold) => {
-  console.log("/b", gold.data);
+  console.log("/b param", gold.param);
+  console.log("/b data", gold.data);
   gold.raw("/b");
 });
-app.addr("/c1");
+app.addr("/b?test=param", "post", (gold) => gold.raw("/b"));
+app.addr("/c1", (gold) => {
+  console.log("/b param", gold.param);
+  console.log("/c data", gold.data);
+  gold.raw("/c");
+});
 app.addr("/c2");
 app.addr("/c3");
 app.addr("/c4");

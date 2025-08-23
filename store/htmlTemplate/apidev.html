@@ -139,7 +139,7 @@
     <div class="controls">
       <input type="checkbox" id="select-all" title="智能选择/取消">
       <button class="btn-add" onclick="addParamRow()" title="添加新行">➕</button>
-      <button class="btn-merge" onclick="logMergedParams()">控制台输出融合参数</button>
+      <button class="btn-merge" onclick="console.log(getMergedParams())">控制台输出融合参数</button>
       <button class="btn-batch-delete" onclick="batchDelete()">批量删除选中</button>
     </div>
     <div id="param-list">
@@ -149,54 +149,59 @@
   <script>
     const paramList = document.getElementById("param-list");
     const selectAllCheckbox = document.getElementById("select-all");
-    const STORAGE_KEY = "apidev-"+location.host;
+    const STORAGE_KEY = "apidev-" + location.host;
 
     // ---- 核心逻辑 ----
-
-    function parseParamString(str) {
-      const trimmedStr = str.trim();
-      if (trimmedStr.startsWith("{") && trimmedStr.endsWith("}")) {
-        try { return JSON.parse(trimmedStr); } catch (e) { return null; }
+    /** 除了考虑get的键值形式,还要兼容post,允许json数组和raw */
+    function 参数化(str) {
+      // 重写,首先看是否能json
+      let obj = {}
+      try {
+        return JSON.parse(str)
+      } catch (e) { }
+      // 那应该是键值字符串或纯字符串
+      if (str.includes("=")) {
+        new URLSearchParams(str).forEach((v, k) => { obj[k] = v; })
+        return obj
       }
-      if (trimmedStr.includes("=")) {
-        try {
-          const obj = {};
-          new URLSearchParams(trimmedStr).forEach((value, key) => { obj[key] = value; });
-          return obj;
-        } catch (e) { return null; }
-      }
-      return null;
+      return str;
     }
-
+    // 关键在此,如何处理参数
     function getMergedParams() {
-      let mergedObject = {};
+      let res;
       document.querySelectorAll(".param-row input[type=checkbox]:checked").forEach(checkbox => {
         const row = checkbox.closest(".param-row");
         const input = row.querySelector("input[type=text]");
-        const parsedObj = parseParamString(input.value);
-        if (parsedObj) {
-          Object.assign(mergedObject, parsedObj);
+        const param = 参数化(input.value);
+        // 现在考虑如何融合obj arr str; 选定第一个类型后,只做同类型融
+        if (typeof res === "object") {
+          if (Array.isArray(res)) {
+            if (Array.isArray(param)) res = [...res, ...param]
+          } else {
+            if (typeof param === "object" && !Array.isArray(param)) res = { ...res, ...param }
+          }
+        } else if (typeof res === "string") {
+          if (typeof param === "string") res += param
+        }
+        else if (typeof res === "undefined") {
+          res = param
         }
       });
-      return mergedObject;
-    }
-
-    function logMergedParams() {
-      console.log(getMergedParams());
+      return res;
     }
     /** 默认method为POST */
     async function sendRequest(url, method = "POST") {
       const params = getMergedParams();
-      const upperMethod = method === '*' ? 'POST' : upperMethod.toUpperCase();
+      method = method === '*' ? 'POST' : method.toUpperCase();
       // 【修改点 3】将 "color: blue" 改为更亮的 "color: dodgerblue"
-      console.log(`%c[Requesting]%c ${upperMethod} ${url}`, "color: dodgerblue; font-weight: bold;", "color: white;");
+      console.log(`%c[Requesting]%c ${method} ${url}`, "color: dodgerblue; font-weight: bold;", "color: white;");
       console.log("%c[Parameters]", "color: dodgerblue; font-weight: bold;", params);
       const options = {
-        method: upperMethod,
+        method: method,
         headers: { "Content-Type": "application/json" }
       };
       let finalUrl = url;
-      if (["GET", "HEAD"].includes(upperMethod)) {
+      if (["GET", "HEAD"].includes(method)) {
         const queryString = new URLSearchParams(params).toString();
         if (queryString) {
           finalUrl += (finalUrl.includes("?") ? "&" : "?") + queryString;
@@ -234,11 +239,25 @@
         `;
       row.querySelector("input[type=text]").value = value;
 
-      row.querySelector("input[type=checkbox]").addEventListener("change", () => {
+      const checkbox = row.querySelector("input[type=checkbox]");
+      const textInput = row.querySelector("input[type=text]");
+
+      checkbox.addEventListener("change", () => {
         updateSelectAllCheckboxState();
         saveState();
       });
-      row.querySelector("input[type=text]").addEventListener("input", saveState);
+      textInput.addEventListener("input", saveState);
+
+      // 【新增逻辑】为文本框添加回车键监听
+      textInput.addEventListener("keydown", (event) => {
+        if (event.key === 'Enter') {
+          event.preventDefault(); // 阻止默认的回车行为 (如表单提交)
+          checkbox.checked = !checkbox.checked; // 切换复选框的选中状态
+          // 手动触发 change 事件, 以确保 saveState 和 updateSelectAllCheckboxState 被调用
+          checkbox.dispatchEvent(new Event('change'));
+        }
+      });
+
       row.querySelector("button:nth-of-type(1)").addEventListener("click", () => cloneRow(row));
       row.querySelector("button:nth-of-type(2)").addEventListener("click", () => {
         row.remove();
@@ -246,6 +265,7 @@
       });
       return row;
     }
+
 
     function addParamRow() {
       paramList.appendChild(createParamRow("", true));
@@ -317,8 +337,9 @@
         }
       } else {
         paramList.appendChild(createParamRow("hi=Ghini&hello=world", true));
-        paramList.appendChild(createParamRow('{"example": true, "d": {"nested": true}}', true));
-        paramList.appendChild(createParamRow("page=1&limit=10&sort=desc", false));
+        paramList.appendChild(createParamRow("hello world", false));
+        paramList.appendChild(createParamRow('{"example": true, "test":     {"number": [1,["b"],{"fruit":"peach"}]}}', true));
+        paramList.appendChild(createParamRow(`[1,"2","three"]`, true));
       }
       updateSelectAllCheckboxState();
     }
