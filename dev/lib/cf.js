@@ -1,5 +1,5 @@
 // cf.js cloudflare使用api的便捷封装 - 兼容Global API Key和API Token
-// 使用了每秒100次的高并发,不适合持续自行把控,cf限制1200次/5min
+// 使用了每秒100次10ms间隔的高并发,不适合持续自行把控,cf限制1200次/5min
 export { cf };
 import { req } from "./http/req.js";
 import { queue } from "./queue.js";

@@ -1,19 +1,20 @@
 export { router_find_resolve, addr, _404, apidev };
-import { rf } from "../index.js";
+import { rf, metaroot } from "../index.js";
 import { hd_default } from "./routes.js";
 function apidev() {
-    console.log("apidev!");
-    console.log(this.routes);
     this.addr("/apidev", (gold) => {
-        let html = '';
-        this.routes.slice(0, -1).map(item => {
-            const method = (item[1] || 'get').toLowerCase();
-            const fetchCall = (method === 'get' || method === '*')
-                ? `fetch('${item[0]}')`
-                : `fetch('${item[0]}', { method: '${item[1].toUpperCase()}' })`;
-            html += `<button onclick="${fetchCall}">${item[0]}</button> `;
+        let htmlTemplate = rf(metaroot + "/store/htmlTemplate/apidev.html");
+        let buttonsHtml = "";
+        this.routes.slice(0, -1).map((item) => {
+            let url = item[0];
+            const method = (item[1] || "get").toUpperCase();
+            if (url.startsWith("/")) {
+                url = url.substring(1);
+            }
+            buttonsHtml += `<button onclick="sendRequest('/${url}', '${method}')"><span class="api-method">${method}</span> ${url}</button>`;
         });
-        gold.html(html);
+        const finalHtml = htmlTemplate.replace("{{api-buttons-container}}", `<div id="api-buttons-container">${buttonsHtml}</div>`);
+        gold.html(finalHtml);
     });
 }
 function addr(...argv) {

@@ -1,0 +1,59 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>API 参数调试器</title>
+    <style>
+        body{font-family:sans-serif;margin:5px;background-color:#f7f7f7;color:#333}
+        .container{max-width:100%;margin:auto;background:#fff;padding:10px;border-radius:6px;box-shadow:0 2px 8px rgba(0,0,0,.1)}
+        .controls{display:flex;align-items:center;gap:5px;padding-bottom:8px;border-bottom:1px solid #eee;margin-bottom:8px}
+        .controls input[type=checkbox]{width:16px;height:16px;cursor:pointer}
+        .controls button{padding:5px 10px;border:1px solid #ccc;border-radius:4px;cursor:pointer;background-color:#f0f0f0;font-size:13px;line-height:1.2}
+        .controls button:hover{background-color:#e0e0e0}
+        .btn-add{font-size:16px}
+        .btn-merge{font-weight:700}
+        #param-list .param-row{display:flex;align-items:center;gap:5px;margin-bottom:8px}
+        #param-list .param-row:last-child{margin-bottom:0}
+        #param-list .param-row input[type=checkbox]{width:16px;height:16px;flex-shrink:0}
+        #param-list .param-row input[type=text]{flex-grow:1;padding:6px 8px;border:1px solid #ddd;border-radius:4px;font-family:ui-monospace,Consolas,Menlo,Monaco,monospace;font-size:13px}
+        #param-list .param-row button{padding:4px 8px;border:1px solid #ccc;border-radius:4px;cursor:pointer;background-color:#fafafa;font-size:12px}
+        .api-panel{padding-bottom:8px;border-bottom:1px solid #eee;margin-bottom:8px}
+        .api-panel h3{margin-top:0;margin-bottom:10px;font-size:15px}
+        #api-buttons-container button{margin:0 5px 5px 0;padding:5px 10px;border:1px solid #90caf9;background-color:#e3f2fd;border-radius:4px;cursor:pointer;font-size:13px}
+        #api-buttons-container button:hover{background-color:#bbdefb}
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <div id="api-endpoints" class="api-panel">
+        <h3>API Endpoints</h3>
+        <div id="api-buttons-container">
+            </div>
+    </div>
+
+    <div class="controls">
+        <input type="checkbox" id="select-all" title="智能选择/取消">
+        <button class="btn-add" onclick="addParamRow()" title="添加新行">➕</button>
+        <button class="btn-merge" onclick="logMergedParams()">控制台输出融合参数</button>
+        <button class="btn-batch-delete" onclick="batchDelete()">批量删除选中</button>
+    </div>
+    <div id="param-list">
+    </div>
+</div>
+
+<script>
+    const paramList=document.getElementById("param-list"),selectAllCheckbox=document.getElementById("select-all"),STORAGE_KEY="requestBuilderParams";function parseParamString(e){const t=e.trim();if(t.startsWith("{")&&t.endsWith("}"))try{return JSON.parse(t)}catch(e){return null}if(t.includes("="))try{const e={};return new URLSearchParams(t).forEach(((t,r)=>{e[r]=t})),e}catch(e){return null}return null}
+    function getMergedParams(){let e={};return document.querySelectorAll(".param-row input[type=checkbox]:checked").forEach((t=>{const r=t.closest(".param-row"),o=r.querySelector("input[type=text]"),s=parseParamString(o.value);s&&Object.assign(e,s)})),e}
+    function logMergedParams(){console.log(getMergedParams())}
+    async function sendRequest(e,t="GET"){const r=getMergedParams(),o=t.toUpperCase();console.clear(),console.log(`%c[Requesting] %c${o} ${e}`,"color: blue; font-weight: bold;","color: black;"),console.log("%c[Parameters]","color: blue; font-weight: bold;",r);const s={method:o,headers:{"Content-Type":"application/json"}};let n=e;if(["GET","HEAD"].includes(o)){const t=new URLSearchParams(r).toString();t&&(n+=(n.includes("?")?"&":"?")+t)}else s.body=JSON.stringify(r);try{const t=await fetch(n,s);console.log(`%c[Response] %cStatus: ${t.status} ${t.statusText}`,"color: green; font-weight: bold;",`color: ${t.ok?"green":"red"};`);const r=t.headers.get("content-type");if(r&&-1!==r.indexOf("application/json")){const e=await t.json();console.log("%c[Data]","color: green; font-weight: bold;",e)}else{const e=await t.text();console.log("%c[Data]","color: green; font-weight: bold;",e)}}catch(e){console.error("%c[Error]","color: red; font-weight: bold;",e)}}
+    document.addEventListener("DOMContentLoaded",loadState),selectAllCheckbox.addEventListener("click",toggleSelectAll);function createParamRow(e="",t=!1){const r=document.createElement("div");return r.className="param-row",r.innerHTML=`\n            <input type="checkbox" ${t?"checked":""}>\n            <input type="text" value="">\n            <button title="克隆此行">克隆</button>\n            <button title="删除此行">删除</button>\n        `,r.querySelector("input[type=text]").value=e,r.querySelector("input[type=checkbox]").addEventListener("change",(()=>{updateSelectAllCheckboxState(),saveState()})),r.querySelector("input[type=text]").addEventListener("input",saveState),r.querySelector("button:nth-of-type(1)").addEventListener("click",(()=>cloneRow(r))),r.querySelector("button:nth-of-type(2)").addEventListener("click",(()=>{r.remove(),saveState()})),r}
+    function addParamRow(){paramList.appendChild(createParamRow("",!0)),saveState()}function cloneRow(e){const t=e.querySelector("input[type=text]").value,r=e.querySelector("input[type=checkbox]").checked,o=createParamRow(t,r);e.after(o),saveState()}function batchDelete(){const e=document.querySelectorAll(".param-row input[type=checkbox]:checked");e.length>0&&(e.forEach((e=>e.closest(".param-row").remove())),saveState())}
+    function toggleSelectAll(){const e=document.querySelectorAll('.param-row input[type="checkbox"]:checked').length<=1;document.querySelectorAll('.param-row input[type="checkbox"]').forEach((t=>t.checked=e)),saveState()}function updateSelectAllCheckboxState(){const e=document.querySelectorAll(".param-row input[type=checkbox]"),t=document.querySelectorAll(".param-row input[type=checkbox]:checked").length,r=e.length;r>0&&t===r?(selectAllCheckbox.checked=!0,selectAllCheckbox.indeterminate=!1):t>1?(selectAllCheckbox.checked=!1,selectAllCheckbox.indeterminate=!0):(selectAllCheckbox.checked=!1,selectAllCheckbox.indeterminate=!1)}
+    function saveState(){const e=[];document.querySelectorAll(".param-row").forEach((t=>{e.push({value:t.querySelector("input[type=text]").value,isChecked:t.querySelector("input[type=checkbox]").checked})})),localStorage.setItem(STORAGE_KEY,JSON.stringify(e)),updateSelectAllCheckboxState()}
+    function loadState(){const e=localStorage.getItem(STORAGE_KEY);e?JSON.parse(e).forEach((e=>{paramList.appendChild(createParamRow(e.value,e.isChecked))})):(paramList.appendChild(createParamRow("a=100&b=200",!0)),paramList.appendChild(createParamRow('{"c": 300, "d": {"nested": true}}',!1)),paramList.appendChild(createParamRow("page=1&limit=10&sort=desc",!0))),updateSelectAllCheckboxState()}
+</script>
+
+</body>
+</html>

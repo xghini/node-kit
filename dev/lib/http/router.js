@@ -1,6 +1,6 @@
 // router.js 以路由功能为核心,给http对象做各种方便的功能
 export { router_find_resolve, addr, _404, apidev };
-import { rf } from "../index.js";
+import { rf, metaroot } from "../index.js";
 import { hd_default } from "./routes.js";
 // 这是http https允许的methods,http2不限制
 // const methods = [
@@ -10,25 +10,46 @@ import { hd_default } from "./routes.js";
 //   'REBIND', 'REPORT', 'SEARCH', 'SOURCE', 'SUBSCRIBE', 'TRACE', 'UNBIND',
 //   'UNLINK', 'UNLOCK', 'UNSUBSCRIBE'
 // ];
+// function apidev() {
+//   console.log("apidev!");
+//   console.log(this.routes);
+//   this.addr("/apidev", (gold) => {
+//     let html = '';
+//     this.routes.slice(0, -1).map(item => {
+//       // 读取方法，并转为小写以便比较，如果没有则默认为'get'
+//       const method = (item[1] || 'get').toLowerCase();
+//       // 如果方法是 'get' 或 '*'，则使用简单的 fetch
+//       // 否则，在 fetch 的第二个参数中指定 method
+//       const fetchCall = (method === 'get' || method === '*')
+//         ? `fetch('${item[0]}')`
+//         : `fetch('${item[0]}', { method: '${item[1].toUpperCase()}' })`;
+//       // 添加到 HTML 字符串中
+//       html += `<button onclick="${fetchCall}">${item[0]}</button> `;
+//     });
+//     gold.html(html);
+//   });
+// }
 function apidev() {
-  console.log("apidev!");
-  console.log(this.routes);
   this.addr("/apidev", (gold) => {
-    let html = '';
-    this.routes.slice(0, -1).map(item => {
-      // 读取方法，并转为小写以便比较，如果没有则默认为'get'
-      const method = (item[1] || 'get').toLowerCase();
-      // 如果方法是 'get' 或 '*'，则使用简单的 fetch
-      // 否则，在 fetch 的第二个参数中指定 method
-      const fetchCall = (method === 'get' || method === '*')
-        ? `fetch('${item[0]}')`
-        : `fetch('${item[0]}', { method: '${item[1].toUpperCase()}' })`;
-      // 添加到 HTML 字符串中
-      html += `<button onclick="${fetchCall}">${item[0]}</button> `;
+    let htmlTemplate = rf(metaroot + "/store/htmlTemplate/apidev.html");
+    let buttonsHtml = "";
+    this.routes.slice(0, -1).map((item) => {
+      let url = item[0];
+      const method = (item[1] || "get").toUpperCase();
+      // 1. 检查并移除URL开头的'/'
+      if (url.startsWith("/")) {
+        url = url.substring(1);
+      }
+      buttonsHtml += `<button onclick="sendRequest('/${url}', '${method}')"><span class="api-method">${method}</span> ${url}</button>`;
     });
-    gold.html(html);
+    const finalHtml = htmlTemplate.replace(
+      "{{api-buttons-container}}",
+      `<div id="api-buttons-container">${buttonsHtml}</div>`
+    );
+    gold.html(finalHtml);
   });
 }
+
 function addr(...argv) {
   // 相同匹配级别,前覆盖后,push进数组(若后覆盖前则不容易察觉)
   // addr('/a',hd_a)
