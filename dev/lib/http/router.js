@@ -30,6 +30,7 @@ import { hd_default } from "./routes.js";
 //   });
 // }
 function apidev() {
+  console.info.bind({ xinfo: 2 })(`[apidev] ${this.scheme}://127.0.0.1:${this.port}/apidev`);
   this.addr("/apidev", (gold) => {
     let htmlTemplate = rf(metaroot + "/store/htmlTemplate/apidev.html");
     let buttonsHtml = "";

@@ -28,8 +28,9 @@ async function hs(...argv) {
             scheme = "http";
         }
         server.listen(port, () => {
-            console.info.bind({ xinfo: 2 })(`${style.reset}${style.bold}${style.brightGreen} ✓ ${style.brightWhite}Running on ${style.underline}${scheme}://${"127.0.0.1"}:${port}${style.reset}  open:${open}`);
+            console.info.bind({ xinfo: 2 })(`${style.reset}${style.bold}${style.brightGreen} ✓ ${style.brightWhite}Running on ${style.underline}${scheme}://127.0.0.1:${port}${style.reset}  open:${open}`);
             gcatch();
+            server.scheme = scheme;
             server.port = port;
             if (config?.key) {
                 server.on("stream", (stream, headers) => {
