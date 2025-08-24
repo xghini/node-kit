@@ -7,14 +7,17 @@
   <title>API 参数调试器</title>
   <style>
     /* CSS 样式：保持紧凑并易读 */
-    html,
+    html, body {
+      height: 100%;
+    }
+
     body {
       font-family: sans-serif;
       margin: 0;
       background-color: #f7f7f7;
       color: #333;
-      height: 100%;
     }
+
     .container {
       max-width: 100%;
       margin: auto;
@@ -232,7 +235,7 @@
       border-radius: 3px;
       outline-color: #4CAF50;
     }
-
+    
     .separator-label button {
       padding: 2px 6px;
       border: 1px solid #ccc;
@@ -316,32 +319,32 @@
         }
       }, { offset: Number.NEGATIVE_INFINITY }).element;
     }
-
+    
     document.body.addEventListener('dragover', e => {
-      e.preventDefault();
-      if (!draggedElement) return;
-      const afterElement = getDragAfterElement(e.clientY);
-      [...paramList.children].forEach(child => {
-        child.classList.remove('drag-over-top', 'drag-over-bottom');
-      });
-      if (paramList.children.length === 1 && paramList.children[0] === draggedElement) return;
-      if (afterElement == null) {
-        const lastChild = [...paramList.children].filter(c => c !== draggedElement).pop();
-        if (lastChild) lastChild.classList.add('drag-over-bottom');
-      } else {
-        afterElement.classList.add('drag-over-top');
-      }
+        e.preventDefault();
+        if (!draggedElement) return;
+        const afterElement = getDragAfterElement(e.clientY);
+        [...paramList.children].forEach(child => {
+            child.classList.remove('drag-over-top', 'drag-over-bottom');
+        });
+        if (paramList.children.length === 1 && paramList.children[0] === draggedElement) return;
+        if (afterElement == null) {
+            const lastChild = [...paramList.children].filter(c => c !== draggedElement).pop();
+            if (lastChild) lastChild.classList.add('drag-over-bottom');
+        } else {
+            afterElement.classList.add('drag-over-top');
+        }
     });
 
     document.body.addEventListener('drop', e => {
-      e.preventDefault();
-      if (!draggedElement) return;
-      const afterElement = getDragAfterElement(e.clientY);
-      if (afterElement == null) {
-        paramList.appendChild(draggedElement);
-      } else {
-        paramList.insertBefore(draggedElement, afterElement);
-      }
+        e.preventDefault();
+        if (!draggedElement) return;
+        const afterElement = getDragAfterElement(e.clientY);
+        if (afterElement == null) {
+            paramList.appendChild(draggedElement);
+        } else {
+            paramList.insertBefore(draggedElement, afterElement);
+        }
     });
 
     function initDragAndDrop(element) {
@@ -349,8 +352,8 @@
       const noDragSelectors = 'input, button, .separator-label';
       element.addEventListener('dragstart', (e) => {
         if (e.target.closest(noDragSelectors)) {
-          e.preventDefault();
-          return;
+            e.preventDefault();
+            return;
         }
         draggedElement = element;
         setTimeout(() => element.classList.add('dragging'), 0);
@@ -359,7 +362,7 @@
       element.addEventListener('dragend', (e) => {
         if (draggedElement) draggedElement.classList.remove('dragging');
         [...paramList.children].forEach(child => {
-          child.classList.remove('drag-over-top', 'drag-over-bottom');
+            child.classList.remove('drag-over-top', 'drag-over-bottom');
         });
         draggedElement = null;
         saveState();
@@ -404,36 +407,34 @@
     async function sendRequest(url, method = "POST") {
       const params = getMergedParams();
       method = method === '*' ? 'POST' : method.toUpperCase();
-      console.log(`%c${method} ${url}\n`, "color: dodgerblue;", params);
+      console.log(`%c[Requesting]%c ${method} ${url}`, "color: dodgerblue; font-weight: bold;", "color: white;");
+      console.log("%c[Parameters]", "color: dodgerblue; font-weight: bold;", params);
       const options = {
         method: method,
         headers: { "Content-Type": "application/json" }
       };
       let finalUrl = url;
       if (["GET", "HEAD"].includes(method)) {
-        try {
-          const queryString = new URLSearchParams(params).toString();
-          if (queryString) {
-            finalUrl += (finalUrl.includes("?") ? "&" : "?") + queryString;
-          }
-        } catch (error) {
-          console.log(`此data无法在url参数化`)
+        const queryString = new URLSearchParams(params).toString();
+        if (queryString) {
+          finalUrl += (finalUrl.includes("?") ? "&" : "?") + queryString;
         }
       } else {
         options.body = JSON.stringify(params);
       }
       try {
         const response = await fetch(finalUrl, options);
+        console.log(`%c[Response] %cStatus: ${response.status} ${response.statusText}`, "color: green; font-weight: bold;", `color: ${response.ok ? "green" : "red"};`);
         const contentType = response.headers.get("content-type");
         if (contentType && contentType.indexOf("application/json") !== -1) {
           const data = await response.json();
-          console.log(`%c${response.status} ${response.statusText}`, `color: ${response.ok ? "green" : "red"};`, data);
+          console.log("%c[Data]", "color: green; font-weight: bold;", data);
         } else {
           const text = await response.text();
-          console.log(`%c${response.status} ${response.statusText}\n`, `color: ${response.ok ? "green" : "red"};`, text);
+          console.log("%c[Data]", "color: green; font-weight: bold;", text);
         }
       } catch (error) {
-        console.error(`%c[DataError]`, "color: red;", error);
+        console.error(`%c[DataError]`, "color: red; font-weight: bold;", error);
       }
     }
 
@@ -451,27 +452,39 @@
       labelContainer.appendChild(labelText);
       labelContainer.appendChild(deleteBtn);
       separator.appendChild(labelContainer);
+
       labelText.addEventListener("dblclick", () => {
+        // 防止重复触发
+        if (labelContainer.querySelector('input')) return;
+
+        let isEditing = true; // 🔥 核心修复：状态锁
         const originalValue = labelText.textContent;
         const input = document.createElement("input");
         input.type = "text";
         input.value = originalValue;
+        
         labelContainer.replaceChild(input, labelText);
         input.focus();
         input.select();
+        
         const finishEdit = (saveChanges = true) => {
-          if (document.body.contains(input)) {
+            // 如果锁已关闭，则直接退出，防止重复执行
+            if (!isEditing) return;
+            // 立即关闭锁
+            isEditing = false; 
+
             labelText.textContent = saveChanges ? (input.value || "分隔线") : originalValue;
             labelContainer.replaceChild(labelText, input);
             if (saveChanges) saveState();
-          }
         };
+
         input.addEventListener("blur", () => finishEdit(true));
         input.addEventListener("keydown", (e) => {
           if (e.key === "Enter") finishEdit(true);
           else if (e.key === "Escape") finishEdit(false);
         });
       });
+      
       deleteBtn.addEventListener("click", () => {
         separator.remove();
         saveState();
@@ -515,8 +528,8 @@
           checkbox.dispatchEvent(new Event('change'));
         }
       });
-
-      // 🔥🔥 核心功能回归：动态控制可拖拽属性，确保输入框内操作不受影响
+      
+      // 核心功能回归：动态控制可拖拽属性，确保输入框内操作不受影响
       textInput.addEventListener('mouseenter', () => row.draggable = false);
       textInput.addEventListener('mouseleave', () => row.draggable = true);
       textInput.addEventListener('focus', () => row.draggable = false);
@@ -529,7 +542,7 @@
       });
       row.querySelector(".btn-split").addEventListener("click", () => {
         const separator = createSeparator();
-        row.parentNode.insertBefore(separator, row);
+        row.parentNode.insertBefore(separator, row); 
         saveState();
       });
       initDragAndDrop(row);
@@ -604,16 +617,16 @@
     }
 
     function initializeExample() {
-      if (paramList.children.length > 0 && !confirm("确定要初始化为示例参数吗？当前数据将被清空。")) {
-        return;
-      }
-      paramList.innerHTML = "";
-      paramList.appendChild(createParamRow("hi=Ghini&hello=world", true));
-      paramList.appendChild(createParamRow("hello world", false));
-      paramList.appendChild(createParamRow('{"example": true, "test":     {"number": [1,["b"],{"fruit":"peach"}]}}', true));
-      paramList.appendChild(createParamRow(`[1,"2","three"]`, true));
-      paramList.appendChild(createSeparator("其他参数"));
-      saveState();
+        if (paramList.children.length > 0 && !confirm("确定要初始化为示例参数吗？当前数据将被清空。")) {
+            return;
+        }
+        paramList.innerHTML = "";
+        paramList.appendChild(createParamRow("hi=Ghini&hello=world", true));
+        paramList.appendChild(createParamRow("hello world", false));
+        paramList.appendChild(createParamRow('{"example": true, "test":     {"number": [1,["b"],{"fruit":"peach"}]}}', true));
+        paramList.appendChild(createParamRow(`[1,"2","three"]`, true));
+        paramList.appendChild(createSeparator("其他参数"));
+        saveState();
     }
 
     function loadState() {
