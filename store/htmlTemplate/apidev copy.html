@@ -292,8 +292,8 @@
     <div class="controls">
       <input type="checkbox" id="select-all" title="智能选择/取消">
       <button class="btn-add" onclick="addParamRow()" title="添加新行">➕</button>
-      <input type="radio" name="merge_mode" value="parallel" checked>并列
-      <input type="radio" name="merge_mode" value="fusion">融合
+      <input type="radio" name="radio_main">并列
+      <input type="radio" name="radio_main">融合
       <button class="btn-merge" onclick="console.log(getMergedParams())">控制台输出参数</button>
       <button class="btn-batch-delete" onclick="batchDelete()">批量删除选中</button>
       <button class="btn-init" onclick="initializeExample()">初始化参数</button>
@@ -386,70 +386,40 @@
     }
 
     function getMergedParams() {
-      const checkedCheckboxes = document.querySelectorAll(".param-row input[type=checkbox]:checked");
-      const mode = document.querySelector('input[name="merge_mode"]:checked').value;
-
-      // 如果只选中一个，直接返回该参数，不进行任何合并
-      if (checkedCheckboxes.length === 1) {
-        const row = checkedCheckboxes[0].closest(".param-row");
-        const input = row.querySelector("input[type=text]");
-        return 参数化(input.value);
-      }
-
-      const params = Array.from(checkedCheckboxes).map(checkbox => {
+      let res;
+      document.querySelectorAll(".param-row input[type=checkbox]:checked").forEach(checkbox => {
         const row = checkbox.closest(".param-row");
         const input = row.querySelector("input[type=text]");
-        return 参数化(input.value);
-      });
-
-      if (params.length === 0) {
-        return undefined;
-      }
-
-      // 默认并列逻辑
-      if (mode === 'parallel') {
-        return params;
-      }
-
-      // 融合逻辑 (mode === 'fusion')
-      let res = params[0];
-      for (let i = 1; i < params.length; i++) {
-        const param = params[i];
-        if (typeof res === "object" && !Array.isArray(res) && res !== null) {
-          if (typeof param === "object" && !Array.isArray(param) && param !== null) {
-            res = { ...res, ...param };
-          }
-        } else if (Array.isArray(res)) {
-          if (Array.isArray(param)) {
-            res = [...res, ...param];
+        const param = 参数化(input.value);
+        if (typeof res === "object") {
+          if (Array.isArray(res)) {
+            if (Array.isArray(param)) res = [...res, ...param]
+          } else {
+            if (typeof param === "object" && !Array.isArray(param)) res = { ...res, ...param }
           }
         } else if (typeof res === "string") {
-          if (typeof param === "string") {
-            res += param;
-          }
+          if (typeof param === "string") res += param
         }
-        // 如果类型不匹配，后续参数将被忽略，保留res的当前值
-      }
+        else if (typeof res === "undefined") {
+          res = param
+        }
+      });
       return res;
     }
 
     async function sendRequest(url, method = "POST") {
       const params = getMergedParams();
       method = method === '*' ? 'POST' : method.toUpperCase();
-      console.log(`%c${method} ${url}\n`, "color:dodgerblue", params);
+      console.log(`%c${method} ${url}\n`,"color:dodgerblue", params);
       const options = {
         method: method,
         headers: { "Content-Type": "application/json" }
       };
       let finalUrl = url;
       if (["GET", "HEAD"].includes(method)) {
-        try {
-          const queryString = new URLSearchParams(params).toString();
-          if (queryString) {
-            finalUrl += (finalUrl.includes("?") ? "&" : "?") + queryString;
-          }
-        } catch (error) {
-          console.log(`GET/HEAD的URL参数不支持此数据结构`);
+        const queryString = new URLSearchParams(params).toString();
+        if (queryString) {
+          finalUrl += (finalUrl.includes("?") ? "&" : "?") + queryString;
         }
       } else {
         options.body = JSON.stringify(params);
@@ -459,10 +429,10 @@
         const contentType = response.headers.get("content-type");
         if (contentType && contentType.indexOf("application/json") !== -1) {
           const data = await response.json();
-          console.log(`%c${response.status} ${response.statusText}\n`, `color: ${response.ok ? "lightgreen" : "red"};`, data);
+          console.log(`%c${response.status} ${response.statusText}\n`,`color: ${response.ok ? "lightgreen" : "red"};`, data);
         } else {
           const text = await response.text();
-          console.log(`%c${response.status} ${response.statusText}\n`, `color: ${response.ok ? "lightgreen" : "red"};`, text);
+          console.log(`%c${response.status} ${response.statusText}\n`,`color: ${response.ok ? "lightgreen" : "red"};`, text);
         }
       } catch (error) {
         console.error(`%c[DataError]`, "color: red;", error);
@@ -656,7 +626,6 @@
       paramList.appendChild(createParamRow("hello world", false));
       paramList.appendChild(createParamRow('{"example": true, "test":     {"number": [1,["b"],{"fruit":"peach"}]}}', true));
       paramList.appendChild(createParamRow(`[1,"2","three"]`, true));
-      paramList.appendChild(createParamRow(`[4,5,  6]`, true));
       paramList.appendChild(createSeparator("其他参数"));
       saveState();
     }
