@@ -295,8 +295,9 @@
       <input type="radio" name="merge_mode" value="parallel" checked>并列
       <input type="radio" name="merge_mode" value="fusion">融合
       <button class="btn-merge" onclick="console.log(getMergedParams())">控制台输出参数</button>
-      <button class="btn-batch-delete" onclick="batchDelete()">批量删除选中</button>
-      <button class="btn-init" onclick="initializeExample()">初始化参数</button>
+      <button class="btn-batch-delete" style="color: #c62828;" onclick="batchDelete()">批量删除选中</button>
+      <button style="color: #1976d2;" onclick="exportParams()">完整导出</button>
+      <button class="btn-init" onclick="initializeExample()">初始化</button>
     </div>
     <div id="param-list">
     </div>
@@ -306,6 +307,52 @@
     const paramList = document.getElementById("param-list");
     const selectAllCheckbox = document.getElementById("select-all");
     const STORAGE_KEY = "apidev-" + location.host;
+    /** 导出参数,复制到命令行回车完成导入 */
+    async function exportParams() {
+      // 1. 采集当前所有参数和分隔线的状态
+      const data = [];
+      Array.from(paramList.children).forEach(node => {
+        if (node.classList && node.classList.contains("param-row")) {
+          data.push({
+            type: "param",
+            value: node.querySelector("input[type=text]").value,
+            isChecked: node.querySelector("input[type=checkbox]").checked
+          });
+        } else if (node.classList && node.classList.contains("separator-row")) {
+          const labelText = node.querySelector(".separator-label span");
+          data.push({
+            type: "separator",
+            label: labelText ? labelText.textContent : "分隔线"
+          });
+        }
+      });
+
+      // 2. 将数据数组转换为 JSON 字符串
+      const dataString = JSON.stringify(data);
+
+      // 🔥 核心修复：对即将嵌入指令的字符串进行二次转义
+      // 将所有反斜杠 \ 替换为 \\
+      // 将所有单引号 ' 替换为 \' (因为我们的指令是用单引号包裹的)
+      const escapedDataString = dataString
+        .replace(/\\/g, '\\\\')
+        .replace(/'/g, "\\'");
+
+      // 3. 构建可执行的导入指令 (使用修复后的字符串)
+      const command = `localStorage.setItem('${STORAGE_KEY}', '${escapedDataString}'); location.reload();`;
+
+      // 4. 在控制台打印指令
+      console.log("✅ 已生成导入指令，请复制以下整行内容到控制台执行：");
+      console.log(command);
+
+      // 5. 尝试使用 Clipboard API 自动复制到剪贴板
+      try {
+        await navigator.clipboard.writeText(command);
+        alert("导出指令已生成并复制到剪贴板！\n请粘贴到目标页面的控制台并回车以导入。");
+      } catch (err) {
+        console.error("自动复制失败，请手动从控制台复制以上指令。", err);
+        alert("自动复制到剪贴板失败，请从控制台手动复制指令。");
+      }
+    }
 
     // ---- 拖拽功能 ----
     let draggedElement = null;
