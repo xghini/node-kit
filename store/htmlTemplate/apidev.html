@@ -326,31 +326,22 @@
           });
         }
       });
-
-      // 2. 将数据数组转换为 JSON 字符串
+      // 2. 将数据数组转换为 JSON 字符串并进行转义
       const dataString = JSON.stringify(data);
-
-      // 🔥 核心修复：对即将嵌入指令的字符串进行二次转义
-      // 将所有反斜杠 \ 替换为 \\
-      // 将所有单引号 ' 替换为 \' (因为我们的指令是用单引号包裹的)
       const escapedDataString = dataString
         .replace(/\\/g, '\\\\')
         .replace(/'/g, "\\'");
-
-      // 3. 构建可执行的导入指令 (使用修复后的字符串)
-      const command = `localStorage.setItem('${STORAGE_KEY}', '${escapedDataString}'); location.reload();`;
-
+      // 🔥 核心修复：不再硬编码 STORAGE_KEY，而是让指令动态生成它
+      // 将 'apidev-127.0.0.1:3000' 替换为 "apidev-" + location.host
+      const command = `localStorage.setItem("apidev-" + location.host, '${escapedDataString}'); location.reload();`;
       // 4. 在控制台打印指令
-      console.log("✅ 已生成导入指令，请复制以下整行内容到控制台执行：");
+      console.log("✅ 已生成导入指令并复制到剪贴板，请到目标控制台执行：");
       console.log(command);
-
       // 5. 尝试使用 Clipboard API 自动复制到剪贴板
       try {
         await navigator.clipboard.writeText(command);
-        alert("导出指令已生成并复制到剪贴板！\n请粘贴到目标页面的控制台并回车以导入。");
       } catch (err) {
-        console.error("自动复制失败，请手动从控制台复制以上指令。", err);
-        alert("自动复制到剪贴板失败，请从控制台手动复制指令。");
+        console.error("自动复制失败，请手动从控制台复制以上指令", err);
       }
     }
 
