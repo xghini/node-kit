@@ -128,16 +128,22 @@ async function add(str) {
 }
 /**
  * 删除指定前缀的所有A记录，需要先查出来，再根据id删除
- * @returns 删除的数量
+ * @returns 删除的数组
  */
 async function del(filter) {
   if (typeof filter === "object" && !filter.name && !filter.content) {
     console.warn("删除必须有name或content才能安全执行");
-    return 0;
+    return [];
   }
   let res = await this.find(filter);
-  const del_arr = res.map((v) => v.name + " " + v.type + " " + v.content);
-  if (res.length === 0) return 0;
+  const del_arr = res.map((v) => {
+    return {
+      name: v.name,
+      type: v.type,
+      content: v.content,
+    };
+  });
+  if (res.length === 0) return [];
   res = await Promise.all(
     res.map((record) =>
       qrun(() =>
@@ -150,8 +156,13 @@ async function del(filter) {
       )
     )
   );
-  console.warn(del_arr, res.length, `发生记录删除cf.del`);
-  return res.length;
+  console.warn(
+    del_arr.map((v) => v.name + " " + v.type + " " + v.content),
+    res.length,
+    `发生记录删除cf.del`
+  );
+  console.log(res);
+  return del_arr;
 }
 /**
  * 智能处理dns参数为标准规格
@@ -169,7 +180,6 @@ function dnsObj(dnsParam, option = "") {
   } else {
     ({ name, content, type, priority, proxied, ttl } = dnsParam);
   }
-  if (name && !name.includes(".")) name = name + "." + this.domain;
   if (option === "set") {
     if (!content) {
       content = name;
@@ -186,6 +196,8 @@ function dnsObj(dnsParam, option = "") {
     } else type = type.toUpperCase();
     option = "find";
   }
+  if (name && !name.includes("." + this.domain))
+    name = name + "." + this.domain;
   if (option === "find") {
     const tmp = {};
     if (name) tmp.name = name;
@@ -236,53 +248,17 @@ async function set(filter, json) {
   if (!json.name) json.name = filter.name;
   console.log(filter);
   console.log(json);
-  let res = await this.find(filter);
+  let res = await this.del(filter);
   console.log(res);
-  return;
-  const json_arr = res.map((v) => {
-    delete v.id;
-    return {
-      ...v,
-      ...json,
-    };
-  });
-  console.log(json_arr);
-  return;
-  if (typeof filter === "object") {
-    if (!filter.name && !filter.content) {
-      console.warn("set必须有name或content才能安全执行");
-      return 0;
-    } else if (!filter.name && filter.content) {
-      console.log(`set object，没有name只有content，沿用原名`);
-    }
-  } else if (typeof filter === "string") {
-    if (content) {
-      filter = { name: filter };
-      console.log(`set字符串常规情况`, filter, content);
-    } else {
-      if (filter.includes(" ") && filter.includes(",")) {
-        let [name, contents, ttl] = filter
-          .trim()
-          .replace(/ +/g, " ")
-          .split(" ");
-        contents = contents.split(",").filter((v) => v); 
-        console.log(`set字符串特定情况`, contents);
-        if (contents.length > 0) {
-          await this.del(name);
-          const res = await Promise.all(
-            contents.map((content) =>
-              qrun(() => this.add({ name, content, ttl }))
-            )
-          );
-          return res.reduce((sum, v) => sum + v, 0);
-        }
-      }
-    }
+  if (!json.name) {
+    if (res.length === 0) return 0;
+    return (
+      await Promise.all(
+        res.map((v) => this.add({ ...json, ...{ name: v.name } }))
+      )
+    ).reduce((pre, cur) => pre + cur, 0);
   }
-  console.log(`set常规情况`, filter);
-  await this.del(filter);
-  if (content) filter.content = content;
-  return this.add(filter);
+  return this.add(json);
 }
 async function mset(arr) {
   const grouped = new Map();

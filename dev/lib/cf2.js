@@ -141,16 +141,22 @@ async function add(str) {
 }
 /**
  * 删除指定前缀的所有A记录，需要先查出来，再根据id删除
- * @returns 删除的数量
+ * @returns 删除的数组
  */
 async function del(filter) {
   if (typeof filter === "object" && !filter.name && !filter.content) {
     console.warn("删除必须有name或content才能安全执行");
-    return 0;
+    return [];
   }
   let res = await this.find(filter);
-  const del_arr = res.map((v) => v.name + " " + v.type + " " + v.content);
-  if (res.length === 0) return 0;
+  const del_arr = res.map((v) => {
+    return {
+      name: v.name,
+      type: v.type,
+      content: v.content,
+    };
+  });
+  if (res.length === 0) return [];
   res = await Promise.all(
     res.map((record) =>
       qrun(() =>
@@ -164,8 +170,13 @@ async function del(filter) {
     )
   );
   // 涉及到删除，还是打印出来好
-  console.warn(del_arr, res.length, `发生记录删除cf.del`);
-  return res.length;
+  console.warn(
+    del_arr.map((v) => v.name + " " + v.type + " " + v.content),
+    res.length,
+    `发生记录删除cf.del`
+  );
+  console.log(res);
+  return del_arr;
 }
 
 /**
@@ -185,7 +196,6 @@ function dnsObj(dnsParam, option = "") {
   } else {
     ({ name, content, type, priority, proxied, ttl } = dnsParam);
   }
-  if (name && !name.includes(".")) name = name + "." + this.domain;
   if (option === "set") {
     if (!content) {
       content = name;
@@ -202,6 +212,8 @@ function dnsObj(dnsParam, option = "") {
     } else type = type.toUpperCase();
     option = "find";
   }
+  if (name && !name.includes("." + this.domain))
+    name = name + "." + this.domain;
   if (option === "find") {
     // 不默认参数值
     const tmp = {};
@@ -255,73 +267,17 @@ async function set(filter, json) {
   if (!json.name) json.name = filter.name;
   console.log(filter);
   console.log(json);
-  let res = await this.find(filter);
+  let res = await this.del(filter);
   console.log(res);
-  return;
-
-  const json_arr = res.map((v) => {
-    delete v.id;
-    return {
-      ...v,
-      ...json,
-    };
-  });
-  console.log(json_arr);
-  // 删掉，继承未设置的属性添加
-  // res = await Promise.all(
-  //   res.map((record) =>
-  //     qrun(() =>
-  //       retry(() => {
-  //         const reqUrl = `https://api.cloudflare.com/client/v4/zones/${this.zid}/dns_records/${record.id} delete`;
-  //         return this.headers && Object.keys(this.headers).length > 0
-  //           ? reqdata(reqUrl, this.headers)
-  //           : reqdata(reqUrl, { auth: this.auth });
-  //       })
-  //     )
-  //   )
-  // );
-  return;
-  if (typeof filter === "object") {
-    if (!filter.name && !filter.content) {
-      console.warn("set必须有name或content才能安全执行");
-      return 0;
-    } else if (!filter.name && filter.content) {
-      console.log(`set object，没有name只有content，沿用原名`);
-    }
-  } else if (typeof filter === "string") {
-    if (content) {
-      filter = { name: filter };
-      console.log(`set字符串常规情况`, filter, content);
-    } else {
-      // 如果是特殊含,的文本内容使用第二字段content设置
-      if (filter.includes(" ") && filter.includes(",")) {
-        // 此为约定的A或AAAA多对多情况 即`example 1.1.1.1,2.2.2.2,asdf,2001:b030:a42d:5d01::100 5` 裂变为多条add语句
-        let [name, contents, ttl] = filter
-          .trim()
-          .replace(/ +/g, " ")
-          .split(" ");
-        contents = contents.split(",").filter((v) => v); //确保,间隔有内容
-        console.log(`set字符串特定情况`, contents);
-        if (contents.length > 0) {
-          // 只要把内容分隔好就行,add会智能处理内容添加
-          await this.del(name);
-          const res = await Promise.all(
-            contents.map((content) =>
-              qrun(() => this.add({ name, content, ttl }))
-            )
-          );
-          return res.reduce((sum, v) => sum + v, 0);
-        }
-      }
-    }
+  if (!json.name) {
+    if (res.length === 0) return 0;
+    return (
+      await Promise.all(
+        res.map((v) => this.add({ ...json, ...{ name: v.name } }))
+      )
+    ).reduce((pre, cur) => pre + cur, 0);
   }
-  console.log(`set常规情况`, filter);
-  // 1.简单粗暴,删了再加
-  await this.del(filter);
-  if (content) filter.content = content;
-  return this.add(filter);
-  // 2.优化方案:先比对内容是否相同,相同则跳过删除且排除添加;不相同的删除,并行添加
-  // let res = await this.find(filter);
+  return this.add(json);
 }
 async function mset(arr) {
   const grouped = new Map();
