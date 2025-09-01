@@ -1,0 +1,27 @@
+export function cf2(obj: any): Promise<{
+    auth: string;
+    headers: {};
+    domain: any;
+    zid: any;
+    getZoneId: typeof getZoneId;
+    dnsObj: typeof dnsObj;
+    find: typeof find;
+    add: typeof add;
+    del: typeof del;
+    set: typeof set;
+    madd: typeof madd;
+    mdel: typeof mdel;
+    mset: typeof mset;
+    security: typeof security;
+}>;
+declare function getZoneId(): Promise<any>;
+declare function dnsObj(dnsParam: any, option?: any): any;
+declare function find(filter: any): Promise<any>;
+declare function add(str: string | any[] | any): Promise<0 | 1>;
+declare function del(filter: any): Promise<any>;
+declare function set(filter: any, json: any): Promise<any>;
+declare function madd(arr: any): Promise<any[]>;
+declare function mdel(arr: any): Promise<any[]>;
+declare function mset(arr: any): Promise<any[]>;
+declare function security(options?: {}): Promise<any>;
+export {};

@@ -6,7 +6,7 @@ export {
   xpath,
   fileurl2path,
   stamps,
-  date,  
+  date,
   now,
   sleep,
   interval,
@@ -47,6 +47,8 @@ export {
   xreq,
   ast_jsbuild,
   gcatch,
+  isipv4,
+  isipv6,
 };
 import { createRequire } from "module";
 import { parse } from "acorn";
@@ -66,6 +68,18 @@ const exeroot = findPackageJsonDir(exefile);
  */
 const metaroot = findPackageJsonDir(import.meta.dirname);
 let globalCatchError = false;
+/** isipv4 */
+function isipv4(ip) {
+  const ipv4Regex =
+    /^(?:(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\.){3}(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)$/;
+  return ipv4Regex.test(ip);
+}
+/** isipv6 */
+function isipv6(ip) {
+  const ipv6Regex =
+    /^(([0-9a-fA-F]{1,4}:){7,7}[0-9a-fA-F]{1,4}|([0-9a-fA-F]{1,4}:){1,7}:|([0-9a-fA-F]{1,4}:){1,6}:[0-9a-fA-F]{1,4}|([0-9a-fA-F]{1,4}:){1,5}(:[0-9a-fA-F]{1,4}){1,2}|([0-9a-fA-F]{1,4}:){1,4}(:[0-9a-fA-F]{1,4}){1,3}|([0-9a-fA-F]{1,4}:){1,3}(:[0-9a-fA-F]{1,4}){1,4}|([0-9a-fA-F]{1,4}:){1,2}(:[0-9a-fA-F]{1,4}){1,5}|[0-9a-fA-F]{1,4}:((:[0-9a-fA-F]{1,4}){1,6})|:((:[0-9a-fA-F]{1,4}){1,7}|:)|fe80:(:[0-9a-fA-F]{0,4}){0,4}%[0-9a-zA-Z]{1,}|::(ffff(:0{1,4}){0,1}:){0,1}((25[0-5]|(2[0-4]|1{0,1}[0-9]){0,1}[0-9])\.){3,3}(25[0-5]|(2[0-4]|1{0,1}[0-9]){0,1}[0-9])|([0-9a-fA-F]{1,4}:){1,4}:((25[0-5]|(2[0-4]|1{0,1}[0-9]){0,1}[0-9])\.){3,3}(25[0-5]|(2[0-4]|1{0,1}[0-9]){0,1}[0-9]))$/i;
+  return ipv6Regex.test(ip);
+}
 /** 根据日期获取秒时间戳,不传参数则获取当前秒时间戳 */
 function stamps(date) {
   return Math.floor((Date.parse(date) || Date.now()) / 1000);
@@ -186,7 +200,7 @@ function env(filePath, cover = false) {
     const content = parseENV(rf(filePath));
     if (cover) process.env = { ...process.env, ...content };
     else process.env = { ...content, ...process.env };
-    return content||{};
+    return content || {};
   } catch (error) {
     console.error(error);
   }
@@ -726,7 +740,7 @@ class TTLMap {
    */
   set(key, value, ttl) {
     if (ttl !== undefined && (!Number.isFinite(ttl) || ttl < 0)) {
-      throw new Error('TTL must be a non-negative finite number');
+      throw new Error("TTL must be a non-negative finite number");
     }
     const finalTTL = ttl === undefined ? this.defaultTTL : ttl;
     const expiryTime = finalTTL === Infinity ? Infinity : Date.now() + finalTTL;
@@ -755,7 +769,7 @@ class TTLMap {
       return false;
     }
     if (!Number.isFinite(ttl) || ttl < 0) {
-      throw new Error('TTL must be a non-negative finite number');
+      throw new Error("TTL must be a non-negative finite number");
     }
     const value = this.storage.get(key);
     this.set(key, value, ttl);
@@ -940,7 +954,11 @@ class TTLMap {
     this.heapIndices.set(lastElement.key, index);
     this.heapIndices.delete(key);
     const parentIndex = index > 0 ? Math.floor((index - 1) / 2) : 0;
-    if (index > 0 && this.expiryHeap[index].expiryTime < this.expiryHeap[parentIndex].expiryTime) {
+    if (
+      index > 0 &&
+      this.expiryHeap[index].expiryTime <
+        this.expiryHeap[parentIndex].expiryTime
+    ) {
       this._siftUp(index);
     } else {
       this._siftDown(index);

@@ -78,4 +78,6 @@ export function mreplace_calc(str: string, replacements: Array<[string | RegExp,
 export function xreq(path: string): object;
 export function ast_jsbuild(code: string): string;
 export function gcatch(open?: boolean): void;
+export function isipv4(ip: any): boolean;
+export function isipv6(ip: any): boolean;
 import fs from "fs";

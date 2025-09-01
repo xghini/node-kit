@@ -1,4 +1,4 @@
-export { exefile, exedir, exeroot, metaroot, xpath, fileurl2path, stamps, date, now, sleep, interval, timelog, ttl, TTLMap, rf, wf, mkdir, isdir, isfile, dir, exist, rm, cp, env, exe, arf, awf, amkdir, aisdir, aisfile, adir, aexist, arm, aonedir, astat, aloadyml, aloadjson, cookie_obj, cookie_str, cookie_merge, cookies_obj, cookies_str, cookies_merge, mreplace, mreplace_calc, xreq, ast_jsbuild, gcatch, };
+export { exefile, exedir, exeroot, metaroot, xpath, fileurl2path, stamps, date, now, sleep, interval, timelog, ttl, TTLMap, rf, wf, mkdir, isdir, isfile, dir, exist, rm, cp, env, exe, arf, awf, amkdir, aisdir, aisfile, adir, aexist, arm, aonedir, astat, aloadyml, aloadjson, cookie_obj, cookie_str, cookie_merge, cookies_obj, cookies_str, cookies_merge, mreplace, mreplace_calc, xreq, ast_jsbuild, gcatch, isipv4, isipv6, };
 import { createRequire } from "module";
 import { parse } from "acorn";
 import fs from "fs";
@@ -12,6 +12,14 @@ const exedir = dirname(exefile);
 const exeroot = findPackageJsonDir(exefile);
 const metaroot = findPackageJsonDir(import.meta.dirname);
 let globalCatchError = false;
+function isipv4(ip) {
+    const ipv4Regex = /^(?:(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\.){3}(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)$/;
+    return ipv4Regex.test(ip);
+}
+function isipv6(ip) {
+    const ipv6Regex = /^(([0-9a-fA-F]{1,4}:){7,7}[0-9a-fA-F]{1,4}|([0-9a-fA-F]{1,4}:){1,7}:|([0-9a-fA-F]{1,4}:){1,6}:[0-9a-fA-F]{1,4}|([0-9a-fA-F]{1,4}:){1,5}(:[0-9a-fA-F]{1,4}){1,2}|([0-9a-fA-F]{1,4}:){1,4}(:[0-9a-fA-F]{1,4}){1,3}|([0-9a-fA-F]{1,4}:){1,3}(:[0-9a-fA-F]{1,4}){1,4}|([0-9a-fA-F]{1,4}:){1,2}(:[0-9a-fA-F]{1,4}){1,5}|[0-9a-fA-F]{1,4}:((:[0-9a-fA-F]{1,4}){1,6})|:((:[0-9a-fA-F]{1,4}){1,7}|:)|fe80:(:[0-9a-fA-F]{0,4}){0,4}%[0-9a-zA-Z]{1,}|::(ffff(:0{1,4}){0,1}:){0,1}((25[0-5]|(2[0-4]|1{0,1}[0-9]){0,1}[0-9])\.){3,3}(25[0-5]|(2[0-4]|1{0,1}[0-9]){0,1}[0-9])|([0-9a-fA-F]{1,4}:){1,4}:((25[0-5]|(2[0-4]|1{0,1}[0-9]){0,1}[0-9])\.){3,3}(25[0-5]|(2[0-4]|1{0,1}[0-9]){0,1}[0-9]))$/i;
+    return ipv6Regex.test(ip);
+}
 function stamps(date) {
     return Math.floor((Date.parse(date) || Date.now()) / 1000);
 }
@@ -573,7 +581,7 @@ class TTLMap {
     }
     set(key, value, ttl) {
         if (ttl !== undefined && (!Number.isFinite(ttl) || ttl < 0)) {
-            throw new Error('TTL must be a non-negative finite number');
+            throw new Error("TTL must be a non-negative finite number");
         }
         const finalTTL = ttl === undefined ? this.defaultTTL : ttl;
         const expiryTime = finalTTL === Infinity ? Infinity : Date.now() + finalTTL;
@@ -596,7 +604,7 @@ class TTLMap {
             return false;
         }
         if (!Number.isFinite(ttl) || ttl < 0) {
-            throw new Error('TTL must be a non-negative finite number');
+            throw new Error("TTL must be a non-negative finite number");
         }
         const value = this.storage.get(key);
         this.set(key, value, ttl);
@@ -729,7 +737,9 @@ class TTLMap {
         this.heapIndices.set(lastElement.key, index);
         this.heapIndices.delete(key);
         const parentIndex = index > 0 ? Math.floor((index - 1) / 2) : 0;
-        if (index > 0 && this.expiryHeap[index].expiryTime < this.expiryHeap[parentIndex].expiryTime) {
+        if (index > 0 &&
+            this.expiryHeap[index].expiryTime <
+                this.expiryHeap[parentIndex].expiryTime) {
             this._siftUp(index);
         }
         else {

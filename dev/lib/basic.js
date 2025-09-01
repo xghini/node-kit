@@ -8,7 +8,7 @@ export {
   fileurl2path,
   // 时间相关
   stamps,
-  date,  
+  date,
   now,
   sleep,
   interval,
@@ -52,6 +52,8 @@ export {
   xreq,
   ast_jsbuild,
   gcatch,
+  isipv4,
+  isipv6,
 };
 import { createRequire } from "module";
 import { parse } from "acorn";
@@ -72,6 +74,24 @@ const exeroot = findPackageJsonDir(exefile);
 const metaroot = findPackageJsonDir(import.meta.dirname);
 
 let globalCatchError = false;
+
+/** isipv4 */
+function isipv4(ip) {
+  // 用于验证 IPv4 地址的正则表达式
+  // 匹配 0.0.0.0 到 255.255.255.255
+  const ipv4Regex =
+    /^(?:(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\.){3}(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)$/;
+  return ipv4Regex.test(ip);
+}
+/** isipv6 */
+function isipv6(ip) {
+  // 用于验证 IPv6 地址的正则表达式 (一个比较全面的版本)
+  // 能够处理各种缩写形式，例如 ::1
+  const ipv6Regex =
+    /^(([0-9a-fA-F]{1,4}:){7,7}[0-9a-fA-F]{1,4}|([0-9a-fA-F]{1,4}:){1,7}:|([0-9a-fA-F]{1,4}:){1,6}:[0-9a-fA-F]{1,4}|([0-9a-fA-F]{1,4}:){1,5}(:[0-9a-fA-F]{1,4}){1,2}|([0-9a-fA-F]{1,4}:){1,4}(:[0-9a-fA-F]{1,4}){1,3}|([0-9a-fA-F]{1,4}:){1,3}(:[0-9a-fA-F]{1,4}){1,4}|([0-9a-fA-F]{1,4}:){1,2}(:[0-9a-fA-F]{1,4}){1,5}|[0-9a-fA-F]{1,4}:((:[0-9a-fA-F]{1,4}){1,6})|:((:[0-9a-fA-F]{1,4}){1,7}|:)|fe80:(:[0-9a-fA-F]{0,4}){0,4}%[0-9a-zA-Z]{1,}|::(ffff(:0{1,4}){0,1}:){0,1}((25[0-5]|(2[0-4]|1{0,1}[0-9]){0,1}[0-9])\.){3,3}(25[0-5]|(2[0-4]|1{0,1}[0-9]){0,1}[0-9])|([0-9a-fA-F]{1,4}:){1,4}:((25[0-5]|(2[0-4]|1{0,1}[0-9]){0,1}[0-9])\.){3,3}(25[0-5]|(2[0-4]|1{0,1}[0-9]){0,1}[0-9]))$/i;
+  return ipv6Regex.test(ip);
+}
+
 /*XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX*/
 /** 根据日期获取秒时间戳,不传参数则获取当前秒时间戳 */
 function stamps(date) {
@@ -215,7 +235,7 @@ function env(filePath, cover = false) {
     const content = parseENV(rf(filePath));
     if (cover) process.env = { ...process.env, ...content };
     else process.env = { ...content, ...process.env };
-    return content||{};
+    return content || {};
   } catch (error) {
     console.error(error);
   }
@@ -890,21 +910,21 @@ class TTLMap {
   set(key, value, ttl) {
     // Validate TTL
     if (ttl !== undefined && (!Number.isFinite(ttl) || ttl < 0)) {
-      throw new Error('TTL must be a non-negative finite number');
+      throw new Error("TTL must be a non-negative finite number");
     }
 
     const finalTTL = ttl === undefined ? this.defaultTTL : ttl;
     const expiryTime = finalTTL === Infinity ? Infinity : Date.now() + finalTTL;
-    
+
     // Store the value and expiry time
     this.storage.set(key, value);
     this.expiryMap.set(key, expiryTime);
-    
+
     // Remove existing entry from heap if present
     if (this.heapIndices.has(key)) {
       this._removeFromHeap(key);
     }
-    
+
     // Add to heap if it has a finite expiry time
     if (expiryTime !== Infinity) {
       const heapItem = { key, expiryTime };
@@ -912,10 +932,10 @@ class TTLMap {
       this.heapIndices.set(key, this.expiryHeap.length - 1);
       this._siftUp(this.expiryHeap.length - 1);
     }
-    
+
     // Clean up expired items if needed
     this._lazyCleanup();
-    
+
     return this;
   }
 
@@ -929,12 +949,12 @@ class TTLMap {
     if (!this.storage.has(key)) {
       return false;
     }
-    
+
     // Validate TTL
     if (!Number.isFinite(ttl) || ttl < 0) {
-      throw new Error('TTL must be a non-negative finite number');
+      throw new Error("TTL must be a non-negative finite number");
     }
-    
+
     const value = this.storage.get(key);
     this.set(key, value, ttl);
     return true;
@@ -950,17 +970,17 @@ class TTLMap {
     if (expiryTime === undefined) {
       return undefined;
     }
-    
+
     if (expiryTime === Infinity) {
       return Infinity;
     }
-    
+
     const remaining = expiryTime - Date.now();
     if (remaining <= 0) {
       this.delete(key);
       return undefined;
     }
-    
+
     return remaining;
   }
 
@@ -974,14 +994,14 @@ class TTLMap {
     if (!this.storage.has(key)) {
       return undefined;
     }
-    
+
     // Check if expired
     const expiryTime = this.expiryMap.get(key);
     if (expiryTime !== Infinity && expiryTime <= Date.now()) {
       this.delete(key);
       return undefined;
     }
-    
+
     return this.storage.get(key);
   }
 
@@ -994,13 +1014,13 @@ class TTLMap {
     if (!this.storage.has(key)) {
       return false;
     }
-    
+
     const expiryTime = this.expiryMap.get(key);
     if (expiryTime !== Infinity && expiryTime <= Date.now()) {
       this.delete(key);
       return false;
     }
-    
+
     return true;
   }
 
@@ -1041,14 +1061,14 @@ class TTLMap {
     if (!existed) {
       return false;
     }
-    
+
     this.expiryMap.delete(key);
-    
+
     // Remove from heap if present
     if (this.heapIndices.has(key)) {
       this._removeFromHeap(key);
     }
-    
+
     return true;
   }
 
@@ -1078,25 +1098,25 @@ class TTLMap {
    */
   _siftUp(index) {
     if (index === 0) return;
-    
+
     const element = this.expiryHeap[index];
-    
+
     while (index > 0) {
       const parentIndex = Math.floor((index - 1) / 2);
       const parent = this.expiryHeap[parentIndex];
-      
+
       if (element.expiryTime >= parent.expiryTime) {
         break;
       }
-      
+
       // Swap with parent
       this.expiryHeap[index] = parent;
       this.expiryHeap[parentIndex] = element;
-      
+
       // Update indices map
       this.heapIndices.set(parent.key, index);
       this.heapIndices.set(element.key, parentIndex);
-      
+
       // Move up
       index = parentIndex;
     }
@@ -1111,11 +1131,11 @@ class TTLMap {
     const heapLength = this.expiryHeap.length;
     const element = this.expiryHeap[index];
     const halfLength = Math.floor(heapLength / 2);
-    
+
     while (index < halfLength) {
       let childIndex = 2 * index + 1;
       let child = this.expiryHeap[childIndex];
-      
+
       // Find the smaller child
       const rightChildIndex = childIndex + 1;
       if (rightChildIndex < heapLength) {
@@ -1125,19 +1145,19 @@ class TTLMap {
           child = rightChild;
         }
       }
-      
+
       if (element.expiryTime <= child.expiryTime) {
         break;
       }
-      
+
       // Swap with child
       this.expiryHeap[index] = child;
       this.expiryHeap[childIndex] = element;
-      
+
       // Update indices map
       this.heapIndices.set(child.key, index);
       this.heapIndices.set(element.key, childIndex);
-      
+
       // Move down
       index = childIndex;
     }
@@ -1151,25 +1171,29 @@ class TTLMap {
   _removeFromHeap(key) {
     const index = this.heapIndices.get(key);
     if (index === undefined) return;
-    
+
     const lastIndex = this.expiryHeap.length - 1;
-    
+
     // If it's the last element, simple removal
     if (index === lastIndex) {
       this.expiryHeap.pop();
       this.heapIndices.delete(key);
       return;
     }
-    
+
     // Replace with the last element and reheapify
     const lastElement = this.expiryHeap.pop();
     this.expiryHeap[index] = lastElement;
     this.heapIndices.set(lastElement.key, index);
     this.heapIndices.delete(key);
-    
+
     // Fix heap property
     const parentIndex = index > 0 ? Math.floor((index - 1) / 2) : 0;
-    if (index > 0 && this.expiryHeap[index].expiryTime < this.expiryHeap[parentIndex].expiryTime) {
+    if (
+      index > 0 &&
+      this.expiryHeap[index].expiryTime <
+        this.expiryHeap[parentIndex].expiryTime
+    ) {
       this._siftUp(index);
     } else {
       this._siftDown(index);
@@ -1182,34 +1206,34 @@ class TTLMap {
    */
   _lazyCleanup() {
     const now = Date.now();
-    
+
     // Control cleanup frequency
     if (now - this.lastCleanup < this.cleanupInterval) {
       return;
     }
-    
+
     // Clean up expired items from the top of the heap
     while (this.expiryHeap.length > 0) {
       const top = this.expiryHeap[0];
       if (top.expiryTime > now) {
         break;
       }
-      
+
       // Remove expired item from all data structures
       this.storage.delete(top.key);
       this.expiryMap.delete(top.key);
-      
+
       // Remove from heap and update indices
       const lastElement = this.expiryHeap.pop();
       this.heapIndices.delete(top.key);
-      
+
       if (this.expiryHeap.length > 0 && top !== lastElement) {
         this.expiryHeap[0] = lastElement;
         this.heapIndices.set(lastElement.key, 0);
         this._siftDown(0);
       }
     }
-    
+
     this.lastCleanup = now;
   }
 
@@ -1220,18 +1244,18 @@ class TTLMap {
   cleanup() {
     const sizeBefore = this.storage.size;
     const now = Date.now();
-    
+
     // Clean up expired items from the top of the heap
     while (this.expiryHeap.length > 0) {
       const top = this.expiryHeap[0];
       if (top.expiryTime > now) {
         break;
       }
-      
+
       // Remove expired item
       this.delete(top.key);
     }
-    
+
     this.lastCleanup = now;
     return sizeBefore - this.storage.size;
   }

@@ -63,6 +63,8 @@ declare const _default: {
     xreq: typeof index.xreq;
     ast_jsbuild: typeof index.ast_jsbuild;
     gcatch: typeof index.gcatch;
+    isipv4: typeof index.isipv4;
+    isipv6: typeof index.isipv6;
     cs: typeof index.cs;
     csm: typeof index.csm;
     cdev: typeof index.cdev;
@@ -126,6 +128,7 @@ declare const _default: {
     zstd_compress: typeof index.zstd_compress;
     zstd_decompress: typeof index.zstd_decompress;
     cf: typeof index.cf;
+    cf2: typeof index.cf2;
     pb: 1125899906842624;
     tb: 1099511627776;
     gb: 1073741824;
