@@ -10,11 +10,11 @@ function hd_stream(server, stream, headers) {
         let notresponded = true;
         let respond_headers = { ":status": 200 };
         const direct_ip = function () {
-            if (this.startsWith("::ffff:"))
+            if (this?.startsWith("::ffff:"))
                 return this.slice(7);
             else
                 return this;
-        }.call(stream.ip || stream.session.socket.remoteAddress);
+        }.call(stream.ip || stream?.session?.socket?.remoteAddress);
         let url;
         try {
             url = new URL(`${headers[":scheme"]}://${headers[":authority"] || "_"}${headers[":path"]}`);

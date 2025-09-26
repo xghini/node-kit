@@ -139,7 +139,6 @@ async function del(filter) {
             : reqdata(reqUrl, { auth: this.auth });
     }))));
     console.warn(del_arr.map((v) => v.name + " " + v.type + " " + v.content), res.length, `发生记录删除cf.del`);
-    console.log(res);
     return del_arr;
 }
 function dnsObj(dnsParam, option = "") {
@@ -230,10 +229,7 @@ async function set(filter, json) {
         filter.type = json.type;
     if (!json.name)
         json.name = filter.name;
-    console.log(filter);
-    console.log(json);
     let res = await this.del(filter);
-    console.log(res);
     if (!json.name) {
         if (res.length === 0)
             return 0;

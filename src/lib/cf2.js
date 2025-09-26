@@ -161,7 +161,6 @@ async function del(filter) {
     res.length,
     `发生记录删除cf.del`
   );
-  console.log(res);
   return del_arr;
 }
 /**
@@ -246,10 +245,7 @@ async function set(filter, json) {
   json = this.dnsObj(json, "set");
   if (!filter.type) filter.type = json.type;
   if (!json.name) json.name = filter.name;
-  console.log(filter);
-  console.log(json);
   let res = await this.del(filter);
-  console.log(res);
   if (!json.name) {
     if (res.length === 0) return 0;
     return (
