@@ -65,6 +65,7 @@ declare const _default: {
     gcatch: typeof index.gcatch;
     isipv4: typeof index.isipv4;
     isipv6: typeof index.isipv6;
+    tcpping: typeof index.tcpping;
     cs: typeof index.cs;
     csm: typeof index.csm;
     cdev: typeof index.cdev;

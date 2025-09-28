@@ -49,6 +49,7 @@ export {
   gcatch,
   isipv4,
   isipv6,
+  tcpping,
 };
 import { createRequire } from "module";
 import { parse } from "acorn";
@@ -56,6 +57,8 @@ import fs from "fs";
 import { dirname, resolve, join, normalize, isAbsolute, sep } from "path";
 import yaml from "yaml";
 import { exec } from "child_process";
+import net from "net";
+import { performance } from "perf_hooks"; 
 const platform = process.platform; 
 const slice_len_file = platform == "win32" ? 8 : 7;
 const exefile =
@@ -68,6 +71,26 @@ const exeroot = findPackageJsonDir(exefile);
  */
 const metaroot = findPackageJsonDir(import.meta.dirname);
 let globalCatchError = false;
+/** tcpping @returns 返回延迟 | false */
+function tcpping(ip, port = 443, timeout = 2000) {
+  return new Promise((resolve) => {
+    const socket = new net.Socket();
+    socket.setTimeout(timeout);
+    const startTime = performance.now(); 
+    socket.connect(port, ip, () => {
+      resolve(Math.round(performance.now() - startTime));
+      socket.destroy();
+    });
+    socket.on("timeout", () => {
+      socket.destroy();
+      resolve(false); 
+    });
+    socket.on("error", (err) => {
+      socket.destroy();
+      resolve(false); 
+    });
+  });
+}
 /** isipv4 */
 function isipv4(ip) {
   const ipv4Regex =

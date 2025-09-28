@@ -54,6 +54,7 @@ export {
   gcatch,
   isipv4,
   isipv6,
+  tcpping,
 };
 import { createRequire } from "module";
 import { parse } from "acorn";
@@ -61,6 +62,8 @@ import fs from "fs";
 import { dirname, resolve, join, normalize, isAbsolute, sep } from "path";
 import yaml from "yaml";
 import { exec } from "child_process";
+import net from "net";
+import { performance } from "perf_hooks"; // 用于更精确地计时
 const platform = process.platform; //win32|linux|darwin
 const slice_len_file = platform == "win32" ? 8 : 7;
 const exefile =
@@ -75,6 +78,27 @@ const metaroot = findPackageJsonDir(import.meta.dirname);
 
 let globalCatchError = false;
 
+/** tcpping @returns 返回延迟 | false */
+function tcpping(ip, port = 443, timeout = 2000) {
+  //返回一个Promise，以便我们可以用async/await来获取异步操作的结果
+  return new Promise((resolve) => {
+    const socket = new net.Socket();
+    socket.setTimeout(timeout);
+    const startTime = performance.now(); //在连接前记录开始时间
+    socket.connect(port, ip, () => {
+      resolve(Math.round(performance.now() - startTime));
+      socket.destroy();
+    });
+    socket.on("timeout", () => {
+      socket.destroy();
+      resolve(false); //超时，resolve(false)
+    });
+    socket.on("error", (err) => {
+      socket.destroy();
+      resolve(false); //发生任何错误，都resolve(false)
+    });
+  });
+}
 /** isipv4 */
 function isipv4(ip) {
   // 用于验证 IPv4 地址的正则表达式

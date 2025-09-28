@@ -1,10 +1,12 @@
-export { exefile, exedir, exeroot, metaroot, xpath, fileurl2path, stamps, date, now, sleep, interval, timelog, ttl, TTLMap, rf, wf, mkdir, isdir, isfile, dir, exist, rm, cp, env, exe, arf, awf, amkdir, aisdir, aisfile, adir, aexist, arm, aonedir, astat, aloadyml, aloadjson, cookie_obj, cookie_str, cookie_merge, cookies_obj, cookies_str, cookies_merge, mreplace, mreplace_calc, xreq, ast_jsbuild, gcatch, isipv4, isipv6, };
+export { exefile, exedir, exeroot, metaroot, xpath, fileurl2path, stamps, date, now, sleep, interval, timelog, ttl, TTLMap, rf, wf, mkdir, isdir, isfile, dir, exist, rm, cp, env, exe, arf, awf, amkdir, aisdir, aisfile, adir, aexist, arm, aonedir, astat, aloadyml, aloadjson, cookie_obj, cookie_str, cookie_merge, cookies_obj, cookies_str, cookies_merge, mreplace, mreplace_calc, xreq, ast_jsbuild, gcatch, isipv4, isipv6, tcpping, };
 import { createRequire } from "module";
 import { parse } from "acorn";
 import fs from "fs";
 import { dirname, resolve, join, normalize, isAbsolute, sep } from "path";
 import yaml from "yaml";
 import { exec } from "child_process";
+import net from "net";
+import { performance } from "perf_hooks";
 const platform = process.platform;
 const slice_len_file = platform == "win32" ? 8 : 7;
 const exefile = process.env.KIT_EXEPATH || process.env.KIT_EXEFILE || process.argv[1];
@@ -12,6 +14,25 @@ const exedir = dirname(exefile);
 const exeroot = findPackageJsonDir(exefile);
 const metaroot = findPackageJsonDir(import.meta.dirname);
 let globalCatchError = false;
+function tcpping(ip, port = 443, timeout = 2000) {
+    return new Promise((resolve) => {
+        const socket = new net.Socket();
+        socket.setTimeout(timeout);
+        const startTime = performance.now();
+        socket.connect(port, ip, () => {
+            resolve(Math.round(performance.now() - startTime));
+            socket.destroy();
+        });
+        socket.on("timeout", () => {
+            socket.destroy();
+            resolve(false);
+        });
+        socket.on("error", (err) => {
+            socket.destroy();
+            resolve(false);
+        });
+    });
+}
 function isipv4(ip) {
     const ipv4Regex = /^(?:(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\.){3}(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)$/;
     return ipv4Regex.test(ip);
