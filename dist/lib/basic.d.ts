@@ -81,4 +81,5 @@ export function gcatch(open?: boolean): void;
 export function isipv4(ip: any): boolean;
 export function isipv6(ip: any): boolean;
 export function tcpping(ip: any, port?: number, timeout?: number): Promise<any>;
+export function getip(domain: string): Promise<string | null>;
 import fs from "fs";

@@ -1,4 +1,4 @@
-export { exefile, exedir, exeroot, metaroot, xpath, fileurl2path, stamps, date, now, sleep, interval, timelog, ttl, TTLMap, rf, wf, mkdir, isdir, isfile, dir, exist, rm, cp, env, exe, arf, awf, amkdir, aisdir, aisfile, adir, aexist, arm, aonedir, astat, aloadyml, aloadjson, cookie_obj, cookie_str, cookie_merge, cookies_obj, cookies_str, cookies_merge, mreplace, mreplace_calc, xreq, ast_jsbuild, gcatch, isipv4, isipv6, tcpping, };
+export { exefile, exedir, exeroot, metaroot, xpath, fileurl2path, stamps, date, now, sleep, interval, timelog, ttl, TTLMap, rf, wf, mkdir, isdir, isfile, dir, exist, rm, cp, env, exe, arf, awf, amkdir, aisdir, aisfile, adir, aexist, arm, aonedir, astat, aloadyml, aloadjson, cookie_obj, cookie_str, cookie_merge, cookies_obj, cookies_str, cookies_merge, mreplace, mreplace_calc, xreq, ast_jsbuild, gcatch, isipv4, isipv6, tcpping, getip, };
 import { createRequire } from "module";
 import { parse } from "acorn";
 import fs from "fs";
@@ -7,6 +7,7 @@ import yaml from "yaml";
 import { exec } from "child_process";
 import net from "net";
 import { performance } from "perf_hooks";
+import dns from 'dns/promises';
 const platform = process.platform;
 const slice_len_file = platform == "win32" ? 8 : 7;
 const exefile = process.env.KIT_EXEPATH || process.env.KIT_EXEFILE || process.argv[1];
@@ -14,6 +15,19 @@ const exedir = dirname(exefile);
 const exeroot = findPackageJsonDir(exefile);
 const metaroot = findPackageJsonDir(import.meta.dirname);
 let globalCatchError = false;
+async function getip(domain) {
+    if (!domain || typeof domain !== 'string') {
+        console.error("错误：提供的域名无效。");
+        return null;
+    }
+    try {
+        const { address } = await dns.lookup(domain);
+        return address;
+    }
+    catch (error) {
+        return null;
+    }
+}
 function tcpping(ip, port = 443, timeout = 2000) {
     return new Promise((resolve) => {
         const socket = new net.Socket();

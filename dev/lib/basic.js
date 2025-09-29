@@ -55,6 +55,7 @@ export {
   isipv4,
   isipv6,
   tcpping,
+  getip,
 };
 import { createRequire } from "module";
 import { parse } from "acorn";
@@ -64,6 +65,7 @@ import yaml from "yaml";
 import { exec } from "child_process";
 import net from "net";
 import { performance } from "perf_hooks"; // 用于更精确地计时
+import dns from 'dns/promises';
 const platform = process.platform; //win32|linux|darwin
 const slice_len_file = platform == "win32" ? 8 : 7;
 const exefile =
@@ -78,6 +80,29 @@ const metaroot = findPackageJsonDir(import.meta.dirname);
 
 let globalCatchError = false;
 
+
+/**
+ * 根据域名获取其IP地址。
+ * @param {string} domain 需要查询的域名。
+ * @returns {Promise<string|null>} 返回一个 Promise，成功时解析为 IP 地址字符串，失败时解析为 null。
+ */
+async function getip(domain) {
+  //输入验证，确保domain是有效的非空字符串
+  if (!domain || typeof domain !== 'string') {
+    console.error("错误：提供的域名无效。");
+    return null;
+  }
+
+  try {
+    // dns.lookup 会查找域名并返回第一个找到的 A (IPv4) 或 AAAA (IPv6) 记录
+    const { address } = await dns.lookup(domain);
+    return address;
+  } catch (error) {
+    // ECONNREFUSED、ENOTFOUND 等错误都会在这里被捕获
+    // console.error(`无法解析域名 '${domain}': ${error.code}`); //可以在需要时取消注释来调试
+    return null; // 解析失败时返回 null
+  }
+}
 /** tcpping @returns 返回延迟 | false */
 function tcpping(ip, port = 443, timeout = 2000) {
   //返回一个Promise，以便我们可以用async/await来获取异步操作的结果

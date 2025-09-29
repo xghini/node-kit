@@ -50,6 +50,7 @@ export {
   isipv4,
   isipv6,
   tcpping,
+  getip,
 };
 import { createRequire } from "module";
 import { parse } from "acorn";
@@ -59,6 +60,7 @@ import yaml from "yaml";
 import { exec } from "child_process";
 import net from "net";
 import { performance } from "perf_hooks"; 
+import dns from 'dns/promises';
 const platform = process.platform; 
 const slice_len_file = platform == "win32" ? 8 : 7;
 const exefile =
@@ -71,6 +73,23 @@ const exeroot = findPackageJsonDir(exefile);
  */
 const metaroot = findPackageJsonDir(import.meta.dirname);
 let globalCatchError = false;
+/**
+ * 根据域名获取其IP地址。
+ * @param {string} domain 需要查询的域名。
+ * @returns {Promise<string|null>} 返回一个 Promise，成功时解析为 IP 地址字符串，失败时解析为 null。
+ */
+async function getip(domain) {
+  if (!domain || typeof domain !== 'string') {
+    console.error("错误：提供的域名无效。");
+    return null;
+  }
+  try {
+    const { address } = await dns.lookup(domain);
+    return address;
+  } catch (error) {
+    return null; 
+  }
+}
 /** tcpping @returns 返回延迟 | false */
 function tcpping(ip, port = 443, timeout = 2000) {
   return new Promise((resolve) => {
