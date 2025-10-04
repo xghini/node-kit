@@ -74,6 +74,6 @@ async function insert(pg, table, data, options = {}) {
         return [err, null];
     }
     const duration = Date.now() - startTime;
-    console.log(`✅ 总共成功插入 ${totalRowCount} 条数据，耗时 ${duration}ms (${(duration / 1000).toFixed(2)}s)`);
+    console.log(`✅ 总共成功插入 ${res.rowCount} 条数据，耗时 ${duration}ms (${(duration / 1000).toFixed(2)}s)`);
     return [null, res.rowCount];
 }
