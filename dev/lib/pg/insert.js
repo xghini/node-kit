@@ -74,7 +74,7 @@ async function insert(pg, table, data, options = {}) {
         duration / 1000
       ).toFixed(2)}s)`
     );
-    return [null, { rowCount: totalRowCount }];
+    return [null, totalRowCount];
   }
 
   // --- 单批插入逻辑（原有代码） ---

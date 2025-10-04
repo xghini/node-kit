@@ -27,7 +27,7 @@ async function insert(pg, table, data, options = {}) {
         }
         const duration = Date.now() - startTime;
         console.log(`✅ 总共成功插入 ${totalRowCount} 条数据，耗时 ${duration}ms (${(duration / 1000).toFixed(2)}s)`);
-        return [null, { rowCount: totalRowCount }];
+        return [null, totalRowCount];
     }
     const valuePlaceholders = [];
     const params = [];

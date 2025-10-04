@@ -65,7 +65,7 @@ async function insert(pg, table, data, options = {}) {
         duration / 1000
       ).toFixed(2)}s)`
     );
-    return [null, { rowCount: totalRowCount }];
+    return [null, totalRowCount];
   }
   const valuePlaceholders = [];
   const params = [];
