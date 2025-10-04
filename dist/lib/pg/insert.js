@@ -23,7 +23,6 @@ async function insert(pg, table, data, options = {}) {
                 return [err, null];
             }
             totalRowCount += res.rowCount;
-            console.log(`批次 ${batchNum}/${totalBatches}: 插入 ${res.rowCount} 条`);
         }
         console.log(`✅ 总共成功插入 ${totalRowCount} 条数据`);
         return [null, { rowCount: totalRowCount }];
@@ -39,7 +38,6 @@ async function insert(pg, table, data, options = {}) {
     let onConflictClause = "";
     if (onconflict) {
         if (typeof onconflict === "string") {
-            console.log(`CONFLICT: DO NOTHING`);
             onConflictClause = `ON CONFLICT ("${onconflict}") DO NOTHING`;
         }
         else if (Array.isArray(onconflict)) {
@@ -72,6 +70,5 @@ async function insert(pg, table, data, options = {}) {
         console.error("批量插入失败:", err.message);
         return [err, null];
     }
-    console.log(`操作完成，成功插入 ${res.rowCount} 条数据。`);
     return [null, res];
 }
