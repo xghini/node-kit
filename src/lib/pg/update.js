@@ -97,7 +97,7 @@ async function batchUpdate(pool, table, dataArray, options = {}) {
   const updateFieldCount = allKeys.length - whereColumns.length;
   const paramsPerRow = whereColumns.length + updateFieldCount;
   const MAX_PARAMS = 55000;
-  const BATCH_SIZE = Math.floor(MAX_PARAMS / (paramsPerRow * 2)); 
+  const BATCH_SIZE = Math.min(Math.floor(MAX_PARAMS / (paramsPerRow * 2)),2000); 
   if (dataArray.length > BATCH_SIZE) {
     if (!silent) {
       console.log(

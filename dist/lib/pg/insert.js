@@ -8,7 +8,7 @@ async function insert(pg, table, data, options = {}) {
     const columns = Object.keys(data[0]);
     const columnCount = columns.length;
     const MAX_PARAMS = 60000;
-    const BATCH_SIZE = Math.floor(MAX_PARAMS / columnCount);
+    const BATCH_SIZE = Math.min(Math.floor(MAX_PARAMS / columnCount), 2000);
     if (data.length > BATCH_SIZE) {
         console.log(`数据: ${data.length}条 × ${columnCount}字段 = ${data.length * columnCount}参数，` +
             `将分 ${Math.ceil(data.length / BATCH_SIZE)} 批插入（每批${BATCH_SIZE}条）...`);

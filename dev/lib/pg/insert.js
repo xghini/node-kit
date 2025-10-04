@@ -33,48 +33,52 @@ export { insert };
 async function insert(pg, table, data, options = {}) {
   if (!Array.isArray(data)) data = [data];
   if (typeof data[0] !== "object") return console.error("data数据结构不正确");
-  
+
   const { onconflict } = options;
   const columns = Object.keys(data[0]);
   const columnCount = columns.length;
-  
+
   // ✅ 自适应分批：根据字段数动态计算每批大小
   const MAX_PARAMS = 60000; // 安全阈值（PostgreSQL上限65535，留余量）
-  const BATCH_SIZE = Math.floor(MAX_PARAMS / columnCount);
-  
+  const BATCH_SIZE = Math.min(Math.floor(MAX_PARAMS / columnCount), 2000);
+
   // 如果数据量超过单批限制，自动分批
   if (data.length > BATCH_SIZE) {
     console.log(
-      `数据: ${data.length}条 × ${columnCount}字段 = ${data.length * columnCount}参数，` +
-      `将分 ${Math.ceil(data.length / BATCH_SIZE)} 批插入（每批${BATCH_SIZE}条）...`
+      `数据: ${data.length}条 × ${columnCount}字段 = ${
+        data.length * columnCount
+      }参数，` +
+        `将分 ${Math.ceil(
+          data.length / BATCH_SIZE
+        )} 批插入（每批${BATCH_SIZE}条）...`
     );
-    
+
     let totalRowCount = 0;
     const totalBatches = Math.ceil(data.length / BATCH_SIZE);
-    
+
     for (let i = 0; i < data.length; i += BATCH_SIZE) {
       const batch = data.slice(i, i + BATCH_SIZE);
       const batchNum = Math.floor(i / BATCH_SIZE) + 1;
-      
+
       const [err, res] = await insert(pg, table, batch, options); // 递归调用
       if (err) {
         console.error(`批次 ${batchNum}/${totalBatches} 失败:`, err.message);
         return [err, null];
       }
-      
+
       totalRowCount += res.rowCount;
       console.log(`批次 ${batchNum}/${totalBatches}: 插入 ${res.rowCount} 条`);
     }
-    
+
     console.log(`✅ 总共成功插入 ${totalRowCount} 条数据`);
     return [null, { rowCount: totalRowCount }];
   }
-  
+
   // --- 单批插入逻辑（原有代码） ---
   const valuePlaceholders = [];
   const params = [];
   let paramIndex = 1;
-  
+
   for (const item of data) {
     const values = columns.map((col) => item[col]);
     params.push(...values);
@@ -82,7 +86,7 @@ async function insert(pg, table, data, options = {}) {
       `(${values.map(() => `$${paramIndex++}`).join(",")})`
     );
   }
-  
+
   let onConflictClause = "";
   if (onconflict) {
     if (typeof onconflict === "string") {
@@ -109,19 +113,19 @@ async function insert(pg, table, data, options = {}) {
       onConflictClause = `ON CONFLICT (${conflictKeySql}) DO UPDATE SET ${updateSetClause}`;
     }
   }
-  
+
   const sql = `
     INSERT INTO "${table}" ("${columns.join('", "')}")
     VALUES ${valuePlaceholders.join(", ")}
     ${onConflictClause}
   `;
-  
+
   const [err, res] = await pg.query(sql, params);
   if (err) {
     console.error("批量插入失败:", err.message);
     return [err, null];
   }
-  
+
   console.log(`操作完成，成功插入 ${res.rowCount} 条数据。`);
   return [null, res];
 }

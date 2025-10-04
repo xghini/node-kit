@@ -121,7 +121,7 @@ async function batchUpdate(pool, table, dataArray, options = {}) {
   // 每个字段的 CASE WHEN 需要：dataLength * (whereColumns.length + 1) 个参数
   const paramsPerRow = whereColumns.length + updateFieldCount;
   const MAX_PARAMS = 55000;
-  const BATCH_SIZE = Math.floor(MAX_PARAMS / (paramsPerRow * 2)); // *2 因为CASE WHEN会翻倍
+  const BATCH_SIZE = Math.min(Math.floor(MAX_PARAMS / (paramsPerRow * 2)),2000); // *2 因为CASE WHEN会翻倍
 
   // ✅ 如果数据量超过限制，递归分批
   if (dataArray.length > BATCH_SIZE) {
