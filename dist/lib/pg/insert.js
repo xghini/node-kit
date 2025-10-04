@@ -71,5 +71,5 @@ async function insert(pg, table, data, options = {}) {
         console.error("批量插入失败:", err.message);
         return [err, null];
     }
-    return [null, res];
+    return [null, res.rowCount];
 }

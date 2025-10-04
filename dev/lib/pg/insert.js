@@ -129,5 +129,5 @@ async function insert(pg, table, data, options = {}) {
     return [err, null];
   }
   // console.log(`操作完成，成功插入 ${res.rowCount} 条数据。`);
-  return [null, res];
+  return [null, res.rowCount];
 }
