@@ -130,6 +130,11 @@ async function insert(pg, table, data, options = {}) {
     console.error("批量插入失败:", err.message);
     return [err, null];
   }
-  // console.log(`操作完成，成功插入 ${res.rowCount} 条数据。`);
+  const duration = Date.now() - startTime;
+  console.log(
+    `✅ 总共成功插入 ${totalRowCount} 条数据，耗时 ${duration}ms (${(
+      duration / 1000
+    ).toFixed(2)}s)`
+  );
   return [null, res.rowCount];
 }
