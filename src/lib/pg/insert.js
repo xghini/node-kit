@@ -57,7 +57,7 @@ async function insert(pg, table, data, options = {}) {
         console.error(`批次 ${batchNum}/${totalBatches} 失败:`, err.message);
         return [err, null];
       }
-      totalRowCount += res.rowCount;
+      totalRowCount += res;
     }
     const duration = Date.now() - startTime;
     console.log(

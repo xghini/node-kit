@@ -65,7 +65,7 @@ async function insert(pg, table, data, options = {}) {
         return [err, null];
       }
 
-      totalRowCount += res.rowCount;
+      totalRowCount += res;
       // console.log(`批次 ${batchNum}/${totalBatches}: 插入 ${res.rowCount} 条`);
     }
     const duration = Date.now() - startTime;

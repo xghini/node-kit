@@ -23,7 +23,7 @@ async function insert(pg, table, data, options = {}) {
                 console.error(`批次 ${batchNum}/${totalBatches} 失败:`, err.message);
                 return [err, null];
             }
-            totalRowCount += res.rowCount;
+            totalRowCount += res;
         }
         const duration = Date.now() - startTime;
         console.log(`✅ 总共成功插入 ${totalRowCount} 条数据，耗时 ${duration}ms (${(duration / 1000).toFixed(2)}s)`);
