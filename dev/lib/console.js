@@ -309,7 +309,7 @@ function cerror1(...args) {
           " " +
           underline +
           // 带//的有文件路径
-          (stack.slice(1).find((item) => item.match("//")) || stack[1]).split(
+          (stack.slice(1).find((item) => item.match("//")) || stack[1])?.split(
             "at "
           )[1] +
           reset
@@ -343,7 +343,7 @@ function cerror(...args) {
           " " +
           underline +
           // 带//的有文件路径
-          (stack.slice(1).find((item) => item.match("//")) || stack[1]).split(
+          (stack.slice(1).find((item) => item.match("//")) || stack[1])?.split(
             "at "
           )[1] +
           reset

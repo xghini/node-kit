@@ -6,6 +6,28 @@ async function insert(pg, table, data, options = {}) {
         return console.error("data数据结构不正确");
     const { onconflict } = options;
     const columns = Object.keys(data[0]);
+    const columnCount = columns.length;
+    const MAX_PARAMS = 60000;
+    const BATCH_SIZE = Math.floor(MAX_PARAMS / columnCount);
+    if (data.length > BATCH_SIZE) {
+        console.log(`数据: ${data.length}条 × ${columnCount}字段 = ${data.length * columnCount}参数，` +
+            `将分 ${Math.ceil(data.length / BATCH_SIZE)} 批插入（每批${BATCH_SIZE}条）...`);
+        let totalRowCount = 0;
+        const totalBatches = Math.ceil(data.length / BATCH_SIZE);
+        for (let i = 0; i < data.length; i += BATCH_SIZE) {
+            const batch = data.slice(i, i + BATCH_SIZE);
+            const batchNum = Math.floor(i / BATCH_SIZE) + 1;
+            const [err, res] = await insert(pg, table, batch, options);
+            if (err) {
+                console.error(`批次 ${batchNum}/${totalBatches} 失败:`, err.message);
+                return [err, null];
+            }
+            totalRowCount += res.rowCount;
+            console.log(`批次 ${batchNum}/${totalBatches}: 插入 ${res.rowCount} 条`);
+        }
+        console.log(`✅ 总共成功插入 ${totalRowCount} 条数据`);
+        return [null, { rowCount: totalRowCount }];
+    }
     const valuePlaceholders = [];
     const params = [];
     let paramIndex = 1;
@@ -40,7 +62,6 @@ async function insert(pg, table, data, options = {}) {
             onConflictClause = `ON CONFLICT (${conflictKeySql}) DO UPDATE SET ${updateSetClause}`;
         }
     }
-    console.dev(onConflictClause);
     const sql = `
     INSERT INTO "${table}" ("${columns.join('", "')}")
     VALUES ${valuePlaceholders.join(", ")}
@@ -48,9 +69,9 @@ async function insert(pg, table, data, options = {}) {
   `;
     const [err, res] = await pg.query(sql, params);
     if (err) {
-        console.error("批量创建卡数据失败:", err.message);
+        console.error("批量插入失败:", err.message);
         return [err, null];
     }
-    console.log(`操作完成，成功插入 ${res.rowCount} 条新卡数据。`);
+    console.log(`操作完成，成功插入 ${res.rowCount} 条数据。`);
     return [null, res];
 }

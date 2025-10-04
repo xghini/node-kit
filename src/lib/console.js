@@ -273,7 +273,7 @@ function cerror1(...args) {
           stack[0] +
           " " +
           underline +
-          (stack.slice(1).find((item) => item.match("//")) || stack[1]).split(
+          (stack.slice(1).find((item) => item.match("//")) || stack[1])?.split(
             "at "
           )[1] +
           reset
@@ -302,7 +302,7 @@ function cerror(...args) {
           stack[0] +
           " " +
           underline +
-          (stack.slice(1).find((item) => item.match("//")) || stack[1]).split(
+          (stack.slice(1).find((item) => item.match("//")) || stack[1])?.split(
             "at "
           )[1] +
           reset

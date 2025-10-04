@@ -56,14 +56,54 @@ async function batchUpdate(pool, table, dataArray, options = {}) {
     if (dataArray.length === 0) {
         return [null, { rowCount: 0, rows: [] }];
     }
+    const allKeys = [...new Set(dataArray.flatMap(item => Object.keys(item)))];
+    const whereColumns = Array.isArray(whereColumn) ? whereColumn : [whereColumn];
+    const updateFieldCount = allKeys.length - whereColumns.length;
+    const paramsPerRow = whereColumns.length + updateFieldCount;
+    const MAX_PARAMS = 55000;
+    const BATCH_SIZE = Math.floor(MAX_PARAMS / (paramsPerRow * 2));
+    if (dataArray.length > BATCH_SIZE) {
+        if (!silent) {
+            console.log(`批量更新: ${dataArray.length}条 × ${allKeys.length}字段，` +
+                `将分 ${Math.ceil(dataArray.length / BATCH_SIZE)} 批处理（每批${BATCH_SIZE}条）...`);
+        }
+        let totalRowCount = 0;
+        const allRows = [];
+        const totalBatches = Math.ceil(dataArray.length / BATCH_SIZE);
+        for (let i = 0; i < dataArray.length; i += BATCH_SIZE) {
+            const batch = dataArray.slice(i, i + BATCH_SIZE);
+            const batchNum = Math.floor(i / BATCH_SIZE) + 1;
+            const [err, result] = await batchUpdate(pool, table, batch, {
+                ...options,
+                silent: true
+            });
+            if (err) {
+                console.error(`批次 ${batchNum}/${totalBatches} 失败:`, err.message);
+                return [err, null];
+            }
+            totalRowCount += result.rowCount;
+            if (returning && result.rows) {
+                allRows.push(...result.rows);
+            }
+            if (!silent) {
+                console.log(`批次 ${batchNum}/${totalBatches}: 更新 ${result.rowCount} 条`);
+            }
+        }
+        if (!silent) {
+            console.log(`✅ 总共成功更新 ${totalRowCount} 条数据`);
+        }
+        return [null, {
+                rowCount: totalRowCount,
+                batches: totalBatches,
+                ...(returning && { rows: allRows })
+            }];
+    }
     const client = await pool.connect();
     try {
         await client.query('BEGIN');
         let totalRowCount = 0;
         const allRows = [];
-        const allKeys = [...new Set(dataArray.flatMap(item => Object.keys(item)))];
-        const whereColumns = Array.isArray(whereColumn) ? whereColumn : [whereColumn];
-        if (dataArray.length > 10) {
+        if (dataArray.length > 1) {
             const setClauseParts = [];
             const values = [];
             let paramIndex = 1;
@@ -95,7 +135,8 @@ async function batchUpdate(pool, table, dataArray, options = {}) {
                 : '';
             const sql = `UPDATE "${table}" SET ${setClauseParts.join(', ')} WHERE ${whereInConditions}${returningClause}`;
             if (!silent) {
-                console.log('Batch update SQL:', sql);
+                console.log('Batch update SQL (preview):', sql.slice(0, 200) + '...');
+                console.log('Total params:', values.length);
             }
             const result = await client.query(sql, values);
             totalRowCount = result.rowCount;
@@ -104,20 +145,18 @@ async function batchUpdate(pool, table, dataArray, options = {}) {
             }
         }
         else {
-            for (const item of dataArray) {
-                const updateMethod = update(client);
-                const [error, result] = await updateMethod(table, item, {
-                    whereColumn,
-                    returning,
-                    returningColumns,
-                    silent: true
-                });
-                if (error)
-                    throw error;
-                totalRowCount += result.rowCount;
-                if (returning && result.rows) {
-                    allRows.push(...result.rows);
-                }
+            const updateMethod = update(client);
+            const [error, result] = await updateMethod(table, dataArray[0], {
+                whereColumn,
+                returning,
+                returningColumns,
+                silent: true
+            });
+            if (error)
+                throw error;
+            totalRowCount = result.rowCount;
+            if (returning && result.rows) {
+                allRows.push(...result.rows);
             }
         }
         await client.query('COMMIT');
