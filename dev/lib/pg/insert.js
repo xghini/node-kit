@@ -94,7 +94,9 @@ async function insert(pg, table, data, options = {}) {
   if (onconflict) {
     if (typeof onconflict === "string") {
       // console.log(`CONFLICT: DO NOTHING`);
-      onConflictClause = `ON CONFLICT ("${onconflict}") DO NOTHING`;
+      const conflictKeys = onconflict.split(",").map((k) => k.trim());
+      const conflictKeySql = conflictKeys.map((k) => `"${k}"`).join(", ");
+      onConflictClause = `ON CONFLICT (${conflictKeySql}) DO NOTHING`;
     } else if (Array.isArray(onconflict)) {
       const targetString = onconflict[0];
       if (!targetString)
