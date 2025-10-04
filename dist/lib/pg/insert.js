@@ -4,6 +4,7 @@ async function insert(pg, table, data, options = {}) {
         data = [data];
     if (typeof data[0] !== "object")
         return console.error("data数据结构不正确");
+    const startTime = Date.now();
     const { onconflict } = options;
     const columns = Object.keys(data[0]);
     const columnCount = columns.length;
@@ -24,7 +25,8 @@ async function insert(pg, table, data, options = {}) {
             }
             totalRowCount += res.rowCount;
         }
-        console.log(`✅ 总共成功插入 ${totalRowCount} 条数据`);
+        const duration = Date.now() - startTime;
+        console.log(`✅ 总共成功插入 ${totalRowCount} 条数据，耗时 ${duration}ms (${(duration / 1000).toFixed(2)}s)`);
         return [null, { rowCount: totalRowCount }];
     }
     const valuePlaceholders = [];
