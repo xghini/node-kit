@@ -25,28 +25,46 @@ const d_headers = {
     "user-agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/133.0.0.0 Safari/537.36",
 };
 const d_timeout = 30000;
+const FATAL_NETWORK_ERRORS = [
+    'ENOTFOUND',
+    'ENOENT',
+    'EAI_AGAIN',
+    'EAI_FAIL',
+    'EHOSTUNREACH',
+    'ENETUNREACH',
+];
 async function req(...argv) {
     const reqbd = reqbuild(...argv);
     try {
         if (reqbd.urlobj.protocol === "http:") {
-            return h1req(reqbd);
+            return await h1req(reqbd);
         }
         const sess = await h2connect(reqbd);
         if (sess) {
-            return h2req.bind(sess)(reqbd);
+            const h2result = await h2req.bind(sess)(reqbd);
+            if (h2result.ok || (h2result.code >= 400 && h2result.code < 600)) {
+                return h2result;
+            }
+            cerror.bind({ info: -1 })("HTTP/2协议失败，回退到HTTP/1.1");
+            return await h1req(reqbd);
         }
-        return h1req(reqbd);
+        return await h1req(reqbd);
     }
     catch (error) {
-        if (reqbd.method.toUpperCase() === "CONNECT") {
-            return cerror.bind({ info: -1 })("CONNECT method unsupperted");
+        if (FATAL_NETWORK_ERRORS.includes(error.code)) {
+            cerror.bind({ info: -1 })(error.code, error.message || "网络错误");
+            return resbuild.bind(reqbd)(false);
         }
-        cerror.bind({ info: -1 })(error.code || 'HTTP2_ERROR', "HTTP/2失败，回退到HTTP/1.1");
+        if (reqbd.method.toUpperCase() === "CONNECT") {
+            cerror.bind({ info: -1 })("CONNECT method unsupported");
+            return resbuild.bind(reqbd)(false);
+        }
+        cerror.bind({ info: -1 })(error.code || error.name, "尝试回退到HTTP/1.1");
         try {
             return await h1req(reqbd);
         }
         catch (fallbackError) {
-            cerror.bind({ info: -1 })(fallbackError, "HTTP/1.1回退也失败");
+            cerror.bind({ info: -1 })(fallbackError.code || fallbackError.name, fallbackError.message || "HTTP/1.1也失败");
             return resbuild.bind(reqbd)(false);
         }
     }
@@ -59,7 +77,10 @@ async function h2connect(obj) {
     }
     if (h2session.has(host)) {
         const session = h2session.get(host);
-        if (!session.destroyed && !session.closed) {
+        if (session &&
+            !session.destroyed &&
+            !session.closed &&
+            typeof session.request === 'function') {
             return session;
         }
         else {
@@ -76,26 +97,35 @@ async function h2connect(obj) {
             },
             ...options,
         });
+        const connectTimeout = setTimeout(() => {
+            session.destroy();
+            resolve(false);
+        }, 5000);
         session.once("connect", () => {
+            clearTimeout(connectTimeout);
             h2session.set(host, session);
-            return resolve(session);
+            resolve(session);
         });
         session.once("error", (err) => {
+            clearTimeout(connectTimeout);
             session.destroy();
-            const shouldReject = [
-                "ENOTFOUND",
-                "ECONNREFUSED",
-            ].includes(err.code);
-            if (shouldReject) {
+            if (FATAL_NETWORK_ERRORS.includes(err.code)) {
                 return reject(err);
             }
-            return resolve(false);
+            if (err.code === 'ECONNREFUSED') {
+                return reject(err);
+            }
+            resolve(false);
         });
     });
 }
 async function h2req(...argv) {
     const reqbd = reqbuild(...argv);
     let { urlobj, method, headers, body, options } = reqbd;
+    if (options.proxy) {
+        cerror.bind({ info: -1 })("h2req不支持代理（Node.js http2模块限制）", "请改用 req() 或 h1req()");
+        return resbuild.bind(reqbd)(false, "h2");
+    }
     headers = {
         ...d_headers,
         ...headers,
@@ -106,10 +136,15 @@ async function h2req(...argv) {
     };
     let req, sess;
     try {
-        sess = this ? this : await h2connect(reqbd);
-        if (sess === false)
-            throw new Error("H2 connect failed");
-        req = await sess.request(headers);
+        const isValidSession = this &&
+            typeof this.request === 'function' &&
+            !this.destroyed &&
+            !this.closed;
+        sess = isValidSession ? this : await h2connect(reqbd);
+        if (!sess || sess === false || typeof sess.request !== 'function') {
+            throw new Error("HTTP/2 connection unavailable");
+        }
+        req = sess.request(headers);
         if (method === "GET" || method === "DELETE" || method === "HEAD") {
             if (!empty(body))
                 console.warn("NodeJS原生请求限制, ", method, "Body不会生效");
@@ -119,16 +154,10 @@ async function h2req(...argv) {
         }
     }
     catch (error) {
-        cerror.bind({ info: -1 })(error.code || 'HTTP2_ERROR', "HTTP/2请求失败，回退到HTTP/1.1");
-        try {
-            return await h1req(reqbd);
-        }
-        catch (fallbackError) {
-            cerror.bind({ info: -1 })(fallbackError, "HTTP/1.1回退失败");
-            return resbuild.bind(reqbd)(false, "h1");
-        }
+        cerror.bind({ info: -1 })(error.code || error.message, "HTTP/2请求创建失败");
+        return resbuild.bind(reqbd)(false, "h2");
     }
-    return new Promise((resolve, reject) => {
+    return new Promise((resolve) => {
         req.on("response", (headers, flags) => {
             const chunks = [];
             req.on("data", (chunk) => {
@@ -149,36 +178,26 @@ async function h2req(...argv) {
         const timeout = options.timeout || d_timeout;
         const timeoutId = setTimeout(() => {
             req.close();
-            cerror.bind({ info: -1 })(`H2 req timeout >${timeout}ms`, urlobj.host);
+            cerror.bind({ info: -1 })(`HTTP/2 timeout >${timeout}ms`, urlobj.host);
             resolve(resbuild.bind(reqbd)(false, "h2", 408));
         }, timeout);
         req.on("error", (err) => {
             clearTimeout(timeoutId);
-            const cannotFallback = [
-                "ERR_HTTP2_INVALID_PSEUDOHEADER",
-                "ERR_HTTP2_HEADERS_OBJECT",
-            ].includes(err.code);
-            if (cannotFallback) {
-                cerror.bind({ info: -1 })(err);
-                resolve(resbuild.bind(reqbd)(false, "h2"));
-                return;
-            }
-            cerror.bind({ info: -1 })(err.code || 'HTTP2_ERROR', "HTTP/2请求错误，回退到HTTP/1.1");
-            try {
-                return resolve(h1req(reqbd));
-            }
-            catch (error) {
-                cerror.bind({ info: -1 })(error, "HTTP/1.1回退失败");
-                return resolve(resbuild.bind(reqbd)(false));
-            }
+            cerror.bind({ info: -1 })(err.code || err.message, "HTTP/2请求错误");
+            resolve(resbuild.bind(reqbd)(false, "h2"));
         });
     });
 }
 function getAgent(protocol, options) {
     if (options?.proxy) {
-        if (!options.proxy.match("://"))
-            options.proxy = "socks5://" + options.proxy;
-        return new SocksProxyAgent(options.proxy);
+        let proxyUrl = options.proxy;
+        if (!proxyUrl.match("://")) {
+            proxyUrl = "socks5h://" + proxyUrl;
+        }
+        else {
+            proxyUrl = proxyUrl.replace(/^socks5?:\/\//, 'socks5h://');
+        }
+        return new SocksProxyAgent(proxyUrl);
     }
     else {
         if (protocol === "https:") {
@@ -215,12 +234,12 @@ async function h1req(...argv) {
             method: method || "GET",
             headers: new_headers,
             agent,
-            timeout: d_timeout,
+            timeout: options.timeout || d_timeout,
             rejectUnauthorized: false,
         },
         ...options,
     };
-    return new Promise((resolve, reject) => {
+    return new Promise((resolve) => {
         const req = protocol.request(options, async (res) => {
             try {
                 const chunks = [];
@@ -231,17 +250,18 @@ async function h1req(...argv) {
                 resolve(resbuild.bind(reqbd)(true, "http/1.1", res.statusCode, res.headers, body));
             }
             catch (error) {
-                cerror.bind({ info: -1 })(error);
+                cerror.bind({ info: -1 })(error.code || error.message, "HTTP/1.1响应处理错误");
                 resolve(resbuild.bind(reqbd)(false, "http/1.1"));
             }
         });
         req.on("error", (error) => {
-            if (!error.message)
-                cerror.bind({ info: -1 })(error.message, "目标存在，当前协议不通");
+            if (error.message) {
+                cerror.bind({ info: -1 })(error.code || "ERROR", error.message);
+            }
             resolve(resbuild.bind(reqbd)(false, "http/1.1"));
         });
         req.on("timeout", () => {
-            cerror.bind({ info: -1 })(`HTTP/1.1 req timeout >${options.timeout}ms`, urlobj.host);
+            cerror.bind({ info: -1 })(`HTTP/1.1 timeout >${options.timeout}ms`, urlobj.host);
             resolve(resbuild.bind(reqbd)(false, "http/1.1", 408));
             req.destroy();
         });
@@ -261,7 +281,7 @@ function body2data(body, ct) {
         for (const [key, value] of params) {
             data[key] = value;
         }
-        if ((empty(data), 1))
+        if (empty(data))
             data = body;
     }
     return data;

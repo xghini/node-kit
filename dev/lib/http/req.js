@@ -14,8 +14,10 @@ import { SocksProxyAgent } from "socks-proxy-agent";
 async function reqdata(...argv) {
   return (await req(...argv)).data;
 }
+
 // 缓存 HTTP/2 连接
 const h2session = new Map();
+
 // 可能性拓展 maxSockets:256 maxSessionMemory:64 maxConcurrentStreams:100 minVersion:'TLSv1.2' ciphers ca cert key
 const options_keys = [
   "settings",
@@ -27,13 +29,26 @@ const options_keys = [
   "furl",
   "proxy",
 ];
+
 const d_headers = {
   "user-agent":
     "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/133.0.0.0 Safari/537.36",
 };
+
 const d_timeout = 30000;
+
+// 定义致命网络错误（不应该回退的错误）
+const FATAL_NETWORK_ERRORS = [
+  'ENOTFOUND',      // DNS解析失败
+  'ENOENT',         // getaddrinfo失败  
+  'EAI_AGAIN',      // DNS临时失败
+  'EAI_FAIL',       // DNS永久失败
+  'EHOSTUNREACH',   // 主机不可达
+  'ENETUNREACH',    // 网络不可达
+];
+
 /*
- * req直接发请求(适合简单发送)
+ * req直接发请求(适合简单发送) - 负责协议选择和兼容性回退
  * @example
  * 完整路径+方法(默认get)
  * req("https://www.baidu.com?a=1&a=2&b=2")
@@ -49,54 +64,87 @@ const d_timeout = 30000;
  * no-cache
  * auto-redirects
  */
-// 比h1req h2req多一步detect判断
 /** @returns {Promise<ReturnType<typeof resbuild>>} */
 async function req(...argv) {
   const reqbd = reqbuild(...argv);
+  
   try {
+    // HTTP明文直接用h1
     if (reqbd.urlobj.protocol === "http:") {
-      return h1req(reqbd);
-    }
-    const sess = await h2connect(reqbd);
-    if (sess) {
-      return h2req.bind(sess)(reqbd);
-    }
-    return h1req(reqbd);
-  } catch (error) {
-    // 明确不能回退的情况
-    if (reqbd.method.toUpperCase() === "CONNECT") {
-      return cerror.bind({ info: -1 })("CONNECT method unsupperted");
+      return await h1req(reqbd);
     }
     
-    // 其他所有错误都尝试回退到HTTP/1.1
-    cerror.bind({ info: -1 })(error.code || 'HTTP2_ERROR', "HTTP/2失败，回退到HTTP/1.1");
+    // 尝试HTTP/2连接
+    const sess = await h2connect(reqbd);
+    if (sess) {
+      const h2result = await h2req.bind(sess)(reqbd);
+      // HTTP/2成功或明确的客户端/服务端错误（4xx/5xx）不回退
+      if (h2result.ok || (h2result.code >= 400 && h2result.code < 600)) {
+        return h2result;
+      }
+      // HTTP/2协议层面失败（超时、连接错误等），尝试回退
+      cerror.bind({ info: -1 })("HTTP/2协议失败，回退到HTTP/1.1");
+      return await h1req(reqbd);
+    }
+    
+    // 没有HTTP/2支持，直接用HTTP/1.1
+    return await h1req(reqbd);
+    
+  } catch (error) {
+    // 致命网络错误（DNS失败、主机不可达等）不回退
+    if (FATAL_NETWORK_ERRORS.includes(error.code)) {
+      cerror.bind({ info: -1 })(error.code, error.message || "网络错误");
+      return resbuild.bind(reqbd)(false);
+    }
+    
+    // CONNECT方法不支持回退
+    if (reqbd.method.toUpperCase() === "CONNECT") {
+      cerror.bind({ info: -1 })("CONNECT method unsupported");
+      return resbuild.bind(reqbd)(false);
+    }
+    
+    // 其他未预期的错误，尝试最后一次回退
+    cerror.bind({ info: -1 })(error.code || error.name, "尝试回退到HTTP/1.1");
     try {
       return await h1req(reqbd);
     } catch (fallbackError) {
-      cerror.bind({ info: -1 })(fallbackError, "HTTP/1.1回退也失败");
+      cerror.bind({ info: -1 })(
+        fallbackError.code || fallbackError.name,
+        fallbackError.message || "HTTP/1.1也失败"
+      );
       return resbuild.bind(reqbd)(false);
     }
   }
 }
-// 一般都能马上返回,不用设置超时
-// 检测已有h2会话直接拿来用,没有则创建测连
+
+/**
+ * HTTP/2连接检测和建立
+ * 一般都能马上返回,不用设置超时
+ * 检测已有h2会话直接拿来用,没有则创建测连
+ */
 async function h2connect(obj) {
   const { urlobj, options } = obj;
   const host = urlobj.host;
 
+  // 有代理直接用HTTP/1.1
   if (options.proxy) {
-    return false; // 有代理直接用HTTP/1.1
+    return false;
   }
 
+  // 检查已有会话
   if (h2session.has(host)) {
     const session = h2session.get(host);
-    if (!session.destroyed && !session.closed) {
+    if (session && 
+        !session.destroyed && 
+        !session.closed && 
+        typeof session.request === 'function') {
       return session;
     } else {
       h2session.delete(host);
     }
   }
 
+  // 创建新会话
   return new Promise((resolve, reject) => {
     if (!options.servername && !urlobj.hostname.match(/[a-zA-Z]/))
       options.servername = "_";
@@ -109,36 +157,55 @@ async function h2connect(obj) {
       ...options,
     });
     
+    // 添加连接超时（5秒）
+    const connectTimeout = setTimeout(() => {
+      session.destroy();
+      resolve(false); // 超时回退到 h1
+    }, 5000);
+    
     session.once("connect", () => {
+      clearTimeout(connectTimeout);
       h2session.set(host, session);
-      return resolve(session);
+      resolve(session);
     });
     
     session.once("error", (err) => {
+      clearTimeout(connectTimeout);
       session.destroy();
       
-      // 明确需要抛出错误的情况（很少见）
-      const shouldReject = [
-        "ENOTFOUND",        // 域名不存在
-        "ECONNREFUSED",     // 连接被拒绝且端口明确关闭
-      ].includes(err.code);
-      
-      if (shouldReject) {
+      // 致命网络错误（包括DNS失败），抛出错误
+      if (FATAL_NETWORK_ERRORS.includes(err.code)) {
         return reject(err);
       }
       
-      // 其他所有连接错误都静默回退到HTTP/1.1（在上层统一输出日志）
-      return resolve(false);
+      // 连接被明确拒绝（端口关闭），也抛出
+      if (err.code === 'ECONNREFUSED') {
+        return reject(err);
+      }
+      
+      // 其他连接错误（协议不支持、TLS错误等）静默回退
+      resolve(false);
     });
   });
 }
+
 /**
+ * 纯粹的HTTP/2请求实现
  * 使用h2为线路复用,会默认保持连接池,所以进程不会自动退出,可用process.exit()主动退出
  * @returns {Promise<ReturnType<typeof resbuild>>}
  */
 async function h2req(...argv) {
   const reqbd = reqbuild(...argv);
   let { urlobj, method, headers, body, options } = reqbd;
+  
+  // 提前检测代理场景，给出友好提示
+  if (options.proxy) {
+    cerror.bind({ info: -1 })(
+      "h2req不支持代理（Node.js http2模块限制）",
+      "请改用 req() 或 h1req()"
+    );
+    return resbuild.bind(reqbd)(false, "h2");
+  }
   
   headers = {
     ...d_headers,
@@ -151,9 +218,21 @@ async function h2req(...argv) {
   
   let req, sess;
   try {
-    sess = this ? this : await h2connect(reqbd);
-    if (sess === false) throw new Error("H2 connect failed");
-    req = await sess.request(headers);
+    // 严格检查 this 是否是有效的 HTTP/2 session
+    const isValidSession = this && 
+                          typeof this.request === 'function' && 
+                          !this.destroyed && 
+                          !this.closed;
+    
+    sess = isValidSession ? this : await h2connect(reqbd);
+    
+    // 检查 session 是否有效
+    if (!sess || sess === false || typeof sess.request !== 'function') {
+      throw new Error("HTTP/2 connection unavailable");
+    }
+    
+    req = sess.request(headers);
+    
     if (method === "GET" || method === "DELETE" || method === "HEAD") {
       if (!empty(body))
         console.warn("NodeJS原生请求限制, ", method, "Body不会生效");
@@ -161,17 +240,11 @@ async function h2req(...argv) {
       req.end(body);
     }
   } catch (error) {
-    // 直接回退，不判断具体错误类型
-    cerror.bind({ info: -1 })(error.code || 'HTTP2_ERROR', "HTTP/2请求失败，回退到HTTP/1.1");
-    try {
-      return await h1req(reqbd);
-    } catch (fallbackError) {
-      cerror.bind({ info: -1 })(fallbackError, "HTTP/1.1回退失败");
-      return resbuild.bind(reqbd)(false, "h1");
-    }
+    cerror.bind({ info: -1 })(error.code || error.message, "HTTP/2请求创建失败");
+    return resbuild.bind(reqbd)(false, "h2");
   }
   
-  return new Promise((resolve, reject) => {
+  return new Promise((resolve) => {
     req.on("response", (headers, flags) => {
       const chunks = [];
       req.on("data", (chunk) => {
@@ -193,33 +266,14 @@ async function h2req(...argv) {
     const timeout = options.timeout || d_timeout;
     const timeoutId = setTimeout(() => {
       req.close();
-      cerror.bind({ info: -1 })(`H2 req timeout >${timeout}ms`, urlobj.host);
+      cerror.bind({ info: -1 })(`HTTP/2 timeout >${timeout}ms`, urlobj.host);
       resolve(resbuild.bind(reqbd)(false, "h2", 408));
     }, timeout);
     
     req.on("error", (err) => {
       clearTimeout(timeoutId);
-      
-      // 明确不能回退的错误（很少见）
-      const cannotFallback = [
-        "ERR_HTTP2_INVALID_PSEUDOHEADER", // 伪头部错误，HTTP/1.1也不会成功
-        "ERR_HTTP2_HEADERS_OBJECT",       // 头部格式错误
-      ].includes(err.code);
-      
-      if (cannotFallback) {
-        cerror.bind({ info: -1 })(err);
-        resolve(resbuild.bind(reqbd)(false, "h2"));
-        return;
-      }
-      
-      // 其他所有错误都回退到HTTP/1.1
-      cerror.bind({ info: -1 })(err.code || 'HTTP2_ERROR', "HTTP/2请求错误，回退到HTTP/1.1");
-      try {
-        return resolve(h1req(reqbd));
-      } catch (error) {
-        cerror.bind({ info: -1 })(error, "HTTP/1.1回退失败");
-        return resolve(resbuild.bind(reqbd)(false));
-      }
+      cerror.bind({ info: -1 })(err.code || err.message, "HTTP/2请求错误");
+      resolve(resbuild.bind(reqbd)(false, "h2"));
     });
   });
 }
@@ -227,9 +281,17 @@ async function h2req(...argv) {
 // 创建代理Agent的辅助函数
 function getAgent(protocol, options) {
   if (options?.proxy) {
-    if (!options.proxy.match("://"))
-      options.proxy = "socks5://" + options.proxy;
-    return new SocksProxyAgent(options.proxy);
+    let proxyUrl = options.proxy;
+    
+    // 补全协议，默认 socks5h（远程 DNS）
+    if (!proxyUrl.match("://")) {
+      proxyUrl = "socks5h://" + proxyUrl;
+    } else {
+      // 如果用户写的是 socks5:// 或 socks://，改成 socks5h:// 确保远程DNS
+      proxyUrl = proxyUrl.replace(/^socks5?:\/\//, 'socks5h://');
+    }
+    
+    return new SocksProxyAgent(proxyUrl);
   } else {
     if (protocol === "https:") {
       return httpsAgent;
@@ -249,21 +311,22 @@ const httpAgent = new http.Agent({
   keepAliveMsecs: 60000,
 });
 
-// HTTP/1.1 请求
-/** @returns {Promise<ReturnType<typeof resbuild>>} */
+/**
+ * 纯粹的HTTP/1.1请求实现
+ * @returns {Promise<ReturnType<typeof resbuild>>}
+ */
 async function h1req(...argv) {
   const reqbd = reqbuild(...argv);
   let { urlobj, method, body, headers, options } = reqbd;
-  // console.dev("h1", urlobj.protocol, method, body);
+  
   const protocol = urlobj.protocol === "https:" ? https : http;
-
-  // 获取合适的agent，支持代理
   const agent = getAgent(urlobj.protocol, options);
 
   const new_headers = {
     ...d_headers,
     ...headers,
   };
+  
   options = {
     ...{
       protocol: urlobj.protocol,
@@ -273,12 +336,13 @@ async function h1req(...argv) {
       method: method || "GET",
       headers: new_headers,
       agent,
-      timeout: d_timeout,
+      timeout: options.timeout || d_timeout,
       rejectUnauthorized: false,
     },
     ...options,
   };
-  return new Promise((resolve, reject) => {
+  
+  return new Promise((resolve) => {
     const req = protocol.request(options, async (res) => {
       try {
         const chunks = [];
@@ -286,9 +350,6 @@ async function h1req(...argv) {
           chunks.push(chunk);
         }
         const body = Buffer.concat(chunks);
-        // res = new Response(res); //新
-        // const body = await res.text();
-        // console.dev(res.status, res.statusText, res.ok);
         resolve(
           resbuild.bind(reqbd)(
             true,
@@ -299,58 +360,36 @@ async function h1req(...argv) {
           )
         );
       } catch (error) {
-        cerror.bind({ info: -1 })(error);
-        // reject(error);
+        cerror.bind({ info: -1 })(error.code || error.message, "HTTP/1.1响应处理错误");
         resolve(resbuild.bind(reqbd)(false, "http/1.1"));
       }
     });
+    
     req.on("error", (error) => {
-      if (!error.message)
-        cerror.bind({ info: -1 })(error.message, "目标存在，当前协议不通");
-      // reject(error);
+      if (error.message) {
+        cerror.bind({ info: -1 })(error.code || "ERROR", error.message);
+      }
       resolve(resbuild.bind(reqbd)(false, "http/1.1"));
     });
+    
     req.on("timeout", () => {
-      // 此destroy后再触发onerror来传递错误
-      // req.destroy(
-      //   new Error(`HTTP/1.1 req timeout >${options.timeout}ms`, urlobj.host)
-      // );
       cerror.bind({ info: -1 })(
-        `HTTP/1.1 req timeout >${options.timeout}ms`,
+        `HTTP/1.1 timeout >${options.timeout}ms`,
         urlobj.host
       );
       resolve(resbuild.bind(reqbd)(false, "http/1.1", 408));
       req.destroy();
     });
-    // req.on("socket", (socket) => {
-    //   if (socket.connecting) {
-    //     console.dev("创建h1连接");
-    //   } else {
-    //     console.dev("复用h1连接");
-    //   }
-    // });
+    
     if (!empty(body)) req.write(body);
     req.end();
   });
 }
+
 // 有些不标准的返回,内容可能是json,但没ct或ct是text/plain,新方案是直接不管ct
 // 目前就支持json和furl,可能还有yaml
 function body2data(body, ct) {
-  // console.dev(body);
   let data;
-  // if (!ct||ct.startsWith("application/json")) {
-  //   try {
-  //     data = JSON.parse(body);
-  //   } catch {
-  //     data = {};
-  //   }
-  // } else if (ct === "application/x-www-form-urlencoded") {
-  //   data = {};
-  //   const params = new URLSearchParams(body);
-  //   for (const [key, value] of params) {
-  //     data[key] = value;
-  //   }
-  // }
   try {
     data = JSON.parse(body);
   } catch {
@@ -359,15 +398,17 @@ function body2data(body, ct) {
     for (const [key, value] of params) {
       data[key] = value;
     }
-    if ((empty(data), 1)) data = body;
+    if (empty(data)) data = body;
   }
   return data;
 }
+
 // cookie相关 键值数组,分号分割取第一个,跟现在的cookie相融
 function setcookie(arr, str) {
   if (arr) return str || "" + arr.map((item) => item.split(";")[0]).join("; ");
   else return str || "";
 }
+
 // 自动解码br(73.34%高 14.673ms慢) deflate(65.83% 0.7ms快) zstd(66.46% 1.556ms) gzip(65.71% 3.624ms全面落后)
 async function autoDecompressBody(body, ce) {
   if (!body) return "";
@@ -381,6 +422,7 @@ async function autoDecompressBody(body, ce) {
   }
   return body.toString();
 }
+
 class Reqbd {
   /** @type {any} */ h2session;
   /** @type {URL} */ urlobj;
@@ -393,6 +435,7 @@ class Reqbd {
     Object.assign(this, props);
   }
 }
+
 class Resbd {
   /** @type {boolean} */ ok;
   /** @type {number} */ code;
@@ -409,6 +452,7 @@ class Resbd {
     Object.assign(this, props);
   }
 }
+
 function reqbuild(...argv) {
   try {
     let props = this || {};
@@ -421,10 +465,12 @@ function reqbuild(...argv) {
       body = "",
       options = {},
     } = props;
+    
     if (argv.length === 0) {
       if (empty(this)) throw new Error("首次构建,至少传入url");
       else return this;
     }
+    
     if (typeof argv[0] === "object") {
       const {
         h2session: newSession,
@@ -442,6 +488,7 @@ function reqbuild(...argv) {
       // 把新url复用思路处理一遍
       argv = [newUrl];
     }
+    
     let new_headers, new_options;
     if (typeof argv[0] === "string") {
       const arr = argv[0].replace(/ +/, " ").split(" ");
@@ -457,6 +504,7 @@ function reqbuild(...argv) {
       } else {
         if (empty(this)) throw new Error("构造错误,请参考文档或示例");
       }
+      
       argv.slice(1).forEach((item) => {
         if (
           (!body &&
@@ -489,14 +537,17 @@ function reqbuild(...argv) {
         }
       });
     }
+    
     method = method?.toUpperCase();
     try {
       urlobj = new URL(url);
     } catch {
       console.dev("url构造错误", url, "使用原urlobj");
     }
+    
     headers = { ...headers, ...new_headers } || {};
     options = { ...options, ...new_options } || {};
+    
     if (options) {
       if ("cert" in options) {
         options.rejectUnauthorized = options.cert;
@@ -518,6 +569,7 @@ function reqbuild(...argv) {
       if ("auth" in options) headers["authorization"] = options.auth;
       if ("ua" in options) headers["user-agent"] = options.ua;
     }
+    
     return new Reqbd({
       h2session,
       urlobj,
@@ -531,6 +583,7 @@ function reqbuild(...argv) {
     cerror.bind({ info: -1 })(err);
   }
 }
+
 async function resbuild(ok, protocol, code, headers, body) {
   ok = code >= 200 && code < 300 ? true : false;
   const reqbd = this;
@@ -566,6 +619,7 @@ async function resbuild(ok, protocol, code, headers, body) {
     reset_ops: { enumerable: false, writable: false, configurable: false },
   });
 }
+
 async function myip() {
   let res =
     (await h1req("http://api.ipify.org", { timeout: 1500 })).body ||
@@ -574,6 +628,7 @@ async function myip() {
     fn_myip();
   return res.replace(/[^\d.]/g, ""); // 只保留数字和点
 }
+
 // 以下的公网私网推断还不错,留供参考
 function fn_myip() {
   const networkInterfaces = os.networkInterfaces();
@@ -585,7 +640,6 @@ function fn_myip() {
       // 过滤IPv4地址且不是内部地址 本地回环时 infa.internal=true
       // 优先返回公网ip
       if (infa.family === "IPv4" && !infa.internal) {
-        // console.log(`IP地址: ${infa.address}`);
         if (
           infa.address.startsWith("10.") || //A类私有 大型企业内网
           infa.address.startsWith("192.168.") //C类私有 小型内网
@@ -601,6 +655,7 @@ function fn_myip() {
   }
   return arr.length > 0 ? arr[0] : "127.0.0.1";
 }
+
 /**
  * 对象转form-urlencode 支持url/utf8编码 common/php/java风格(可拓展)
  * 一维都一样,二维以上处理各有不同,默认common风格
