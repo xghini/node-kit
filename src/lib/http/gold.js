@@ -26,7 +26,9 @@ function hd_stream(server, stream, headers) {
     }
     const pathname = decodeURI(url.pathname);
     return {
-      headers: headers,
+      server,
+      stream,
+      headers,
       method: headers[":method"].toUpperCase(),
       ua: headers["user-agent"] || "",
       ct: headers["content-type"] || "",
@@ -56,7 +58,6 @@ function hd_stream(server, stream, headers) {
         MAX_BODY: 4 * 1024 * 1024,
       },
       info,
-      server: server,
       end: stream.end.bind(stream),
       write: stream.write.bind(stream),
       pushStream: stream.pushStream?.bind(stream), 
