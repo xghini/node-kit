@@ -184,5 +184,6 @@ function simulateHttp2Stream(req, res) {
   req.on("data", (chunk) => stream.emit("data", chunk));
   req.on("end", () => stream.emit("end"));
   req.on("error", (err) => stream.emit("error", err));
+  req.on("close", () => stream.emit("close"));
   return { stream, headers };
 }
