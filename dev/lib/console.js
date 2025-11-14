@@ -547,58 +547,45 @@ function preStyle(opt, mainstyle) {
 }
 /** @param {number} [n=999] 清理的行数,默认999相当于(仅限当前窗口高度)全部清理 */
 function clear(n = 999) {
-  process.stdout.write(`\x1b[${n}A\r`);
-  process.stdout.write("\x1b[J");
+  process.stdout.write(`\x1b[${n}A\r\x1b[J`);
 }
 function fresh() {
   // 不去做宽度计算,直接输出高度的空行,然后清屏来保留之前输出
   process.stdout.write("\n".repeat(process.stdout.rows));
-  process.stdout.write(`\x1b[999A\r`);
-  process.stdout.write("\x1b[J");
+  process.stdout.write(`\x1b[999A\r\x1b[J`);
 }
 // 自清除的帧渲染输出
 const echo1 = {
   show: "",
   frames: ["⠋", "⠙", "⠹", "⠸", "⠼", "⠴", "⠦", "⠧", "⠇", "⠏"],
   intervalId: undefined,
-  lastOutput: "",  // 记录上次输出
-  lineCount: 0,    // 记录输出行数
   stop: () => {
     clearInterval(echo1.intervalId);
     echo1.intervalId = undefined;
-    process.stdout.write(showcursor + '\n');
+    clear();
+    console.log(echo1.show);
+    process.stdout.write(showcursor);
   },
 };
-
 function echo(data) {
+  // 更新显示内容
   echo1.show = data;
-  
+  // 如果已经在运行，直接返回（interval 会自动显示更新后的内容）
   if (echo1.intervalId) {
     return echo1;
   }
-  
+  // 首次启动：隐藏光标和刷新屏幕
   process.stdout.write(hidcursor);
-  
+  fresh();
   let frameIndex = 0;
   const frames = echo1.frames;
   const length = frames.length;
-  
   echo1.intervalId = setInterval(() => {
     const frame = frames[frameIndex % length];
-    const output = util.inspect(echo1.show, { colors: true, depth: 5 });
-    const newLineCount = output.split('\n').length;
-    
-    // 如果不是第一帧，先回到起始位置
-    if (echo1.lineCount > 0) {
-      process.stdout.write(`\x1b[${echo1.lineCount + 1}A\r\x1b[J`);
-    }
-    
-    // 输出新内容
-    process.stdout.write(cyan + bold + frame + reset + " " + output + '\n');
-    echo1.lineCount = newLineCount;
-    
+    clear();
+    process.stdout.write(cyan + bold + frame + reset + " ");
+    console.log(echo1.show);
     frameIndex++;
-  }, 120); // 稍微增加间隔到 120ms
-  
+  }, 120);
   return echo1;
 }

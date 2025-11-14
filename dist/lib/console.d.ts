@@ -57,8 +57,6 @@ export function echo(data: any): {
     show: string;
     frames: string[];
     intervalId: any;
-    lastOutput: string;
-    lineCount: number;
     stop: () => void;
 };
 export function fresh(): void;
