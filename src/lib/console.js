@@ -504,12 +504,12 @@ const echo1 = {
   show: "",
   frames: ["⠋", "⠙", "⠹", "⠸", "⠼", "⠴", "⠦", "⠧", "⠇", "⠏"],
   intervalId: undefined,
+  lastOutput: "",  
+  lineCount: 0,    
   stop: () => {
     clearInterval(echo1.intervalId);
     echo1.intervalId = undefined;
-    clear();
-    console.log(echo1.show);
-    process.stdout.write(showcursor);
+    process.stdout.write(showcursor + '\n');
   },
 };
 function echo(data) {
@@ -518,16 +518,19 @@ function echo(data) {
     return echo1;
   }
   process.stdout.write(hidcursor);
-  fresh();
   let frameIndex = 0;
   const frames = echo1.frames;
   const length = frames.length;
   echo1.intervalId = setInterval(() => {
     const frame = frames[frameIndex % length];
-    clear();
-    process.stdout.write(cyan + bold + frame + reset + " ");
-    console.log(echo1.show);
+    const output = util.inspect(echo1.show, { colors: true, depth: 5 });
+    const newLineCount = output.split('\n').length;
+    if (echo1.lineCount > 0) {
+      process.stdout.write(`\x1b[${echo1.lineCount + 1}A\r\x1b[J`);
+    }
+    process.stdout.write(cyan + bold + frame + reset + " " + output + '\n');
+    echo1.lineCount = newLineCount;
     frameIndex++;
-  }, 100);
+  }, 120); 
   return echo1;
 }
