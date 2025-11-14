@@ -1,9 +1,10 @@
 {
   "name": "@ghini/kit",
-  "version": "25.11.14103817",
+  "version": "25.11.14104220",
   "scripts": {
     "build": "node ./build.js && tsc",
-    "pub": "npm run build && npm publish && git add . && git commit -m 'update' && git push"
+    "pub": "npm run build && npm publish && git add . && git commit -m 'update' && git push",
+    "update": "npm cache clean --force&&npm update"
   },
   "exports": {
     ".": {

@@ -437,11 +437,13 @@ function preStyle(opt, mainstyle) {
     return pre;
 }
 function clear(n = 999) {
-    process.stdout.write(`\x1b[${n}A\r\x1b[J`);
+    process.stdout.write(`\x1b[${n}A\r`);
+    process.stdout.write("\x1b[J");
 }
 function fresh() {
     process.stdout.write("\n".repeat(process.stdout.rows));
-    process.stdout.write(`\x1b[999A\r\x1b[J`);
+    process.stdout.write(`\x1b[999A\r`);
+    process.stdout.write("\x1b[J");
 }
 const echo1 = {
     show: "",
