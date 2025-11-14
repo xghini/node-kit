@@ -458,12 +458,13 @@ const echo1 = {
     },
 };
 function echo(data) {
-    if (!echo1.intervalId) {
-        process.stdout.write(hidcursor);
-        fresh();
-    }
-    let frameIndex = 0;
     echo1.show = data;
+    if (echo1.intervalId) {
+        return echo1;
+    }
+    process.stdout.write(hidcursor);
+    fresh();
+    let frameIndex = 0;
     const frames = echo1.frames;
     const length = frames.length;
     echo1.intervalId = setInterval(() => {

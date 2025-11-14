@@ -570,12 +570,16 @@ const echo1 = {
   },
 };
 function echo(data) {
-  if (!echo1.intervalId) {
-    process.stdout.write(hidcursor);
-    fresh();
+  // 更新显示内容
+  echo1.show = data;
+  // 如果已经在运行，直接返回（interval 会自动显示更新后的内容）
+  if (echo1.intervalId) {
+    return echo1;
   }
+  // 首次启动：隐藏光标和刷新屏幕
+  process.stdout.write(hidcursor);
+  fresh();
   let frameIndex = 0;
-  echo1.show = data; //如果是对象,会保持引用
   const frames = echo1.frames;
   const length = frames.length;
   echo1.intervalId = setInterval(() => {
