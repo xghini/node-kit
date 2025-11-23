@@ -88,6 +88,19 @@ function hd_stream(server, stream, headers) {
           stream.respond.bind(stream)({ ...respond_headers, ...obj });
         }
       },
+      // 开启event-stream和心跳，返回定时器id
+      eventStream: () => {
+        gold.respond({
+          "content-type": "text/event-stream",
+          "cache-control": "no-cache",
+          connection: "keep-alive",
+          "x-accel-buffering": "no", //告诉nginx cf不缓存
+        });
+        const iid = setInterval(() => {
+          gold.write(`: 1\n`); //只有\n换行了，才不影响后面消息的接收
+        }, 29000);
+        return iid
+      },
       // 任何类型的data都能返回,包括json字符串
       json: (data) => {
         gold.respond({

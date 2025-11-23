@@ -72,6 +72,18 @@ function hd_stream(server, stream, headers) {
                     stream.respond.bind(stream)({ ...respond_headers, ...obj });
                 }
             },
+            eventStream: () => {
+                gold.respond({
+                    "content-type": "text/event-stream",
+                    "cache-control": "no-cache",
+                    connection: "keep-alive",
+                    "x-accel-buffering": "no",
+                });
+                const iid = setInterval(() => {
+                    gold.write(`: 1\n`);
+                }, 29000);
+                return iid;
+            },
             json: (data) => {
                 gold.respond({
                     "content-type": "application/json; charset=utf-8",
