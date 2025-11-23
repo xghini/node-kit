@@ -101,6 +101,7 @@ function hd_stream(server, stream, headers) {
         }, 29000);
         return iid
       },
+      eswrite: (text)=>gold.write(`data: ${text}\n\n`),
       // 任何类型的data都能返回,包括json字符串
       json: (data) => {
         gold.respond({

@@ -94,6 +94,7 @@ function hd_stream(server, stream, headers) {
         }, 29000);
         return iid
       },
+      eswrite: (text)=>gold.write(`data: ${text}\n\n`),
       json: (data) => {
         gold.respond({
           "content-type": "application/json; charset=utf-8",
