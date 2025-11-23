@@ -3,15 +3,15 @@ import util from "util"; // 1. 引入 util 模块
 // 模块导出部分: 同时导出现有的 cerror 和新增的 cerror1
 export {
   cs,
-  csm,
+  cbrief,
   cdev,
   cdebug,
   cinfo,
   cwarn,
   clog,
   clogall, 
-  cerror, // 导出新的 cerror
-  cerror1, // 导出重命名后的 cerror1
+  cerror,
+  cerror1, // 短时间内同样的错误只打印一次，避免刷屏
   prompt,
   style,
   clear,
@@ -78,7 +78,7 @@ function error_cache(args) {
 }
 
 const sep_file = process.platform == "win32" ? "file:///" : "file://"; //win32|linux|darwin
-console.sm = csm; //对长内容能简短输出 smart simple small
+console.brief = cbrief; //对长内容能简短输出 smart simple small
 console.dev = cdev.bind({ info: -1 }); //
 console.logall = clogall; 
 // 【新增】将重命名后的 cerror1 挂载到 console.error1
@@ -231,7 +231,7 @@ function arvg_final_sm(arvg, colorStyle = '') {
 }
 
 // 简短打印
-function csm(...args) {
+function cbrief(...args) {
   let pre = preStyle(this, `${reset}`);
   if (!pre) return;
   process.stdout.write(pre);
@@ -534,14 +534,14 @@ function preStyle(opt, mainstyle) {
       pre = `${reset}`;
       break;
     case 2:
-      pre = `${black}[${getTimestamp()}]: ` + mainstyle;
+      pre = `${brightBlack}[${getTimestamp()}]: ` + mainstyle;
       break;
     case 3:
       pre = `${blue}${getLineInfo(line)}: ` + mainstyle;
       break;
     default:
       pre =
-        `${black}[${getTimestamp()}] ${blue}${getLineInfo(line)}: ` + mainstyle;
+        `${brightBlack}[${getTimestamp()}] ${blue}${getLineInfo(line)}: ` + mainstyle;
   }
   return pre;
 }

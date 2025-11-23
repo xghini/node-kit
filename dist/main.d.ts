@@ -69,7 +69,7 @@ declare const _default: {
     tcpping: typeof index.tcpping;
     getip: typeof index.getip;
     cs: typeof index.cs;
-    csm: typeof index.csm;
+    cbrief: typeof index.cbrief;
     cdev: typeof index.cdev;
     cdebug: typeof index.cdebug;
     cinfo: typeof index.cinfo;

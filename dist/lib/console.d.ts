@@ -2,7 +2,7 @@ export function cs(config: any, n: any): {
     log: Function;
     error: Function;
 };
-export function csm(...args: any[]): void;
+export function cbrief(...args: any[]): void;
 export function cdev(...args: any[]): void;
 export function cdebug(...args: any[]): void;
 export function cinfo(...args: any[]): void;

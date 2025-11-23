@@ -1,14 +1,14 @@
 import util from "util"; 
 export {
   cs,
-  csm,
+  cbrief,
   cdev,
   cdebug,
   cinfo,
   cwarn,
   clog,
   clogall, 
-  cerror, 
+  cerror,
   cerror1, 
   prompt,
   style,
@@ -71,7 +71,7 @@ function error_cache(args) {
   return 0;
 }
 const sep_file = process.platform == "win32" ? "file:///" : "file://"; 
-console.sm = csm; 
+console.brief = cbrief; 
 console.dev = cdev.bind({ info: -1 }); 
 console.logall = clogall; 
 console.error1 = cerror1;
@@ -205,7 +205,7 @@ function arvg_final_sm(arvg, colorStyle = '') {
     return colorStyle + item + reset;
   });
 }
-function csm(...args) {
+function cbrief(...args) {
   let pre = preStyle(this, `${reset}`);
   if (!pre) return;
   process.stdout.write(pre);
@@ -479,14 +479,14 @@ function preStyle(opt, mainstyle) {
       pre = `${reset}`;
       break;
     case 2:
-      pre = `${black}[${getTimestamp()}]: ` + mainstyle;
+      pre = `${brightBlack}[${getTimestamp()}]: ` + mainstyle;
       break;
     case 3:
       pre = `${blue}${getLineInfo(line)}: ` + mainstyle;
       break;
     default:
       pre =
-        `${black}[${getTimestamp()}] ${blue}${getLineInfo(line)}: ` + mainstyle;
+        `${brightBlack}[${getTimestamp()}] ${blue}${getLineInfo(line)}: ` + mainstyle;
   }
   return pre;
 }
