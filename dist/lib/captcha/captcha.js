@@ -1,9 +1,20 @@
-export { captcha };
+export { captcha, captcha2 };
+import sharp from "sharp";
 const DEFAULT_CONFIG = {
     width: 120,
     height: 40,
     length: 4,
+    padding: 0.12,
+    fontSize: 0.66,
 };
+async function captcha2(options = {}) {
+    const { svg, code } = captcha(options);
+    const png = await sharp(Buffer.from(svg)).png().toBuffer();
+    return {
+        png,
+        code,
+    };
+}
 function captcha(options = {}) {
     const config = { ...DEFAULT_CONFIG, ...options };
     const { width, height, length } = config;
@@ -92,15 +103,18 @@ function svgNoiseDots(width, height) {
     return dots.join("");
 }
 function svgChars(code, config) {
-    const { width, height, length } = config;
-    const fontSize = Math.floor(height * 0.65);
-    const charWidth = width / length;
+    let { width, height, length, padding, fontSize } = config;
+    if (padding < 1)
+        padding *= width;
+    if (fontSize < 1)
+        fontSize *= height;
+    const charWidth = (width - padding * 2) / length;
     const offsetX = charWidth / 2;
     return code
         .split("")
         .map((char, i) => {
         const rotate = (0.4 + Math.random() * 0.7) * (Math.round(Math.random()) * 2 - 1);
-        const x = (i + 1) * charWidth - offsetX;
+        const x = padding + i * charWidth + offsetX;
         const y = height / 2;
         return `
       <g transform="translate(${x},${y}) rotate(${rotate * 57.3})">

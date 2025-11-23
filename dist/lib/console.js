@@ -457,7 +457,7 @@ const echo1 = {
         process.stdout.write(showcursor);
     },
 };
-function echo(data) {
+function echo(data, delay = 100) {
     echo1.show = data;
     if (echo1.intervalId) {
         return echo1;
@@ -473,6 +473,6 @@ function echo(data) {
         process.stdout.write(cyan + bold + frame + reset + " ");
         console.log(echo1.show);
         frameIndex++;
-    }, 120);
+    }, delay);
     return echo1;
 }

@@ -53,7 +53,7 @@ export namespace style {
     export { bgBrightWhite };
 }
 export function clear(n?: number): void;
-export function echo(data: any): {
+export function echo(data: any, delay?: number): {
     show: string;
     frames: string[];
     intervalId: any;

@@ -1,10 +1,22 @@
-// 加密使用sha256就行,高效安全,开销10微秒级;自定义fnv1a意义不大
-export { captcha };
+export { captcha, captcha2 };
+import sharp from "sharp"; //apt install -y fontconfig fonts-liberation&&fc-cache
 const DEFAULT_CONFIG = {
   width: 120,
   height: 40,
   length: 4,
+  padding: 0.12, //小于1的时候为宽的比例，大于1为px
+  fontSize: 0.66, //小于1的时候为高的比例，大于1为px
 };
+/** svg跟明文差不多，容易暴露，使用sharp转换为png */
+async function captcha2(options = {}) {
+  const { svg, code } = captcha(options);
+  // 将 SVG 转换为 PNG
+  const png = await sharp(Buffer.from(svg)).png().toBuffer();
+  return {
+    png,
+    code,
+  };
+}
 function captcha(options = {}) {
   const config = { ...DEFAULT_CONFIG, ...options };
   const { width, height, length } = config;
@@ -110,16 +122,20 @@ function svgNoiseDots(width, height) {
 }
 // 生成字符元素
 function svgChars(code, config) {
-  const { width, height, length } = config;
-  const fontSize = Math.floor(height * 0.65);
-  const charWidth = width / length;
+  let { width, height, length, padding, fontSize } = config;
+  // 1. 定义左右两侧的安全距离(padding)，防止旋转后被剪裁
+  if (padding < 1) padding *= width;
+  if (fontSize < 1) fontSize *= height;
+  // 2. 可用宽度 = 总宽 - 两侧padding，然后再均分
+  const charWidth = (width - padding * 2) / length;
   const offsetX = charWidth / 2;
   return code
     .split("")
     .map((char, i) => {
       const rotate =
         (0.4 + Math.random() * 0.7) * (Math.round(Math.random()) * 2 - 1);
-      const x = (i + 1) * charWidth - offsetX;
+      // 3. x坐标 = 左侧padding + 当前格子左边距 + 格子中心偏移
+      const x = padding + i * charWidth + offsetX;
       const y = height / 2;
       return `
       <g transform="translate(${x},${y}) rotate(${rotate * 57.3})">

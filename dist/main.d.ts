@@ -1,6 +1,7 @@
 declare const _default: {
     xpg: typeof pg.xpg;
     captcha: typeof captcha.captcha;
+    captcha2: typeof captcha.captcha2;
     xredis: typeof redis.xredis;
     redis: typeof redis.redis;
     Xdb: typeof xdb.Xdb;

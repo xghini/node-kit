@@ -569,7 +569,7 @@ const echo1 = {
     process.stdout.write(showcursor);
   },
 };
-function echo(data) {
+function echo(data,delay=100) {
   // 更新显示内容
   echo1.show = data;
   // 如果已经在运行，直接返回（interval 会自动显示更新后的内容）
@@ -588,6 +588,6 @@ function echo(data) {
     process.stdout.write(cyan + bold + frame + reset + " ");
     console.log(echo1.show);
     frameIndex++;
-  }, 120);
+  }, delay);
   return echo1;
 }
