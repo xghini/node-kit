@@ -1,6 +1,6 @@
 import kit from "@ghini/kit/dev";
 const app = await kit.hs(666);
-// console.log(app);
+console.log(app);
 app.addr("/a", "get", (gold) => {
   console.log("/a urlParam", gold.param);
   console.log("/a data", gold.data);
