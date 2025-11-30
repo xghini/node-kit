@@ -3,20 +3,23 @@ import { rf, metaroot } from "../index.js";
 import { hd_default } from "./routes.js";
 function apidev() {
     console.info.bind({ xinfo: 2 })(`[apidev] ${this.scheme}://127.0.0.1:${this.port}/apidev`);
-    this.addr("/apidev", (gold) => {
-        let htmlTemplate = rf(metaroot + "/store/htmlTemplate/apidev.html");
-        let buttonsHtml = "";
-        this.routes.slice(0, -1).map((item) => {
-            let url = item[0];
-            const method = (item[1] || "get").toUpperCase();
-            if (url.startsWith("/")) {
-                url = url.substring(1);
-            }
-            buttonsHtml += `<button onclick="sendRequest('/${url}', '${method}')"><span class="api-method">${method}</span> ${url}</button>`;
+    const app = this;
+    setTimeout(() => {
+        app.addr("/apidev", (gold) => {
+            let htmlTemplate = rf(metaroot + "/store/htmlTemplate/apidev.html");
+            let buttonsHtml = "";
+            app.routes.slice(0, -1).map((item) => {
+                let url = item[0];
+                const method = (item[1] || "get").toUpperCase();
+                if (url.startsWith("/")) {
+                    url = url.substring(1);
+                }
+                buttonsHtml += `<button onclick="sendRequest('/${url}', '${method}')"><span class="api-method">${method}</span> ${url}</button>`;
+            });
+            const finalHtml = htmlTemplate.replace("{{api-buttons-container}}", `<div id="api-buttons-container">${buttonsHtml}</div>`);
+            gold.html(finalHtml);
         });
-        const finalHtml = htmlTemplate.replace("{{api-buttons-container}}", `<div id="api-buttons-container">${buttonsHtml}</div>`);
-        gold.html(finalHtml);
-    });
+    }, 1000);
 }
 function addr(...argv) {
     let path, method, ct, fn_end, fn_data, config = {};
