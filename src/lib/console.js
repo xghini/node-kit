@@ -256,7 +256,11 @@ function clog(...args) {
   let pre = preStyle(this, `${reset}`);
   if (!pre) return;
   process.stdout.write(pre);
-  originalLog(...arvg_final(args), `${reset}`);
+  if(csconf.xinfo===2){
+    originalLog(...arvg_final(args));
+  }else{
+    originalLog(...arvg_final(args), `${reset}`);
+  }
 }
 function cerror1(...args) {
   if (error_cache(args)) return;

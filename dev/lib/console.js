@@ -289,7 +289,11 @@ function clog(...args) {
   let pre = preStyle(this, `${reset}`);
   if (!pre) return;
   process.stdout.write(pre);
-  originalLog(...arvg_final(args), `${reset}`);
+  if(csconf.xinfo===2){
+    originalLog(...arvg_final(args));
+  }else{
+    originalLog(...arvg_final(args), `${reset}`);
+  }
 }
 
 // 【修改】将原 cerror 重命名为 cerror1，保留了重复抑制功能
