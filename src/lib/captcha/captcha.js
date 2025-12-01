@@ -10,7 +10,7 @@ const DEFAULT_CONFIG = {
 /** svg跟明文差不多，容易暴露，使用sharp转换为png */
 async function captcha2(options) {
   options = { ...DEFAULT_CONFIG, ...options };
-  options.fontSize = Math.round(options.fontSize * 1.136 * 100) / 100;
+  options.fontSize = Math.round(options.fontSize * 1.136 * 100) / 100; 
   console.log(options);
   const { svg, code } = captcha(options);
   const png = await sharp(Buffer.from(svg)).png().toBuffer();
@@ -114,6 +114,13 @@ function svgNoiseDots(width, height) {
   }
   return dots.join("");
 }
+/**
+* 生成字符元素
+* [修改后] 
+* 1. 去掉 dominant-baseline="middle"
+* 2. 增加 dy="0.33em" (向下偏移0.33倍字号，实现居中)
+* 3. 建议将 font-family="Arial" 改为 sans-serif，Linux服务器可能没有Arial导致回退字体差异
+ */
 function svgChars(code, config) {
   let { width, height, length, padding, fontSize } = config;
   if (padding < 1) padding *= width;

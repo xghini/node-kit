@@ -1,5 +1,5 @@
 export { captcha, captcha2 };
-import sharp from "sharp"; //apt install -y fontconfig fonts-liberation&&fc-cache
+import sharp from "sharp"; //sharp降级到v0.32.6，这是最后一个不需要新指令集支持的稳定版本
 const DEFAULT_CONFIG = {
   width: 120,
   height: 40,
@@ -10,7 +10,7 @@ const DEFAULT_CONFIG = {
 /** svg跟明文差不多，容易暴露，使用sharp转换为png */
 async function captcha2(options) {
   options = { ...DEFAULT_CONFIG, ...options };
-  options.fontSize = Math.round(options.fontSize * 1.136 * 100) / 100;
+  options.fontSize = Math.round(options.fontSize * 1.136 * 100) / 100; //Sharp (基于 librsvg) 的渲染机制和浏览器不太一样,字体偏小,所以稍微放大保持一致性
   console.log(options);
   const { svg, code } = captcha(options);
   // 将 SVG 转换为 PNG
@@ -123,7 +123,13 @@ function svgNoiseDots(width, height) {
   }
   return dots.join("");
 }
-// 生成字符元素
+/**
+* 生成字符元素
+* [修改后] 
+* 1. 去掉 dominant-baseline="middle"
+* 2. 增加 dy="0.33em" (向下偏移0.33倍字号，实现居中)
+* 3. 建议将 font-family="Arial" 改为 sans-serif，Linux服务器可能没有Arial导致回退字体差异
+ */
 function svgChars(code, config) {
   let { width, height, length, padding, fontSize } = config;
   if (padding < 1) padding *= width;

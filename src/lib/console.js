@@ -466,6 +466,10 @@ function getLineInfo(i = 3) {
   if (res?.endsWith(")")) res = res.slice(0, -1);
   return res;
 }
+/**
+ * b用来对其自定义log,比如dev sm
+ * info -1|1 重置样式|2 时间|3 位置|>3 时间+位置
+ */
 function preStyle(opt, mainstyle) {
   let pre;
   if (opt == console) opt = undefined;
@@ -479,7 +483,7 @@ function preStyle(opt, mainstyle) {
       pre = `${reset}`;
       break;
     case 2:
-      pre = `${brightBlack}[${getTimestamp()}]: ` + mainstyle;
+      pre = `[${getTimestamp()}]: `;
       break;
     case 3:
       pre = `${brightBlue}${getLineInfo(line)}: ` + mainstyle;

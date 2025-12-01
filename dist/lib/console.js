@@ -425,7 +425,7 @@ function preStyle(opt, mainstyle) {
             pre = `${reset}`;
             break;
         case 2:
-            pre = `${brightBlack}[${getTimestamp()}]: ` + mainstyle;
+            pre = `[${getTimestamp()}]: `;
             break;
         case 3:
             pre = `${brightBlue}${getLineInfo(line)}: ` + mainstyle;
