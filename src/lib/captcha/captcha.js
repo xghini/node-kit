@@ -11,7 +11,6 @@ const DEFAULT_CONFIG = {
 async function captcha2(options) {
   options = { ...DEFAULT_CONFIG, ...options };
   options.fontSize = Math.round(options.fontSize * 1.136 * 100) / 100; 
-  console.log(options);
   const { svg, code } = captcha(options);
   const png = await sharp(Buffer.from(svg)).png().toBuffer();
   return {

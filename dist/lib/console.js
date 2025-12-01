@@ -135,21 +135,27 @@ const csconf = {
     xinfo: undefined,
     xline: undefined,
 };
-function arvg_final(arvg, colorStyle = '') {
+function arvg_final(arvg, colorStyle = "", noreset) {
     return arvg.map((item) => {
         if (typeof item === "number") {
+            if (noreset)
+                return colorStyle + item;
             return colorStyle + item + reset;
         }
         else if (typeof item === "string") {
+            if (noreset)
+                return colorStyle + item;
             return colorStyle + item + reset;
         }
         else if (typeof item === "object") {
             return item;
         }
+        if (noreset)
+            return colorStyle + item;
         return colorStyle + item + reset;
     });
 }
-function arvg_final_sm(arvg, colorStyle = '') {
+function arvg_final_sm(arvg, colorStyle = "") {
     return arvg.map((item) => {
         if (typeof item === "number") {
             return colorStyle + item + reset;
@@ -224,7 +230,7 @@ function clog(...args) {
     process.stdout.write(pre);
     const info = csconf.xinfo || csconf.info;
     if (info === 2) {
-        originalLog(...arvg_final(args));
+        originalLog(...arvg_final(args, '', 1));
     }
     else {
         originalLog(...arvg_final(args), `${reset}`);
@@ -438,7 +444,8 @@ function preStyle(opt, mainstyle) {
             break;
         default:
             pre =
-                `${brightBlack}[${getTimestamp()}] ${blue}${getLineInfo(line)}: ` + mainstyle;
+                `${brightBlack}[${getTimestamp()}] ${blue}${getLineInfo(line)}: ` +
+                    mainstyle;
     }
     return pre;
 }

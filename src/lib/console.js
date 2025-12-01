@@ -7,7 +7,7 @@ export {
   cinfo,
   cwarn,
   clog,
-  clogall, 
+  clogall,
   cerror,
   cerror1, 
   prompt,
@@ -73,7 +73,7 @@ function error_cache(args) {
 const sep_file = process.platform == "win32" ? "file:///" : "file://"; 
 console.brief = cbrief; 
 console.dev = cdev.bind({ info: -1 }); 
-console.logall = clogall; 
+console.logall = clogall;
 console.error1 = cerror1;
 const originalDebug = console.debug;
 const originalInfo = console.info;
@@ -166,26 +166,28 @@ const csconf = {
   xinfo: undefined,
   xline: undefined,
 };
-function arvg_final(arvg, colorStyle = '') {
+function arvg_final(arvg, colorStyle = "", noreset) {
   return arvg.map((item) => {
     if (typeof item === "number") {
+      if (noreset) return colorStyle + item;
       return colorStyle + item + reset;
     }
     else if (typeof item === "string") {
+      if (noreset) return colorStyle + item;
       return colorStyle + item + reset;
     }
     else if (typeof item === "object") {
       return item;
     }
+    if (noreset) return colorStyle + item;
     return colorStyle + item + reset;
   });
 }
-function arvg_final_sm(arvg, colorStyle = '') {
+function arvg_final_sm(arvg, colorStyle = "") {
   return arvg.map((item) => {
     if (typeof item === "number") {
       return colorStyle + item + reset;
-    }
-    else if (typeof item === "object") {
+    } else if (typeof item === "object") {
       return JSON.stringify(
         item,
         (key, value) => {
@@ -195,8 +197,7 @@ function arvg_final_sm(arvg, colorStyle = '') {
         },
         2
       );
-    }
-    else if (typeof item === "string") {
+    } else if (typeof item === "string") {
       if (item.length > 200) {
         item = item.slice(0, 100) + "... total:" + item.length;
       }
@@ -256,10 +257,10 @@ function clog(...args) {
   let pre = preStyle(this, `${reset}`);
   if (!pre) return;
   process.stdout.write(pre);
-  const info=csconf.xinfo||csconf.info
-  if(info===2){
-    originalLog(...arvg_final(args));
-  }else{
+  const info = csconf.xinfo || csconf.info;
+  if (info === 2) {
+    originalLog(...arvg_final(args,'',1));
+  } else {
     originalLog(...arvg_final(args), `${reset}`);
   }
 }
@@ -342,7 +343,7 @@ function cs(config, n) {
     console.warn = originalWarn;
     console.log = originalLog;
     console.error = originalError;
-    delete console.error1; 
+    delete console.error1;
     return;
   } else if (typeof config === "object") {
     config.info ? (csconf.info = config.info) : 0;
@@ -495,7 +496,8 @@ function preStyle(opt, mainstyle) {
       break;
     default:
       pre =
-        `${brightBlack}[${getTimestamp()}] ${blue}${getLineInfo(line)}: ` + mainstyle;
+        `${brightBlack}[${getTimestamp()}] ${blue}${getLineInfo(line)}: ` +
+        mainstyle;
   }
   return pre;
 }
@@ -521,7 +523,7 @@ const echo1 = {
     process.stdout.write(showcursor);
   },
 };
-function echo(data,delay=100) {
+function echo(data, delay = 100) {
   echo1.show = data;
   if (echo1.intervalId) {
     return echo1;

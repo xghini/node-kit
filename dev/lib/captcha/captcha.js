@@ -11,7 +11,6 @@ const DEFAULT_CONFIG = {
 async function captcha2(options) {
   options = { ...DEFAULT_CONFIG, ...options };
   options.fontSize = Math.round(options.fontSize * 1.136 * 100) / 100; //Sharp (基于 librsvg) 的渲染机制和浏览器不太一样,字体偏小,所以稍微放大保持一致性
-  console.log(options);
   const { svg, code } = captcha(options);
   // 将 SVG 转换为 PNG
   const png = await sharp(Buffer.from(svg)).png().toBuffer();

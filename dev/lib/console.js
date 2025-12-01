@@ -9,7 +9,7 @@ export {
   cinfo,
   cwarn,
   clog,
-  clogall, 
+  clogall,
   cerror,
   cerror1, // 短时间内同样的错误只打印一次，避免刷屏
   prompt,
@@ -80,7 +80,7 @@ function error_cache(args) {
 const sep_file = process.platform == "win32" ? "file:///" : "file://"; //win32|linux|darwin
 console.brief = cbrief; //对长内容能简短输出 smart simple small
 console.dev = cdev.bind({ info: -1 }); //
-console.logall = clogall; 
+console.logall = clogall;
 // 【新增】将重命名后的 cerror1 挂载到 console.error1
 console.error1 = cerror1;
 
@@ -184,14 +184,16 @@ const csconf = {
 };
 /*XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX*/
 // 数字会影响后面的样式,将其转换为string; 还可以将长对象适当收缩显示摘要
-function arvg_final(arvg, colorStyle = '') {
+function arvg_final(arvg, colorStyle = "", noreset) {
   return arvg.map((item) => {
     // 数字转字符串并染色
     if (typeof item === "number") {
+      if (noreset) return colorStyle + item;
       return colorStyle + item + reset;
     }
     // 字符串直接染色
     else if (typeof item === "string") {
+      if (noreset) return colorStyle + item;
       return colorStyle + item + reset;
     }
     // 对象保持原样，不染色
@@ -199,16 +201,16 @@ function arvg_final(arvg, colorStyle = '') {
       return item;
     }
     // 其他类型也染色
+    if (noreset) return colorStyle + item;
     return colorStyle + item + reset;
   });
 }
 
-function arvg_final_sm(arvg, colorStyle = '') {
+function arvg_final_sm(arvg, colorStyle = "") {
   return arvg.map((item) => {
     if (typeof item === "number") {
       return colorStyle + item + reset;
-    }
-    else if (typeof item === "object") {
+    } else if (typeof item === "object") {
       // 对象使用 JSON.stringify 但不染色
       return JSON.stringify(
         item,
@@ -219,8 +221,7 @@ function arvg_final_sm(arvg, colorStyle = '') {
         },
         2
       );
-    }
-    else if (typeof item === "string") {
+    } else if (typeof item === "string") {
       if (item.length > 200) {
         item = item.slice(0, 100) + "... total:" + item.length;
       }
@@ -289,10 +290,10 @@ function clog(...args) {
   let pre = preStyle(this, `${reset}`);
   if (!pre) return;
   process.stdout.write(pre);
-  const info=csconf.xinfo||csconf.info
-  if(info===2){
-    originalLog(...arvg_final(args));
-  }else{
+  const info = csconf.xinfo || csconf.info;
+  if (info === 2) {
+    originalLog(...arvg_final(args,'',1));
+  } else {
     originalLog(...arvg_final(args), `${reset}`);
   }
 }
@@ -387,7 +388,7 @@ function cs(config, n) {
     console.log = originalLog;
     console.error = originalError;
     // 【修改】复原时，也要处理 console.error1
-    delete console.error1; 
+    delete console.error1;
     return;
   } else if (typeof config === "object") {
     config.info ? (csconf.info = config.info) : 0;
@@ -550,7 +551,8 @@ function preStyle(opt, mainstyle) {
       break;
     default:
       pre =
-        `${brightBlack}[${getTimestamp()}] ${blue}${getLineInfo(line)}: ` + mainstyle;
+        `${brightBlack}[${getTimestamp()}] ${blue}${getLineInfo(line)}: ` +
+        mainstyle;
   }
   return pre;
 }
@@ -578,7 +580,7 @@ const echo1 = {
     process.stdout.write(showcursor);
   },
 };
-function echo(data,delay=100) {
+function echo(data, delay = 100) {
   // 更新显示内容
   echo1.show = data;
   // 如果已经在运行，直接返回（interval 会自动显示更新后的内容）
