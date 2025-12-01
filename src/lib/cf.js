@@ -392,7 +392,7 @@ async function setByContent(pre, oldContent, newContent, type = "A", ttl = 60) {
  */
 async function setByContentForce( pre, oldContent, newContent, type = "A", ttl = 60 ) {
   const result = await this.setByContent( pre, oldContent, newContent, type, ttl );
-  if (result.action !== "not_found") {
+  if (result.success) {
     return result;
   }
   return this.add({
