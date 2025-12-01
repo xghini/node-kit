@@ -222,7 +222,8 @@ function clog(...args) {
     if (!pre)
         return;
     process.stdout.write(pre);
-    if (csconf.xinfo === 2) {
+    const info = csconf.xinfo || csconf.info;
+    if (info === 2) {
         originalLog(...arvg_final(args));
     }
     else {
