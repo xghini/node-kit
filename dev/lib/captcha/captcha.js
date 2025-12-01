@@ -8,7 +8,10 @@ const DEFAULT_CONFIG = {
   fontSize: 0.66, //小于1的时候为高的比例，大于1为px
 };
 /** svg跟明文差不多，容易暴露，使用sharp转换为png */
-async function captcha2(options = {}) {
+async function captcha2(options) {
+  options = { ...DEFAULT_CONFIG, ...options };
+  options.fontSize = Math.round(options.fontSize * 1.136 * 100) / 100;
+  console.log(options);
   const { svg, code } = captcha(options);
   // 将 SVG 转换为 PNG
   const png = await sharp(Buffer.from(svg)).png().toBuffer();
@@ -123,10 +126,8 @@ function svgNoiseDots(width, height) {
 // 生成字符元素
 function svgChars(code, config) {
   let { width, height, length, padding, fontSize } = config;
-  // 1. 定义左右两侧的安全距离(padding)，防止旋转后被剪裁
   if (padding < 1) padding *= width;
   if (fontSize < 1) fontSize *= height;
-  // 2. 可用宽度 = 总宽 - 两侧padding，然后再均分
   const charWidth = (width - padding * 2) / length;
   const offsetX = charWidth / 2;
   return code
@@ -134,7 +135,6 @@ function svgChars(code, config) {
     .map((char, i) => {
       const rotate =
         (0.4 + Math.random() * 0.7) * (Math.round(Math.random()) * 2 - 1);
-      // 3. x坐标 = 左侧padding + 当前格子左边距 + 格子中心偏移
       const x = padding + i * charWidth + offsetX;
       const y = height / 2;
       return `
@@ -142,11 +142,11 @@ function svgChars(code, config) {
         <text 
           x="-${fontSize / 3}"
           y="0"
+          dy="0.33em" 
           fill="${randomColor(100, 150)}"
-          font-family="Arial"
+          font-family="sans-serif"
           font-weight="bold"
           font-size="${fontSize}px"
-          dominant-baseline="middle"
         >${char}</text>
       </g>`;
     })

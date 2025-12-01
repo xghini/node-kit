@@ -8,7 +8,10 @@ const DEFAULT_CONFIG = {
   fontSize: 0.66, 
 };
 /** svg跟明文差不多，容易暴露，使用sharp转换为png */
-async function captcha2(options = {}) {
+async function captcha2(options) {
+  options = { ...DEFAULT_CONFIG, ...options };
+  options.fontSize = Math.round(options.fontSize * 1.136 * 100) / 100;
+  console.log(options);
   const { svg, code } = captcha(options);
   const png = await sharp(Buffer.from(svg)).png().toBuffer();
   return {
@@ -129,11 +132,11 @@ function svgChars(code, config) {
         <text 
           x="-${fontSize / 3}"
           y="0"
+          dy="0.33em" 
           fill="${randomColor(100, 150)}"
-          font-family="Arial"
+          font-family="sans-serif"
           font-weight="bold"
           font-size="${fontSize}px"
-          dominant-baseline="middle"
         >${char}</text>
       </g>`;
     })
