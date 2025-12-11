@@ -282,12 +282,11 @@ async function sum(pattern, fields) {
   }
 }
 
-// 用scan找到首个匹配的key返回
+// 用scan找到首个匹配的key返回 (保留！这是高性能的"存在性检查")
 async function scankey(pattern) {
   let cursor = "0";
-  const batchSize = 5000;
+  const batchSize = 2000;
   do {
-    // 使用 SCAN 命令带 MATCH 和 COUNT 参数
     const [newCursor, keys] = await this.scan(
       cursor,
       "MATCH",
@@ -295,22 +294,20 @@ async function scankey(pattern) {
       "COUNT",
       batchSize
     );
-    // 如果找到匹配的 keys，返回第一个匹配的 key
-    if (keys.length > 0) {
-      return keys[0];
-    }
-    // 更新游标
+    // 核心价值：找到即停，绝不浪费资源
+    if (keys.length > 0) return keys[0];
     cursor = newCursor;
   } while (cursor !== "0");
   return null;
 }
 
+// 替代 keys 命令，安全的获取所有匹配项
 async function scankeys(pattern) {
   let cursor = "0";
   const batchSize = 5000;
-  const allKeys = [];
+  // 修正：使用 Set 替代 Array，解决 SCAN 可能返回重复 Key 的问题
+  const keySet = new Set(); 
   do {
-    // 使用 SCAN 命令带 MATCH 和 COUNT 参数
     const [newCursor, keys] = await this.scan(
       cursor,
       "MATCH",
@@ -318,12 +315,15 @@ async function scankeys(pattern) {
       "COUNT",
       batchSize
     );
-    // 合并找到的匹配 keys
-    allKeys.push(...keys);
-    // 更新游标
+    // 高效去重写入
+    for (const key of keys) {
+        keySet.add(key);
+    }
     cursor = newCursor;
   } while (cursor !== "0");
-  return allKeys;
+  
+  // 保持 API 返回数组的兼容性
+  return Array.from(keySet);
 }
 
 const FILTER_SCRIPTS = {

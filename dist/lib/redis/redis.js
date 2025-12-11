@@ -164,12 +164,11 @@ async function sum(pattern, fields) {
 }
 async function scankey(pattern) {
     let cursor = "0";
-    const batchSize = 5000;
+    const batchSize = 2000;
     do {
         const [newCursor, keys] = await this.scan(cursor, "MATCH", pattern, "COUNT", batchSize);
-        if (keys.length > 0) {
+        if (keys.length > 0)
             return keys[0];
-        }
         cursor = newCursor;
     } while (cursor !== "0");
     return null;
@@ -177,13 +176,15 @@ async function scankey(pattern) {
 async function scankeys(pattern) {
     let cursor = "0";
     const batchSize = 5000;
-    const allKeys = [];
+    const keySet = new Set();
     do {
         const [newCursor, keys] = await this.scan(cursor, "MATCH", pattern, "COUNT", batchSize);
-        allKeys.push(...keys);
+        for (const key of keys) {
+            keySet.add(key);
+        }
         cursor = newCursor;
     } while (cursor !== "0");
-    return allKeys;
+    return Array.from(keySet);
 }
 const FILTER_SCRIPTS = {
     string: `
