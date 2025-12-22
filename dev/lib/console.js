@@ -8,7 +8,7 @@ export {
   cdebug,
   cinfo,
   cwarn,
-  clog,
+  clog, //使用kit.cs(2);输出干净带时间的日志
   clogall,
   cerror,
   cerror1, // 短时间内同样的错误只打印一次，避免刷屏
