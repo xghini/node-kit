@@ -154,6 +154,10 @@ function fhash(cx, encode = "base64url", type = "sha256") {
   return crypto.createHash(type).update(cx).digest(encode);
 }
 
+/** generate char
+ * n 长度
+ * characters 0纯数字 1易识别的验证码,去掉了混淆字符 2英文字母大小写 3base64url 4base64
+ */
 function gchar(n = 6, characters = 0) {
   if (typeof characters === "number") {
     switch (characters) {
